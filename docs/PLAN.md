@@ -1,6 +1,6 @@
 # Lunda Temető – MVP megvalósítási terv
 
-Állapot: **jóváhagyásra vár** · Alap: `docs/FRS.md` v0.1 (8.1 „MVP” sor + a megbízásban felsorolt 13 pont) · Nyitott kérdések: `docs/QUESTIONS.md`
+Állapot: **jóváhagyva, M1–M8 elkészült** (lásd a 9. fejezetet) · Alap: `docs/FRS.md` v0.1 (8.1 „MVP” sor + a megbízásban felsorolt 13 pont) · Nyitott kérdések: `docs/QUESTIONS.md`
 
 ## 1. Architektúra
 
@@ -101,3 +101,28 @@ Befizetések teljes kezelése (FR-DIJ-02–04), sablonszerkesztő, csatolmányok
 - **Méret és idő:** az MVP nagy; ha egy mérföldkő elhúzódik, előbb a jogszabályi magot (folyószám, könyvek, napló, mentés) fejezem be, és a kényelmi funkciókat jelzem nyitottként.
 - **Jogi megfelelés:** a szabályok paraméterezhetők, de a nyomtatott könyv formáját és a hiteles mentés elégségességét jogásznak kell jóváhagynia (FRS 2. fejezet).
 - **Kódaláírás és ARM64 Windows:** a WiX (MSI) nem támogatja az ARM64-et, ezért ARM64-re NSIS-telepítő készül.
+
+## 9. Állapot és nyitott tételek (MVP vége)
+
+| Mérföldkő | Állapot |
+| --- | --- |
+| M1 Adatbázis és üzleti logika | kész |
+| M2 Felület és CRUD | kész |
+| M3 Keresés, lejáratok, teljesítmény | kész – keresés 39–76 ms, térkép-adat 0,76 s 50 000 helynél |
+| M4 Térkép | kész |
+| M5 Nyomtatás | kész |
+| M6 Import/export, gyors bevitel | kész |
+| M7 Mentés, visszaállítás, napló | kész |
+| M8 Telepítők, CI, frissítő, E2E, README | kész – az aláírás és a notarizáció a titkok beállításáig nem próbálható ki |
+
+Nyitott, illetve ellenőrzésre váró tételek:
+
+- **Valódi Windows/macOS gépen még nem futott a kész alkalmazás.** A CI mindhárom rendszeren lefordítja és teszteli a Rust-magot. A natív héjat ebben a környezetben Linuxon építettem és indítottam el.
+- **Windows ARM64:** keresztfordítással készül. A beépített OpenSSL ARM64-fordítása csak az első kiadási futáskor derül ki (alternatíva: `windows-11-arm` futtató).
+- **Térkép 50 000 hellyel:** a teljes adatkészlet 0,76 s alatt áll elő, a böngészőben az első megjelenés kb. 1,3 s. Lassabb irodai gépen ez 1 s fölé mehet. További gyorsítás: az aktív elhelyezések tárolt jelzője vagy a térképadat gyorsítótárazása.
+- **E2E:** Chromiumban, a valódi Rust-magon fut (fejlesztői híd). A natív WebView-t vezérlő `tauri-driver` nem került be, mert macOS-en nem támogatott.
+- **Az MVP-n kívül maradt (FRS 8.1 szerint v1.0):**
+  - befizetések teljes kezelése (FR-DIJ-02–04), sablonszerkesztő (FR-NYO-03), csatolmányok (FR-ELH-07; a táblája már létezik);
+  - befogadó nyilatkozat (FR-ELH-06; a táblája már létezik);
+  - licenc és kipróbálási időszak (FR-BEA-02), háttérkép a térképhez (FR-TER-02), duplikátumok összevonása (FR-UGY-04), e-mail küldés.
+- **Jogi ellenőrzés szükséges:** a hiteles könyv formája és záradéka, a hiteles mentés elégségessége (Q8), valamint a QUESTIONS.md alapértelmezései.

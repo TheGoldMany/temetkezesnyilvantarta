@@ -615,7 +615,9 @@
     "upToDate": "A program naprakész.",
     "updateAvailable": "Új verzió érhető el: {{version}}",
     "installUpdate": "Telepítés (előtte automatikus mentés)",
-    "updateFailed": "A frissítés nem sikerült: {{message}}"
+    "updateFailed": "A frissítés nem sikerült: {{message}}",
+    "updateEndpoint": "Frissítési szerver címe",
+    "updateEndpointHint": "Üresen hagyva a telepítőbe épített cím érvényes. Csak https:// kezdetű cím adható meg; a csomagok aláírását a program mindig ellenőrzi."
   },
   "backup": {
     "dir": "Mentési mappa",

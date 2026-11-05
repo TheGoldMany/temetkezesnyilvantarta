@@ -322,17 +322,20 @@ fn urn_release_and_relocation() {
     let target = fx.plot("A/3/9");
     let mv = fx
         .store
-        .record_removal(&fx.admin, &RemovalInput {
-            event_type: "relocation".into(),
-            event_date: "2026-01-03".into(),
-            source_event_id: c.event.id.clone(),
-            receiver_name: String::new(),
-            receiver_address: String::new(),
-            destination: String::new(),
-            target_plot_id: Some(target.id.clone()),
-            historical_folio: None,
-            notes: String::new(),
-        })
+        .record_removal(
+            &fx.admin,
+            &RemovalInput {
+                event_type: "relocation".into(),
+                event_date: "2026-01-03".into(),
+                source_event_id: c.event.id.clone(),
+                receiver_name: String::new(),
+                receiver_address: String::new(),
+                destination: String::new(),
+                target_plot_id: Some(target.id.clone()),
+                historical_folio: None,
+                notes: String::new(),
+            },
+        )
         .unwrap();
     assert_eq!(mv.plot_id.as_deref(), Some(target.id.as_str()));
     assert!(fx.store.occupants(&fx.plot("A/2/5").id).unwrap().is_empty());
@@ -344,16 +347,19 @@ fn crypt_book_slots() {
     let fx = fixture();
     let crypt = fx.store.get_plot_type("crypt").unwrap();
     fx.store
-        .bulk_create(&fx.admin, &BulkCreateInput {
-            cemetery_id: fx.cemetery.id.clone(),
-            section_code: "K".into(),
-            row_from: 1,
-            row_to: 1,
-            plots_per_row: 2,
-            first_plot_number: 1,
-            plot_type_id: crypt.id.clone(),
-            ..Default::default()
-        })
+        .bulk_create(
+            &fx.admin,
+            &BulkCreateInput {
+                cemetery_id: fx.cemetery.id.clone(),
+                section_code: "K".into(),
+                row_from: 1,
+                row_to: 1,
+                plots_per_row: 2,
+                first_plot_number: 1,
+                plot_type_id: crypt.id.clone(),
+                ..Default::default()
+            },
+        )
         .unwrap();
     let p = fx.plot("K/1/1");
     assert_eq!(fx.store.crypt_slots(&p.id).unwrap().len(), 4);
@@ -378,15 +384,18 @@ fn holder_change_keeps_history() {
     let p = fx.plot("A/1/1");
     let hs = fx
         .store
-        .change_holder(&fx.admin, &HolderChangeInput {
-            plot_id: p.id.clone(),
-            person: Some(PersonRef::New { person: Fx::person("Örökös", "Ottó") }),
-            role: "primary".into(),
-            relation: "fia".into(),
-            change_date: "2025-05-05".into(),
-            legal_basis: "öröklés".into(),
-            document_ref: "hagyatékátadó végzés 1/2025".into(),
-        })
+        .change_holder(
+            &fx.admin,
+            &HolderChangeInput {
+                plot_id: p.id.clone(),
+                person: Some(PersonRef::New { person: Fx::person("Örökös", "Ottó") }),
+                role: "primary".into(),
+                relation: "fia".into(),
+                change_date: "2025-05-05".into(),
+                legal_basis: "öröklés".into(),
+                document_ref: "hagyatékátadó végzés 1/2025".into(),
+            },
+        )
         .unwrap();
     assert_eq!(hs.len(), 2);
     let current: Vec<_> = hs.iter().filter(|h| h.end_date.is_none()).collect();
@@ -402,21 +411,16 @@ fn holder_change_keeps_history() {
 #[test]
 fn uc03_expiry_notice_and_resale() {
     let fx = fixture();
-    fx.store
-        .save_cemetery(&fx.admin, &fx.cemetery)
+    fx.store.save_cemetery(&fx.admin, &fx.cemetery).unwrap();
+    lunda_core::settings::set_many(&fx.store.conn, &fx.admin, None, &[("rules.grace_period_days".to_string(), "30".to_string())].into_iter().collect())
         .unwrap();
-    lunda_core::settings::set_many(&fx.store.conn, &fx.admin, None, &[("rules.grace_period_days".to_string(), "30".to_string())].into_iter().collect()).unwrap();
     // burial in 1995 -> lease expired in 2020
     fx.burial("A/1/7", "coffin_burial", "1995-03-01", "Lejárt", "Lenke").unwrap();
     // lease expiring soon
     let soon = today() + chrono::Duration::days(40);
-    fx.store.conn.execute(
-        "UPDATE leases SET expiry_date=?1 WHERE plot_id=(SELECT id FROM plots WHERE identifier='A/1/8') ", [fmt_date(soon)],
-    ).unwrap();
+    fx.store.conn.execute("UPDATE leases SET expiry_date=?1 WHERE plot_id=(SELECT id FROM plots WHERE identifier='A/1/8') ", [fmt_date(soon)]).unwrap();
     fx.burial("A/1/8", "coffin_burial", "2001-03-01", "Hamarosan", "Hédi").unwrap();
-    fx.store.conn.execute(
-        "UPDATE leases SET expiry_date=?1 WHERE plot_id=(SELECT id FROM plots WHERE identifier='A/1/8')", [fmt_date(soon)],
-    ).unwrap();
+    fx.store.conn.execute("UPDATE leases SET expiry_date=?1 WHERE plot_id=(SELECT id FROM plots WHERE identifier='A/1/8')", [fmt_date(soon)]).unwrap();
 
     let list = fx.store.expiries(&fx.admin, &ExpiryFilter { within_days: 90, include_expired: true, ..Default::default() }).unwrap();
     let idents: Vec<_> = list.iter().map(|r| r.identifier.as_str()).collect();
@@ -434,7 +438,7 @@ fn uc03_expiry_notice_and_resale() {
 
     // notices sent 60 days ago
     let notice_date = fmt_date(today() - chrono::Duration::days(60));
-    assert_eq!(fx.store.record_notices(&fx.admin, &[p7.id.clone()], "letter", &notice_date, "kézbesítve").unwrap(), 1);
+    assert_eq!(fx.store.record_notices(&fx.admin, std::slice::from_ref(&p7.id), "letter", &notice_date, "kézbesítve").unwrap(), 1);
     assert_eq!(fx.store.plot_status(&fx.plot("A/1/7")).unwrap(), PlotStatus::Notified);
     let list = fx.store.expiries(&fx.admin, &ExpiryFilter { within_days: 90, include_expired: true, only_not_notified: true, ..Default::default() }).unwrap();
     assert_eq!(list.len(), 1);
@@ -447,12 +451,15 @@ fn uc03_expiry_notice_and_resale() {
     // resale: new purchase by a new holder
     let l = fx
         .store
-        .create_lease(&fx.admin, &NewLeaseInput {
-            plot_id: p7.id.clone(),
-            person: Some(PersonRef::New { person: Fx::person("Vevő", "Vilma") }),
-            kind: "purchase".into(),
-            ..Default::default()
-        })
+        .create_lease(
+            &fx.admin,
+            &NewLeaseInput {
+                plot_id: p7.id.clone(),
+                person: Some(PersonRef::New { person: Fx::person("Vevő", "Vilma") }),
+                kind: "purchase".into(),
+                ..Default::default()
+            },
+        )
         .unwrap();
     assert_eq!(l.person_name.as_deref(), Some("Vevő Vilma"));
     let st = fx.store.plot_status(&fx.plot("A/1/7")).unwrap();
@@ -467,23 +474,29 @@ fn prepurchase_and_renewal_and_cancel() {
     let p = fx.plot("A/3/1");
     let l = fx
         .store
-        .create_lease(&fx.admin, &NewLeaseInput {
-            plot_id: p.id.clone(),
-            person: Some(PersonRef::New { person: Fx::person("Előre", "Erzsébet") }),
-            kind: "prepurchase".into(),
-            start_date: "2020-01-01".into(),
-            ..Default::default()
-        })
+        .create_lease(
+            &fx.admin,
+            &NewLeaseInput {
+                plot_id: p.id.clone(),
+                person: Some(PersonRef::New { person: Fx::person("Előre", "Erzsébet") }),
+                kind: "prepurchase".into(),
+                start_date: "2020-01-01".into(),
+                ..Default::default()
+            },
+        )
         .unwrap();
     assert_eq!(l.expiry_date, "2045-01-01");
     assert_eq!(fx.store.plot_status(&p).unwrap(), PlotStatus::Reserved);
     // a reserved plot cannot be purchased again
-    let again = fx.store.create_lease(&fx.admin, &NewLeaseInput {
-        plot_id: p.id.clone(),
-        person: Some(PersonRef::New { person: Fx::person("Más", "Valaki") }),
-        kind: "purchase".into(),
-        ..Default::default()
-    });
+    let again = fx.store.create_lease(
+        &fx.admin,
+        &NewLeaseInput {
+            plot_id: p.id.clone(),
+            person: Some(PersonRef::New { person: Fx::person("Más", "Valaki") }),
+            kind: "purchase".into(),
+            ..Default::default()
+        },
+    );
     assert_eq!(again.unwrap_err().code, "plot_not_free");
     // renewal starts at the old expiry
     let r = fx.store.create_lease(&fx.admin, &NewLeaseInput { plot_id: p.id.clone(), kind: "renewal".into(), ..Default::default() }).unwrap();
@@ -555,16 +568,19 @@ fn bulk_create_and_summaries() {
     // idempotent
     let r = fx
         .store
-        .bulk_create(&fx.admin, &BulkCreateInput {
-            cemetery_id: fx.cemetery.id.clone(),
-            section_code: "a".into(),
-            row_from: 1,
-            row_to: 4,
-            plots_per_row: 10,
-            first_plot_number: 1,
-            plot_type_id: fx.store.get_plot_type("single").unwrap().id,
-            ..Default::default()
-        })
+        .bulk_create(
+            &fx.admin,
+            &BulkCreateInput {
+                cemetery_id: fx.cemetery.id.clone(),
+                section_code: "a".into(),
+                row_from: 1,
+                row_to: 4,
+                plots_per_row: 10,
+                first_plot_number: 1,
+                plot_type_id: fx.store.get_plot_type("single").unwrap().id,
+                ..Default::default()
+            },
+        )
         .unwrap();
     assert_eq!(r.plots_created, 10);
     assert_eq!(r.rows_created, 1);

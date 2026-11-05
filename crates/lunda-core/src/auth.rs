@@ -42,13 +42,23 @@ impl Role {
         use Permission::*;
         match self {
             Role::Admin => &[
-                ManageUsers, ManageSettings, ManageStructure, RecordEvents, RecordLeases, RecordPayments,
-                CorrectEntries, VoidEntries, ViewPersonal, Print, Export, Import, Backup, EditMap, OverrideChecks,
+                ManageUsers,
+                ManageSettings,
+                ManageStructure,
+                RecordEvents,
+                RecordLeases,
+                RecordPayments,
+                CorrectEntries,
+                VoidEntries,
+                ViewPersonal,
+                Print,
+                Export,
+                Import,
+                Backup,
+                EditMap,
+                OverrideChecks,
             ],
-            Role::Clerk => &[
-                ManageStructure, RecordEvents, RecordLeases, RecordPayments, ViewPersonal, Print, Export, Import,
-                EditMap, Backup,
-            ],
+            Role::Clerk => &[ManageStructure, RecordEvents, RecordLeases, RecordPayments, ViewPersonal, Print, Export, Import, EditMap, Backup],
             Role::Finance => &[RecordPayments, ViewPersonal, Print, Export],
             Role::Reader => &[Print, Export],
         }
@@ -144,10 +154,7 @@ impl Session {
 pub fn hash_password(password: &str) -> Result<String> {
     validate_password(password)?;
     let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|h| h.to_string())
-        .map_err(|e| CoreError::new("password_hash", e.to_string()))
+    Argon2::default().hash_password(password.as_bytes(), &salt).map(|h| h.to_string()).map_err(|e| CoreError::new("password_hash", e.to_string()))
 }
 
 pub fn verify_password(password: &str, hash: &str) -> bool {

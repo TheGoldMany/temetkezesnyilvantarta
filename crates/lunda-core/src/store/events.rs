@@ -180,16 +180,14 @@ impl Store {
         let tx = crate::db::tx(&self.conn)?;
         let deceased_id = match &input.deceased {
             DeceasedRef::Existing { id } => {
-                let d = tx.query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased).optional()?.ok_or_else(|| CoreError::not_found("deceased", id))?;
+                let d =
+                    tx.query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased).optional()?.ok_or_else(|| CoreError::not_found("deceased", id))?;
                 if d.voided_at.is_some() {
                     return Err(CoreError::new("immutable", "voided deceased"));
                 }
                 // a deceased may only rest in one place at a time
-                let placed: i64 = tx.query_row(
-                    &format!("SELECT count(*) FROM interment_events e WHERE e.deceased_id=?1 AND {ACTIVE_PLACEMENT_SQL}"),
-                    [id],
-                    |r| r.get(0),
-                )?;
+                let placed: i64 =
+                    tx.query_row(&format!("SELECT count(*) FROM interment_events e WHERE e.deceased_id=?1 AND {ACTIVE_PLACEMENT_SQL}"), [id], |r| r.get(0))?;
                 if placed > 0 {
                     return Err(CoreError::new("already_placed", "the deceased already has an active placement; use relocation"));
                 }
@@ -225,13 +223,25 @@ impl Store {
         // rendelkezési jogosult (UC-01 step 4)
         let needs_holder = !matches!(ptype.category.as_str(), "scatter" | "common");
         let mut holder_id = self.primary_holder_id(&tx, &plot_id)?;
-        if holder_id.is_none() && needs_holder {
+        // paper-register entries often lack the holder (QUESTIONS Q17): allowed for historical entries
+        let historical_without_holder = input.holder.is_none() && arranger_id.is_none() && input.historical_folio.is_some() && s.can(Permission::Import);
+        if holder_id.is_none() && needs_holder && !historical_without_holder {
             let pid = match (&input.holder, &arranger_id) {
                 (Some(h), _) => self.resolve_person(&tx, s, h)?,
                 (None, Some(a)) => a.clone(),
                 (None, None) => return Err(CoreError::validation("holder", "the plot has no holder; a holder is required").with("code", "holder_required")),
             };
-            self.insert_holder(&tx, s, &plot_id, &pid, "primary", input.holder_relation.as_deref().unwrap_or(""), &input.event_date, "megváltás / eltemettetés", "")?;
+            self.insert_holder(
+                &tx,
+                s,
+                &plot_id,
+                &pid,
+                "primary",
+                input.holder_relation.as_deref().unwrap_or(""),
+                &input.event_date,
+                "megváltás / eltemettetés",
+                "",
+            )?;
             holder_id = Some(pid);
         }
 
@@ -243,8 +253,22 @@ impl Store {
                 crypt_slot_id, arranger_id, override_reason, notes, created_at, created_by, updated_at, updated_by)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?15,?16)",
             params![
-                event_id, plot.cemetery_id, scope_key, folio, input.historical_folio.is_some(), input.event_type, container.as_str(),
-                input.event_date, deceased_id, plot_id, crypt_slot_id, arranger_id, override_reason, input.notes, ts, s.user_name
+                event_id,
+                plot.cemetery_id,
+                scope_key,
+                folio,
+                input.historical_folio.is_some(),
+                input.event_type,
+                container.as_str(),
+                input.event_date,
+                deceased_id,
+                plot_id,
+                crypt_slot_id,
+                arranger_id,
+                override_reason,
+                input.notes,
+                ts,
+                s.user_name
             ],
         )?;
         let event = tx.query_row("SELECT * FROM interment_events WHERE id=?1", [&event_id], map_event)?;
@@ -259,7 +283,21 @@ impl Store {
                     p.expiry_date.clone()
                 };
                 let fee = if p.fee_exempt { 0 } else { input.lease.fee_huf.unwrap_or(p.fee_huf) };
-                Some(self.insert_lease(&tx, s, &plot_id, holder_id.as_deref(), &p.kind, &p.start_date, duration, &expiry, fee, p.fee_rate_id.as_deref(), p.fee_exempt, Some(&event_id), &input.lease.notes)?)
+                Some(self.insert_lease(
+                    &tx,
+                    s,
+                    &plot_id,
+                    holder_id.as_deref(),
+                    &p.kind,
+                    &p.start_date,
+                    duration,
+                    &expiry,
+                    fee,
+                    p.fee_rate_id.as_deref(),
+                    p.fee_exempt,
+                    Some(&event_id),
+                    &input.lease.notes,
+                )?)
             }
             None => None,
         };
@@ -277,11 +315,9 @@ impl Store {
             .query_row("SELECT * FROM interment_events WHERE id=?1", [&input.source_event_id], map_event)
             .optional()?
             .ok_or_else(|| CoreError::not_found("event", &input.source_event_id))?;
-        let active: bool = self.conn.query_row(
-            &format!("SELECT EXISTS(SELECT 1 FROM interment_events e WHERE e.id=?1 AND {ACTIVE_PLACEMENT_SQL})"),
-            [&src.id],
-            |r| r.get(0),
-        )?;
+        let active: bool =
+            self.conn
+                .query_row(&format!("SELECT EXISTS(SELECT 1 FROM interment_events e WHERE e.id=?1 AND {ACTIVE_PLACEMENT_SQL})"), [&src.id], |r| r.get(0))?;
         if !active {
             return Err(CoreError::new("not_active_placement", "the source is not an active placement"));
         }
@@ -319,9 +355,23 @@ impl Store {
                 receiver_name, receiver_address, destination, source_event_id, notes, created_at, created_by, updated_at, updated_by)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?16,?17)",
             params![
-                id, src.cemetery_id, scope_key, folio, input.historical_folio.is_some(), input.event_type, container, input.event_date,
-                src.deceased_id, target.as_ref().map(|t| t.id.clone()), input.receiver_name.trim(), input.receiver_address.trim(),
-                input.destination.trim(), src.id, input.notes, ts, s.user_name
+                id,
+                src.cemetery_id,
+                scope_key,
+                folio,
+                input.historical_folio.is_some(),
+                input.event_type,
+                container,
+                input.event_date,
+                src.deceased_id,
+                target.as_ref().map(|t| t.id.clone()),
+                input.receiver_name.trim(),
+                input.receiver_address.trim(),
+                input.destination.trim(),
+                src.id,
+                input.notes,
+                ts,
+                s.user_name
             ],
         )?;
         let ev = tx.query_row("SELECT * FROM interment_events WHERE id=?1", [&id], map_event)?;
@@ -338,11 +388,8 @@ impl Store {
         if ev.voided_at.is_some() {
             return Err(CoreError::new("already_voided", "already voided"));
         }
-        let dependants: i64 = self.conn.query_row(
-            "SELECT count(*) FROM interment_events WHERE source_event_id=?1 AND voided_at IS NULL",
-            [event_id],
-            |r| r.get(0),
-        )?;
+        let dependants: i64 =
+            self.conn.query_row("SELECT count(*) FROM interment_events WHERE source_event_id=?1 AND voided_at IS NULL", [event_id], |r| r.get(0))?;
         if dependants > 0 {
             return Err(CoreError::new("void_in_use", "a later removal refers to this entry; void that first"));
         }
@@ -388,17 +435,11 @@ impl Store {
     }
 
     pub fn get_event(&self, id: &str) -> Result<InterEvent> {
-        self.conn
-            .query_row("SELECT * FROM interment_events WHERE id=?1", [id], map_event)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("event", id))
+        self.conn.query_row("SELECT * FROM interment_events WHERE id=?1", [id], map_event).optional()?.ok_or_else(|| CoreError::not_found("event", id))
     }
 
     pub fn get_event_row(&self, id: &str) -> Result<EventRow> {
-        self.conn
-            .query_row(&format!("{EVENT_ROW_SQL} WHERE e.id=?1"), [id], map_event_row)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("event", id))
+        self.conn.query_row(&format!("{EVENT_ROW_SQL} WHERE e.id=?1"), [id], map_event_row).optional()?.ok_or_else(|| CoreError::not_found("event", id))
     }
 
     /// Register book rows (nyilvántartó könyv / sírbolt könyv) with filters.
@@ -455,9 +496,7 @@ impl Store {
         }
         let where_ = if conds.is_empty() { String::new() } else { format!(" WHERE {}", conds.join(" AND ")) };
         let total: i64 = self.conn.query_row(
-            &format!(
-                "SELECT count(*) FROM interment_events e JOIN deceased d ON d.id=e.deceased_id LEFT JOIN plots p ON p.id=e.plot_id{where_}"
-            ),
+            &format!("SELECT count(*) FROM interment_events e JOIN deceased d ON d.id=e.deceased_id LEFT JOIN plots p ON p.id=e.plot_id{where_}"),
             params_from_iter(args.iter()),
             |r| r.get(0),
         )?;
@@ -486,13 +525,12 @@ impl Store {
         };
         let active: Option<(String, String)> = self
             .conn
-            .query_row("SELECT start_date, expiry_date FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL", [&plot.id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .query_row("SELECT start_date, expiry_date FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL", [&plot.id], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
             .optional()?;
-        let occupants: i64 = self.conn.query_row(
-            &format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"),
-            [&plot.id],
-            |r| r.get(0),
-        )?;
+        let occupants: i64 =
+            self.conn.query_row(&format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"), [&plot.id], |r| r.get(0))?;
         let resellable = self.plot_status(plot)? == PlotStatus::Resellable;
         if (active.is_none() && occupants == 0) || resellable {
             // first purchase (megváltás)

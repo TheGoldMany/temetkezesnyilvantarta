@@ -274,16 +274,8 @@ pub(crate) fn map_event_row(r: &Row) -> rusqlite::Result<EventRow> {
 /// Placement event types (occupy a plot) and removal types (end a placement).
 pub const PLACEMENT_TYPES: &[&str] = &["coffin_burial", "urn_placement", "reburial", "common_grave", "relocation", "ash_scattering"];
 pub const REMOVAL_TYPES: &[&str] = &["urn_release", "urn_removal", "relocation"];
-pub const ALL_EVENT_TYPES: &[&str] = &[
-    "coffin_burial",
-    "urn_placement",
-    "reburial",
-    "urn_release",
-    "urn_removal",
-    "ash_scattering",
-    "relocation",
-    "common_grave",
-];
+pub const ALL_EVENT_TYPES: &[&str] =
+    &["coffin_burial", "urn_placement", "reburial", "urn_release", "urn_removal", "ash_scattering", "relocation", "common_grave"];
 
 /// SQL fragment: active placements (not voided, not removed) – alias `e`.
 pub(crate) const ACTIVE_PLACEMENT_SQL: &str = "

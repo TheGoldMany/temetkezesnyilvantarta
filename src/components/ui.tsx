@@ -43,19 +43,37 @@ Button.displayName = "Button";
 
 export function Field({ label, hint, error, required, children, className, htmlFor }: { label: ReactNode; hint?: ReactNode; error?: string | null; required?: boolean; children: ReactNode; className?: string; htmlFor?: string }) {
   const { t } = useTranslation();
-  return (
-    <div className={cx("flex flex-col gap-1", className)}>
-      <label htmlFor={htmlFor} className="font-semibold">
-        {label}
-        {required && <span className="ml-1 font-normal text-granite">({t("common.required")})</span>}
-      </label>
-      {children}
+  const text = (
+    <span className="font-semibold">
+      {label}
+      {required && <span className="ml-1 font-normal text-granite">({t("common.required")})</span>}
+    </span>
+  );
+  const extra = (
+    <>
       {hint && !error && <span className="text-sm text-granite">{hint}</span>}
       {error && (
         <span className="text-sm font-semibold text-alert" role="alert">
           {error}
         </span>
       )}
+    </>
+  );
+  // Without an explicit id the label wraps the control (implicit association, WCAG 1.3.1).
+  if (!htmlFor) {
+    return (
+      <label className={cx("flex flex-col gap-1", className)}>
+        {text}
+        {children}
+        {extra}
+      </label>
+    );
+  }
+  return (
+    <div className={cx("flex flex-col gap-1", className)}>
+      <label htmlFor={htmlFor}>{text}</label>
+      {children}
+      {extra}
     </div>
   );
 }

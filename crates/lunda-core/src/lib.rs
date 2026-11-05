@@ -8,8 +8,8 @@
 pub mod api;
 pub mod app;
 pub mod audit;
-pub mod backup;
 pub mod auth;
+pub mod backup;
 pub mod db;
 pub mod error;
 pub mod io;

@@ -40,10 +40,7 @@ impl Store {
     }
 
     pub fn get_user(&self, id: &str) -> Result<User> {
-        self.conn
-            .query_row("SELECT * FROM users WHERE id=?1", [id], map_user)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("user", id))
+        self.conn.query_row("SELECT * FROM users WHERE id=?1", [id], map_user).optional()?.ok_or_else(|| CoreError::not_found("user", id))
     }
 
     /// First-run: the initial administrator (only when there are no users).
@@ -129,7 +126,8 @@ impl Store {
                 }
             }
         }
-        let sys = Session { user_id: Some(id.clone()), user_name: uname.clone(), display_name: display.clone(), role: Role::parse(&role)?, permissions: vec![] };
+        let sys =
+            Session { user_id: Some(id.clone()), user_name: uname.clone(), display_name: display.clone(), role: Role::parse(&role)?, permissions: vec![] };
         if !verify_password(password, &hash) {
             let failed = if locked_until.is_some() { 1 } else { failed + 1 };
             let lock = if failed >= MAX_FAILED_ATTEMPTS {
@@ -137,20 +135,15 @@ impl Store {
             } else {
                 None
             };
-            self.conn.execute(
-                "UPDATE users SET failed_attempts=?2, locked_until=?3 WHERE id=?1",
-                params![id, if lock.is_some() { 0 } else { failed }, lock],
-            )?;
+            self.conn
+                .execute("UPDATE users SET failed_attempts=?2, locked_until=?3 WHERE id=?1", params![id, if lock.is_some() { 0 } else { failed }, lock])?;
             audit::record_simple(&self.conn, &sys, "user", &id, "login_failed", lock.as_deref())?;
             return Err(match lock {
                 Some(l) => CoreError::new("user_locked", "too many failed attempts").with("until", l),
                 None => invalid().with("remaining", MAX_FAILED_ATTEMPTS - failed),
             });
         }
-        self.conn.execute(
-            "UPDATE users SET failed_attempts=0, locked_until=NULL, last_login_at=?2 WHERE id=?1",
-            params![id, now_ts()],
-        )?;
+        self.conn.execute("UPDATE users SET failed_attempts=0, locked_until=NULL, last_login_at=?2 WHERE id=?1", params![id, now_ts()])?;
         audit::record_simple(&self.conn, &sys, "user", &id, "login", None)?;
         self.session_for(&id)
     }

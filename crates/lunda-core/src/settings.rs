@@ -29,26 +29,22 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("backup.keep_count", "30"),
     ("backup.on_exit", "true"),
     ("backup.warning_days", "7"),
+    ("update.endpoint", ""), // empty = URL from the build configuration
     ("ui.theme", "light"),
     ("ui.zoom", "100"),
     ("onboarding.completed", "false"),
 ];
 
 /// Keys that only an administrator may change (security-relevant).
-const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup."];
+const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup.", "update."];
 
 pub fn get(conn: &Connection, key: &str, cemetery_id: Option<&str>) -> Result<Option<String>> {
     if let Some(cid) = cemetery_id {
-        if let Some(v) = conn
-            .query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=?2", params![key, cid], |r| r.get(0))
-            .optional()?
-        {
+        if let Some(v) = conn.query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=?2", params![key, cid], |r| r.get(0)).optional()? {
             return Ok(Some(v));
         }
     }
-    Ok(conn
-        .query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=''", params![key], |r| r.get(0))
-        .optional()?)
+    Ok(conn.query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=''", params![key], |r| r.get(0)).optional()?)
 }
 
 pub fn get_or(conn: &Connection, key: &str, default: &str) -> Result<String> {
@@ -84,7 +80,7 @@ pub fn all(conn: &Connection, cemetery_id: Option<&str>) -> Result<BTreeMap<Stri
 pub fn set_many(conn: &Connection, session: &Session, cemetery_id: Option<&str>, values: &BTreeMap<String, String>) -> Result<()> {
     session.require(Permission::ManageSettings)?;
     let cid = cemetery_id.unwrap_or("");
-    let tx = crate::db::tx(&conn)?;
+    let tx = crate::db::tx(conn)?;
     for (k, v) in values {
         if k.starts_with("internal.") && session.user_id.is_some() {
             return Err(CoreError::forbidden("internal_settings"));
@@ -93,9 +89,7 @@ pub fn set_many(conn: &Connection, session: &Session, cemetery_id: Option<&str>,
             return Err(CoreError::forbidden("manage_settings"));
         }
         validate(k, v)?;
-        let old: Option<String> = tx
-            .query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=?2", params![k, cid], |r| r.get(0))
-            .optional()?;
+        let old: Option<String> = tx.query_row("SELECT value FROM settings WHERE key=?1 AND cemetery_id=?2", params![k, cid], |r| r.get(0)).optional()?;
         if old.as_deref() == Some(v.as_str()) {
             continue;
         }
@@ -134,6 +128,9 @@ fn validate(key: &str, value: &str) -> Result<()> {
     ];
     if numeric.contains(&key) && value.trim().parse::<i64>().map(|n| n < 0).unwrap_or(true) {
         return Err(CoreError::validation(key, "must be a non-negative integer"));
+    }
+    if key == "update.endpoint" && !value.trim().is_empty() && !value.trim().starts_with("https://") {
+        return Err(CoreError::validation(key, "the update server must use https"));
     }
     if key == "backup.keep_count" && value.trim().parse::<i64>().unwrap_or(0) < 1 {
         return Err(CoreError::validation(key, "must keep at least one backup"));

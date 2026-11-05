@@ -13,9 +13,7 @@ use std::collections::BTreeMap;
 /// Adds calendar years. 29 February maps to 28 February in non-leap years.
 pub fn add_years(date: NaiveDate, years: i32) -> NaiveDate {
     let y = date.year() + years;
-    NaiveDate::from_ymd_opt(y, date.month(), date.day())
-        .or_else(|| NaiveDate::from_ymd_opt(y, date.month(), date.day() - 1))
-        .expect("valid date")
+    NaiveDate::from_ymd_opt(y, date.month(), date.day()).or_else(|| NaiveDate::from_ymd_opt(y, date.month(), date.day() - 1)).expect("valid date")
 }
 
 /// lejárat = kezdet + időtartam
@@ -203,11 +201,7 @@ pub fn check_burial(ctx: &BurialContext) -> Verdict {
                     Some(last) => {
                         let until = add_years(last, ctx.rest_period_years);
                         if ctx.burial_date < until {
-                            blockers.push(
-                                Reason::new("rest_period_not_elapsed")
-                                    .p("until", until.format("%Y-%m-%d"))
-                                    .p("last", last.format("%Y-%m-%d")),
-                            );
+                            blockers.push(Reason::new("rest_period_not_elapsed").p("until", until.format("%Y-%m-%d")).p("last", last.format("%Y-%m-%d")));
                         } else {
                             warnings.push(Reason::new("reopening_after_rest_period"));
                         }
@@ -223,10 +217,7 @@ pub fn check_burial(ctx: &BurialContext) -> Verdict {
             }
         }
         Container::Urn => {
-            if ctx.plot_category != "scatter"
-                && ctx.plot_category != "common"
-                && ctx.urns_present >= ctx.urn_capacity
-            {
+            if ctx.plot_category != "scatter" && ctx.plot_category != "common" && ctx.urns_present >= ctx.urn_capacity {
                 blockers.push(Reason::new("urn_capacity_full").p("capacity", ctx.urn_capacity));
             }
         }
@@ -602,12 +593,7 @@ mod tests {
 
     #[test]
     fn protected_never_expires() {
-        let i = StatusInputs {
-            protected: true,
-            occupants: 1,
-            lease_expiry: Some(d("2000-01-01")),
-            ..Default::default()
-        };
+        let i = StatusInputs { protected: true, occupants: 1, lease_expiry: Some(d("2000-01-01")), ..Default::default() };
         assert_eq!(compute_status(&i, d("2026-01-01")), PlotStatus::Occupied);
     }
 

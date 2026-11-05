@@ -16,21 +16,89 @@ use crate::text::normalize;
 use crate::util::{fmt_date, new_id, now_ts, today};
 
 pub const FAMILY: &[&str] = &[
-    "Nagy", "Kovács", "Tóth", "Szabó", "Horváth", "Varga", "Kiss", "Molnár", "Németh", "Farkas", "Balogh", "Papp", "Takács",
-    "Juhász", "Mészáros", "Simon", "Rácz", "Fekete", "Szilágyi", "Török", "Fehér", "Balázs", "Gál", "Szűcs", "Kocsis",
-    "Pintér", "Fodor", "Szalai", "Sipos", "Magyar", "Lukács", "Gulyás", "Bíró", "Király", "Katona", "Jakab", "Antal",
-    "Sándor", "Fazekas", "Kelemen", "Pásztor", "Csonka", "Zsigmond", "Győri", "Dudás", "Lengyel", "Halász", "Csizmadia",
-    "Ördög", "Szőke", "Nyíri", "Ács", "Erdős", "Dzsupin", "Tyukodi", "Lyka",
+    "Nagy",
+    "Kovács",
+    "Tóth",
+    "Szabó",
+    "Horváth",
+    "Varga",
+    "Kiss",
+    "Molnár",
+    "Németh",
+    "Farkas",
+    "Balogh",
+    "Papp",
+    "Takács",
+    "Juhász",
+    "Mészáros",
+    "Simon",
+    "Rácz",
+    "Fekete",
+    "Szilágyi",
+    "Török",
+    "Fehér",
+    "Balázs",
+    "Gál",
+    "Szűcs",
+    "Kocsis",
+    "Pintér",
+    "Fodor",
+    "Szalai",
+    "Sipos",
+    "Magyar",
+    "Lukács",
+    "Gulyás",
+    "Bíró",
+    "Király",
+    "Katona",
+    "Jakab",
+    "Antal",
+    "Sándor",
+    "Fazekas",
+    "Kelemen",
+    "Pásztor",
+    "Csonka",
+    "Zsigmond",
+    "Győri",
+    "Dudás",
+    "Lengyel",
+    "Halász",
+    "Csizmadia",
+    "Ördög",
+    "Szőke",
+    "Nyíri",
+    "Ács",
+    "Erdős",
+    "Dzsupin",
+    "Tyukodi",
+    "Lyka",
 ];
 pub const MALE: &[&str] = &[
-    "József", "János", "István", "László", "Ferenc", "Sándor", "Gyula", "Lajos", "Mihály", "Imre", "Károly", "Béla",
-    "Tibor", "Zoltán", "Pál", "Antal", "Gábor", "Géza", "Ödön", "Árpád",
+    "József", "János", "István", "László", "Ferenc", "Sándor", "Gyula", "Lajos", "Mihály", "Imre", "Károly", "Béla", "Tibor", "Zoltán", "Pál", "Antal",
+    "Gábor", "Géza", "Ödön", "Árpád",
 ];
 pub const FEMALE: &[&str] = &[
-    "Mária", "Erzsébet", "Ilona", "Katalin", "Éva", "Anna", "Margit", "Zsuzsanna", "Julianna", "Erika", "Irén",
-    "Rozália", "Magdolna", "Terézia", "Gizella", "Ágnes", "Etelka", "Jolán",
+    "Mária",
+    "Erzsébet",
+    "Ilona",
+    "Katalin",
+    "Éva",
+    "Anna",
+    "Margit",
+    "Zsuzsanna",
+    "Julianna",
+    "Erika",
+    "Irén",
+    "Rozália",
+    "Magdolna",
+    "Terézia",
+    "Gizella",
+    "Ágnes",
+    "Etelka",
+    "Jolán",
 ];
-const STREETS: &[&str] = &["Fő utca", "Kossuth Lajos utca", "Petőfi Sándor utca", "Rákóczi út", "Dózsa György út", "Arany János utca", "Szent István tér", "Béke utca"];
+const STREETS: &[&str] =
+    &["Fő utca", "Kossuth Lajos utca", "Petőfi Sándor utca", "Rákóczi út", "Dózsa György út", "Arany János utca", "Szent István tér", "Béke utca"];
 const TOWN: &str = "9999 Mintavölgy";
 
 #[derive(Debug, Clone, Serialize)]
@@ -55,7 +123,13 @@ fn random_deceased(r: &mut StdRng, death: NaiveDate) -> Deceased {
     Deceased {
         family_name: family,
         given_name: given,
-        name_prefix: if r.gen_bool(0.04) { "dr.".into() } else if !male && r.gen_bool(0.1) { "özv.".into() } else { String::new() },
+        name_prefix: if r.gen_bool(0.04) {
+            "dr.".into()
+        } else if !male && r.gen_bool(0.1) {
+            "özv.".into()
+        } else {
+            String::new()
+        },
         birth_name,
         sex: if male { "male" } else { "female" }.into(),
         birth_place: pick(r, &["Mintavölgy", "Kecskemét", "Szeged", "Budapest", "Cegléd", "Kiskunfélegyháza"]).into(),
@@ -83,17 +157,20 @@ fn random_person(r: &mut StdRng) -> Person {
 /// so every rule, folio and audit entry is exercised.
 pub fn load_sample(store: &Store, s: &Session) -> Result<SampleSummary> {
     let mut r = StdRng::seed_from_u64(20261105);
-    let cem = store.save_cemetery(s, &Cemetery {
-        name: "Mintavölgyi köztemető".into(),
-        address: format!("{TOWN}, Temető utca 1."),
-        parcel_number: "0123/4".into(),
-        kind: "public".into(),
-        owner: "Mintavölgy Község Önkormányzata".into(),
-        operator: "Mintavölgyi Településüzemeltető Kft.".into(),
-        opening_hours: "Április–szeptember: 7–20 óra, október–március: 8–17 óra".into(),
-        notes: "Kitalált mintaadat, kipróbáláshoz.".into(),
-        ..Default::default()
-    })?;
+    let cem = store.save_cemetery(
+        s,
+        &Cemetery {
+            name: "Mintavölgyi köztemető".into(),
+            address: format!("{TOWN}, Temető utca 1."),
+            parcel_number: "0123/4".into(),
+            kind: "public".into(),
+            owner: "Mintavölgy Község Önkormányzata".into(),
+            operator: "Mintavölgyi Településüzemeltető Kft.".into(),
+            opening_hours: "Április–szeptember: 7–20 óra, október–március: 8–17 óra".into(),
+            notes: "Kitalált mintaadat, kipróbáláshoz.".into(),
+            ..Default::default()
+        },
+    )?;
     let t = |code: &str| store.get_plot_type(code).map(|t| t.id);
     let layout: &[(&str, &str, &str, i32, i32, f64, f64)] = &[
         ("A", "Régi temetőrész", "single", 6, 16, 0.0, 0.0),
@@ -106,29 +183,47 @@ pub fn load_sample(store: &Store, s: &Session) -> Result<SampleSummary> {
     ];
     let mut plots = 0;
     for (code, name, ty, rows, per, x, y) in layout {
-        let res = store.bulk_create(s, &BulkCreateInput {
-            cemetery_id: cem.id.clone(),
-            section_code: (*code).into(),
-            section_name: (*name).into(),
-            row_from: 1,
-            row_to: *rows,
-            plots_per_row: *per,
-            first_plot_number: 1,
-            plot_type_id: t(ty)?,
-            origin_x: Some(*x),
-            origin_y: Some(*y),
-        })?;
+        let res = store.bulk_create(
+            s,
+            &BulkCreateInput {
+                cemetery_id: cem.id.clone(),
+                section_code: (*code).into(),
+                section_name: (*name).into(),
+                row_from: 1,
+                row_to: *rows,
+                plots_per_row: *per,
+                first_plot_number: 1,
+                plot_type_id: t(ty)?,
+                origin_x: Some(*x),
+                origin_y: Some(*y),
+            },
+        )?;
         plots += res.plots_created;
     }
-    for (ty, purchase, renewal) in [("single", 85_000, 70_000), ("double", 160_000, 130_000), ("urn_niche", 45_000, 38_000), ("crypt", 600_000, 450_000), ("child", 40_000, 32_000)] {
+    for (ty, purchase, renewal) in
+        [("single", 85_000, 70_000), ("double", 160_000, 130_000), ("urn_niche", 45_000, 38_000), ("crypt", 600_000, 450_000), ("child", 40_000, 32_000)]
+    {
         let tid = t(ty)?;
         for (kind, amount) in [("purchase", purchase), ("renewal", renewal)] {
-            store.add_fee_rate(s, &FeeRate { cemetery_id: cem.id.clone(), plot_type_id: Some(tid.clone()), fee_kind: kind.into(), amount_huf: amount, valid_from: "1990-01-01".into(), ..Default::default() })?;
+            store.add_fee_rate(
+                s,
+                &FeeRate {
+                    cemetery_id: cem.id.clone(),
+                    plot_type_id: Some(tid.clone()),
+                    fee_kind: kind.into(),
+                    amount_huf: amount,
+                    valid_from: "1990-01-01".into(),
+                    ..Default::default()
+                },
+            )?;
         }
     }
 
     if let Some(p) = store.find_plot(&cem.id, "C/5/14")? {
-        store.add_restriction(s, &Restriction { plot_id: p.id, kind: "ban".into(), text: "Talajvíz 2 m-en belül – temetési tilalom".into(), ..Default::default() })?;
+        store.add_restriction(
+            s,
+            &Restriction { plot_id: p.id, kind: "ban".into(), text: "Talajvíz 2 m-en belül – temetési tilalom".into(), ..Default::default() },
+        )?;
     }
 
     // burials in chronological order
@@ -230,7 +325,15 @@ pub fn load_sample(store: &Store, s: &Session) -> Result<SampleSummary> {
     // a few pre-purchases and a notice
     for ident in ["C/1/14", "C/2/14"] {
         if let Some(p) = store.find_plot(&cem.id, ident)? {
-            let _ = store.create_lease(s, &NewLeaseInput { plot_id: p.id, person: Some(PersonRef::New { person: random_person(&mut r) }), kind: "prepurchase".into(), ..Default::default() });
+            let _ = store.create_lease(
+                s,
+                &NewLeaseInput {
+                    plot_id: p.id,
+                    person: Some(PersonRef::New { person: random_person(&mut r) }),
+                    kind: "prepurchase".into(),
+                    ..Default::default()
+                },
+            );
         }
     }
     let expired: Vec<String> = store
@@ -252,16 +355,15 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
     let tx = crate::db::tx(&store.conn)?;
     let ts = now_ts();
     let cem = new_id();
-    tx.execute(
-        "INSERT INTO cemeteries (id, name, created_at, updated_at) VALUES (?1, 'Teljesítményteszt temető', ?2, ?2)",
-        params![cem, ts],
-    )?;
+    tx.execute("INSERT INTO cemeteries (id, name, created_at, updated_at) VALUES (?1, 'Teljesítményteszt temető', ?2, ?2)", params![cem, ts])?;
     let single: String = tx.query_row("SELECT id FROM plot_types WHERE code='single'", [], |r| r.get(0))?;
     let per_row = 50usize;
     let rows_per_section = 20usize;
     let mut plot_ids = Vec::with_capacity(plots);
     {
-        let mut ins_sec = tx.prepare("INSERT INTO sections (id, cemetery_id, code, name, map_x, map_y, map_w, map_h, created_at, updated_at) VALUES (?1,?2,?3,'',?4,?5,?6,?7,?8,?8)")?;
+        let mut ins_sec = tx.prepare(
+            "INSERT INTO sections (id, cemetery_id, code, name, map_x, map_y, map_w, map_h, created_at, updated_at) VALUES (?1,?2,?3,'',?4,?5,?6,?7,?8,?8)",
+        )?;
         let mut ins_row = tx.prepare("INSERT INTO plot_rows (id, section_id, number, created_at, updated_at) VALUES (?1,?2,?3,?4,?4)")?;
         let mut ins_plot = tx.prepare(
             "INSERT INTO plots (id, cemetery_id, section_id, row_id, number, identifier, plot_type_id, coffin_capacity, urn_capacity, map_x, map_y, map_w, map_h, created_at, updated_at)
@@ -286,7 +388,18 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
                         break;
                     }
                     let pid = new_id();
-                    ins_plot.execute(params![pid, cem, sid, rid, pi.to_string(), format!("{code}/{ri}/{pi}"), single, sx + pi as f64 * 15.0, sy + ri as f64 * 28.0, ts])?;
+                    ins_plot.execute(params![
+                        pid,
+                        cem,
+                        sid,
+                        rid,
+                        pi.to_string(),
+                        format!("{code}/{ri}/{pi}"),
+                        single,
+                        sx + pi as f64 * 15.0,
+                        sy + ri as f64 * 28.0,
+                        ts
+                    ])?;
                     plot_ids.push(pid);
                     made += 1;
                 }
@@ -319,10 +432,7 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
             ins_e.execute(params![new_id(), cem, (i + 1) as i64, fmt_date(death), did, pid, ts])?;
             ins_l.execute(params![new_id(), pid, fmt_date(death), fmt_date(crate::rules::add_years(death, 25)), ts])?;
         }
-        tx.execute(
-            "INSERT INTO register_sequences (cemetery_id, scope_key, next_value) VALUES (?1, 'all', ?2)",
-            params![cem, deceased as i64 + 1],
-        )?;
+        tx.execute("INSERT INTO register_sequences (cemetery_id, scope_key, next_value) VALUES (?1, 'all', ?2)", params![cem, deceased as i64 + 1])?;
     }
     tx.commit()?;
     Ok(cem)

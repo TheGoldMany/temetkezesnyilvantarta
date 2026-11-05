@@ -79,4 +79,3 @@ fn idle_session_expires() {
     assert_eq!(app.call("dashboard", &json!({})).unwrap_err().code, "session_expired");
     std::fs::remove_dir_all(dir).ok();
 }
-

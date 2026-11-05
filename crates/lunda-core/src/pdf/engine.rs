@@ -355,7 +355,14 @@ pub fn table(l: &mut Layout, cols: &[Column], rows: &[TableRow], size: f32) {
         for (i, ls) in lines.iter().enumerate() {
             let font = if i == 0 && r.bold_first { FontKind::SansBold } else { FontKind::Sans };
             for (j, t) in ls.iter().enumerate() {
-                l.page().ops.push(Op::Text { x: x + pad, y: y0 + pad + size + j as f32 * lh, size, font, text: t.clone(), color: if r.struck { GREY } else { BLACK } });
+                l.page().ops.push(Op::Text {
+                    x: x + pad,
+                    y: y0 + pad + size + j as f32 * lh,
+                    size,
+                    font,
+                    text: t.clone(),
+                    color: if r.struck { GREY } else { BLACK },
+                });
             }
             x += widths[i];
         }

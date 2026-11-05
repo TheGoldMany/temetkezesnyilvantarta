@@ -124,10 +124,8 @@ impl Store {
             let key = sections.get(&p.section_id).cloned().unwrap_or_default();
             *agg.entry(key).or_default().entry(p.status.as_str().into()).or_default() += 1;
         }
-        let mut out: Vec<UtilizationRow> = agg
-            .into_iter()
-            .map(|((c, s), m)| UtilizationRow { cemetery_name: c, section_code: s, total: m.values().sum(), by_status: m })
-            .collect();
+        let mut out: Vec<UtilizationRow> =
+            agg.into_iter().map(|((c, s), m)| UtilizationRow { cemetery_name: c, section_code: s, total: m.values().sum(), by_status: m }).collect();
         out.sort_by(|a, b| crate::text::hu_compare(&a.cemetery_name, &b.cemetery_name).then_with(|| crate::text::hu_compare(&a.section_code, &b.section_code)));
         Ok(out)
     }

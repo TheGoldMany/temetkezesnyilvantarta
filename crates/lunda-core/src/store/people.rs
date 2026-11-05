@@ -61,10 +61,7 @@ impl Store {
     // ---------------------------------------------------------------- deceased
 
     pub fn get_deceased(&self, id: &str) -> Result<Deceased> {
-        self.conn
-            .query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("deceased", id))
+        self.conn.query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased).optional()?.ok_or_else(|| CoreError::not_found("deceased", id))
     }
 
     pub(crate) fn insert_deceased(&self, tx: &rusqlite::Connection, s: &Session, d: &Deceased, validate: bool) -> Result<Deceased> {
@@ -113,7 +110,8 @@ impl Store {
         if old.voided_at.is_some() {
             return Err(CoreError::new("immutable", "voided record"));
         }
-        let in_register: i64 = self.conn.query_row("SELECT count(*) FROM interment_events WHERE deceased_id=?1 AND voided_at IS NULL", [&d.id], |r| r.get(0))?;
+        let in_register: i64 =
+            self.conn.query_row("SELECT count(*) FROM interment_events WHERE deceased_id=?1 AND voided_at IS NULL", [&d.id], |r| r.get(0))?;
         let reason = if in_register > 0 {
             s.require(Permission::CorrectEntries)?;
             Some(require_reason(reason)?)
@@ -126,9 +124,26 @@ impl Store {
                 last_residence=?10, death_place=?11, death_date=?12, death_cert_no=?13, unknown_identity=?14, authority_name=?15, case_number=?16,
                 notes=?17, search_text=?18, updated_at=?19, updated_by=?20, sort_key=?21 WHERE id=?1",
             params![
-                d.id, d.name_prefix.trim(), d.family_name.trim(), d.given_name.trim(), d.birth_name.trim(), d.sex, d.birth_place.trim(),
-                opt_s(&d.birth_date), d.mother_name.trim(), d.last_residence.trim(), d.death_place.trim(), opt_s(&d.death_date),
-                d.death_cert_no.trim(), d.unknown_identity, d.authority_name.trim(), d.case_number.trim(), d.notes, deceased_search_text(d), now_ts(), s.user_name,
+                d.id,
+                d.name_prefix.trim(),
+                d.family_name.trim(),
+                d.given_name.trim(),
+                d.birth_name.trim(),
+                d.sex,
+                d.birth_place.trim(),
+                opt_s(&d.birth_date),
+                d.mother_name.trim(),
+                d.last_residence.trim(),
+                d.death_place.trim(),
+                opt_s(&d.death_date),
+                d.death_cert_no.trim(),
+                d.unknown_identity,
+                d.authority_name.trim(),
+                d.case_number.trim(),
+                d.notes,
+                deceased_search_text(d),
+                now_ts(),
+                s.user_name,
                 name_sort_key(&d.family_name, &d.given_name)
             ],
         )?;
@@ -175,11 +190,7 @@ impl Store {
 
     /// Person detail. Viewing personal data is logged (NFR-BIZ-03).
     pub fn get_person(&self, s: &Session, id: &str) -> Result<Person> {
-        let p = self
-            .conn
-            .query_row("SELECT * FROM persons WHERE id=?1", [id], map_person)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("person", id))?;
+        let p = self.conn.query_row("SELECT * FROM persons WHERE id=?1", [id], map_person).optional()?.ok_or_else(|| CoreError::not_found("person", id))?;
         if s.can(Permission::ViewPersonal) {
             audit::record_simple(&self.conn, s, "person", id, "view_personal", None)?;
         }
@@ -212,7 +223,8 @@ impl Store {
         let out = if p.id.is_empty() {
             self.insert_person(&tx, s, p)?
         } else {
-            let old = tx.query_row("SELECT * FROM persons WHERE id=?1", [&p.id], map_person).optional()?.ok_or_else(|| CoreError::not_found("person", &p.id))?;
+            let old =
+                tx.query_row("SELECT * FROM persons WHERE id=?1", [&p.id], map_person).optional()?.ok_or_else(|| CoreError::not_found("person", &p.id))?;
             // a masked client must not wipe personal data it could not see
             let (address, mail, phone, email) = if p.masked || !s.can(Permission::ViewPersonal) {
                 (old.address.clone(), old.mail_address.clone(), old.phone.clone(), old.email.clone())
@@ -281,15 +293,24 @@ impl Store {
 
     pub(crate) fn primary_holder_id(&self, conn: &rusqlite::Connection, plot_id: &str) -> Result<Option<String>> {
         Ok(conn
-            .query_row(
-                "SELECT person_id FROM plot_holders WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL",
-                [plot_id],
-                |r| r.get(0),
-            )
+            .query_row("SELECT person_id FROM plot_holders WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL", [plot_id], |r| {
+                r.get(0)
+            })
             .optional()?)
     }
 
-    pub(crate) fn insert_holder(&self, tx: &rusqlite::Connection, s: &Session, plot_id: &str, person_id: &str, role: &str, relation: &str, start: &str, basis: &str, doc: &str) -> Result<String> {
+    pub(crate) fn insert_holder(
+        &self,
+        tx: &rusqlite::Connection,
+        s: &Session,
+        plot_id: &str,
+        person_id: &str,
+        role: &str,
+        relation: &str,
+        start: &str,
+        basis: &str,
+        doc: &str,
+    ) -> Result<String> {
         let id = new_id();
         let ts = now_ts();
         tx.execute(
@@ -297,9 +318,18 @@ impl Store {
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?9,?10)",
             params![id, plot_id, person_id, role, relation, start, basis, doc, ts, s.user_name],
         )?;
-        audit::record(tx, s, "holder", &id, "create", None::<&()>, Some(&serde_json::json!({
-            "plotId": plot_id, "personId": person_id, "role": role, "startDate": start, "legalBasis": basis, "documentRef": doc
-        })), None)?;
+        audit::record(
+            tx,
+            s,
+            "holder",
+            &id,
+            "create",
+            None::<&()>,
+            Some(&serde_json::json!({
+                "plotId": plot_id, "personId": person_id, "role": role, "startDate": start, "legalBasis": basis, "documentRef": doc
+            })),
+            None,
+        )?;
         Ok(id)
     }
 
@@ -318,9 +348,8 @@ impl Store {
         let person_id = self.resolve_person(&tx, s, person)?;
         if role == "primary" {
             let current: Vec<(String, String)> = {
-                let mut st = tx.prepare(
-                    "SELECT id, start_date FROM plot_holders WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL",
-                )?;
+                let mut st =
+                    tx.prepare("SELECT id, start_date FROM plot_holders WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL")?;
                 let rows = st.query_map([&input.plot_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
                 rows.collect::<std::result::Result<_, _>>()?
             };
@@ -332,14 +361,25 @@ impl Store {
                     "UPDATE plot_holders SET end_date=?2, updated_at=?3, updated_by=?4 WHERE id=?1",
                     params![hid, input.change_date, now_ts(), s.user_name],
                 )?;
-                audit::record(&tx, s, "holder", &hid, "end", None::<&()>, Some(&serde_json::json!({"endDate": input.change_date, "legalBasis": input.legal_basis})), None)?;
+                audit::record(
+                    &tx,
+                    s,
+                    "holder",
+                    &hid,
+                    "end",
+                    None::<&()>,
+                    Some(&serde_json::json!({"endDate": input.change_date, "legalBasis": input.legal_basis})),
+                    None,
+                )?;
             }
         }
         self.insert_holder(&tx, s, &input.plot_id, &person_id, role, &input.relation, &input.change_date, &input.legal_basis, &input.document_ref)?;
         // keep the active lease's holder in sync
         if role == "primary" {
-            tx.execute("UPDATE leases SET person_id=?2, updated_at=?3, updated_by=?4 WHERE plot_id=?1 AND status='active' AND voided_at IS NULL",
-                params![input.plot_id, person_id, now_ts(), s.user_name])?;
+            tx.execute(
+                "UPDATE leases SET person_id=?2, updated_at=?3, updated_by=?4 WHERE plot_id=?1 AND status='active' AND voided_at IS NULL",
+                params![input.plot_id, person_id, now_ts(), s.user_name],
+            )?;
         }
         tx.commit()?;
         self.holders_for_plot(&input.plot_id)

@@ -9,8 +9,6 @@
     "core:default",
     "dialog:default",
     "opener:default",
-    "process:allow-restart",
-    "updater:default",
     {
       "identifier": "opener:allow-open-path",
       "allow": [

@@ -19,18 +19,13 @@ impl Store {
     // ---------------------------------------------------------------- cemeteries
 
     pub fn list_cemeteries(&self, include_voided: bool) -> Result<Vec<Cemetery>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT * FROM cemeteries WHERE (?1 OR voided_at IS NULL) ORDER BY name COLLATE HU",
-        )?;
+        let mut stmt = self.conn.prepare("SELECT * FROM cemeteries WHERE (?1 OR voided_at IS NULL) ORDER BY name COLLATE HU")?;
         let rows = stmt.query_map([include_voided], map_cemetery)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
     pub fn get_cemetery(&self, id: &str) -> Result<Cemetery> {
-        self.conn
-            .query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("cemetery", id))
+        self.conn.query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery).optional()?.ok_or_else(|| CoreError::not_found("cemetery", id))
     }
 
     pub fn save_cemetery(&self, s: &Session, input: &Cemetery) -> Result<Cemetery> {
@@ -71,9 +66,7 @@ impl Store {
     }
 
     fn get_cemetery_tx(&self, tx: &rusqlite::Connection, id: &str) -> Result<Cemetery> {
-        tx.query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("cemetery", id))
+        tx.query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery).optional()?.ok_or_else(|| CoreError::not_found("cemetery", id))
     }
 
     // ---------------------------------------------------------------- plot types
@@ -157,9 +150,7 @@ impl Store {
             "SELECT id, section_id, number, direction FROM plot_rows WHERE section_id=?1 AND voided_at IS NULL
              ORDER BY CAST(number AS INTEGER), number COLLATE HU",
         )?;
-        let rows = stmt.query_map([section_id], |r| {
-            Ok(PlotRow { id: r.get(0)?, section_id: r.get(1)?, number: r.get(2)?, direction: r.get(3)? })
-        })?;
+        let rows = stmt.query_map([section_id], |r| Ok(PlotRow { id: r.get(0)?, section_id: r.get(1)?, number: r.get(2)?, direction: r.get(3)? }))?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
@@ -184,11 +175,9 @@ impl Store {
         let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         let existing: Option<(String, f64, f64)> = tx
-            .query_row(
-                "SELECT id, map_x, map_y FROM sections WHERE cemetery_id=?1 AND code=?2 AND voided_at IS NULL",
-                params![input.cemetery_id, code],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
+            .query_row("SELECT id, map_x, map_y FROM sections WHERE cemetery_id=?1 AND code=?2 AND voided_at IS NULL", params![input.cemetery_id, code], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
             .optional()?;
         let (section_id, ox, oy) = match existing {
             Some(e) => e,
@@ -220,11 +209,7 @@ impl Store {
         for (ri, row_no) in (input.row_from..=input.row_to).enumerate() {
             let row_no_s = row_no.to_string();
             let row_id: String = match tx
-                .query_row(
-                    "SELECT id FROM plot_rows WHERE section_id=?1 AND number=?2 AND voided_at IS NULL",
-                    params![section_id, row_no_s],
-                    |r| r.get(0),
-                )
+                .query_row("SELECT id FROM plot_rows WHERE section_id=?1 AND number=?2 AND voided_at IS NULL", params![section_id, row_no_s], |r| r.get(0))
                 .optional()?
             {
                 Some(id) => id,
@@ -256,8 +241,25 @@ impl Store {
                     "INSERT INTO plots (id, cemetery_id, section_id, row_id, number, identifier, plot_type_id, coffin_capacity, urn_capacity,
                         width_cm, length_cm, map_x, map_y, map_w, map_h, created_at, created_by, updated_at, updated_by)
                      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?16,?17)",
-                    params![id, input.cemetery_id, section_id, row_id, n.to_string(), identifier, ptype.id, ptype.coffin_capacity, ptype.urn_capacity,
-                        ptype.width_cm, ptype.length_cm, x, y, pw, ph, ts, s.user_name],
+                    params![
+                        id,
+                        input.cemetery_id,
+                        section_id,
+                        row_id,
+                        n.to_string(),
+                        identifier,
+                        ptype.id,
+                        ptype.coffin_capacity,
+                        ptype.urn_capacity,
+                        ptype.width_cm,
+                        ptype.length_cm,
+                        x,
+                        y,
+                        pw,
+                        ph,
+                        ts,
+                        s.user_name
+                    ],
                 )?;
                 if ptype.category == "crypt" {
                     create_slots(&tx, s, &id, ptype.coffin_capacity)?;
@@ -266,10 +268,19 @@ impl Store {
             }
         }
         update_section_bounds(&tx, &section_id)?;
-        audit::record(&tx, s, "section", &section_id, "bulk_create", None::<&()>, Some(&serde_json::json!({
-            "rowFrom": input.row_from, "rowTo": input.row_to, "plotsPerRow": input.plots_per_row,
-            "plotType": ptype.code, "rowsCreated": rows_created, "plotsCreated": plots_created
-        })), None)?;
+        audit::record(
+            &tx,
+            s,
+            "section",
+            &section_id,
+            "bulk_create",
+            None::<&()>,
+            Some(&serde_json::json!({
+                "rowFrom": input.row_from, "rowTo": input.row_to, "plotsPerRow": input.plots_per_row,
+                "plotType": ptype.code, "rowsCreated": rows_created, "plotsCreated": plots_created
+            })),
+            None,
+        )?;
         tx.commit()?;
         Ok(BulkCreateResult { section_id, rows_created, plots_created })
     }
@@ -281,11 +292,9 @@ impl Store {
         let identifier = format!("{code}/{}/{}", row_no.trim(), plot_no.trim());
         if let Some(id) = self
             .conn
-            .query_row(
-                "SELECT id FROM plots WHERE cemetery_id=?1 AND identifier=?2 AND voided_at IS NULL",
-                params![cemetery_id, identifier],
-                |r| r.get::<_, String>(0),
-            )
+            .query_row("SELECT id FROM plots WHERE cemetery_id=?1 AND identifier=?2 AND voided_at IS NULL", params![cemetery_id, identifier], |r| {
+                r.get::<_, String>(0)
+            })
             .optional()?
         {
             return Ok(id);
@@ -294,35 +303,33 @@ impl Store {
         let plot_i: i32 = plot_no.trim().parse().unwrap_or(1);
         // create section/row if needed through bulk_create semantics for a single cell
         if row_no.trim().parse::<i32>().is_ok() && plot_no.trim().parse::<i32>().is_ok() {
-            self.bulk_create(s, &BulkCreateInput {
-                cemetery_id: cemetery_id.into(),
-                section_code: code.clone(),
-                section_name: String::new(),
-                row_from: row_i,
-                row_to: row_i,
-                plots_per_row: 1,
-                first_plot_number: plot_i,
-                plot_type_id: plot_type_id.into(),
-                origin_x: None,
-                origin_y: None,
-            })?;
+            self.bulk_create(
+                s,
+                &BulkCreateInput {
+                    cemetery_id: cemetery_id.into(),
+                    section_code: code.clone(),
+                    section_name: String::new(),
+                    row_from: row_i,
+                    row_to: row_i,
+                    plots_per_row: 1,
+                    first_plot_number: plot_i,
+                    plot_type_id: plot_type_id.into(),
+                    origin_x: None,
+                    origin_y: None,
+                },
+            )?;
         } else {
             return Err(CoreError::validation("identifier", "row and plot numbers must be numeric").with("value", &identifier));
         }
-        Ok(self.conn.query_row(
-            "SELECT id FROM plots WHERE cemetery_id=?1 AND identifier=?2 AND voided_at IS NULL",
-            params![cemetery_id, identifier],
-            |r| r.get(0),
-        )?)
+        Ok(self
+            .conn
+            .query_row("SELECT id FROM plots WHERE cemetery_id=?1 AND identifier=?2 AND voided_at IS NULL", params![cemetery_id, identifier], |r| r.get(0))?)
     }
 
     // ---------------------------------------------------------------- plots
 
     pub fn get_plot(&self, id: &str) -> Result<Plot> {
-        self.conn
-            .query_row("SELECT * FROM plots WHERE id=?1", [id], map_plot)
-            .optional()?
-            .ok_or_else(|| CoreError::not_found("plot", id))
+        self.conn.query_row("SELECT * FROM plots WHERE id=?1", [id], map_plot).optional()?.ok_or_else(|| CoreError::not_found("plot", id))
     }
 
     pub fn find_plot(&self, cemetery_id: &str, identifier: &str) -> Result<Option<Plot>> {
@@ -362,11 +369,29 @@ impl Store {
                 crypt_holder_instructions=?21, updated_at=?22, updated_by=?23
              WHERE id=?1",
             params![
-                p.id, ptype.id, p.coffin_capacity, p.urn_capacity, p.width_cm, p.length_cm, p.rest_period_years,
-                p.status_override, if p.status_override.is_some() { reason.clone() } else { None }, p.unusable, p.protected,
-                if p.protected { p.protection_kind.clone() } else { None }, opt_s(&p.protection_reason),
-                p.further_burial_allowed, p.notes, p.gps_lat, p.gps_lon, opt_s(&p.crypt_number), p.crypt_built_year,
-                opt_s(&p.crypt_permit), opt_s(&p.crypt_holder_instructions), now_ts(), s.user_name
+                p.id,
+                ptype.id,
+                p.coffin_capacity,
+                p.urn_capacity,
+                p.width_cm,
+                p.length_cm,
+                p.rest_period_years,
+                p.status_override,
+                if p.status_override.is_some() { reason.clone() } else { None },
+                p.unusable,
+                p.protected,
+                if p.protected { p.protection_kind.clone() } else { None },
+                opt_s(&p.protection_reason),
+                p.further_burial_allowed,
+                p.notes,
+                p.gps_lat,
+                p.gps_lon,
+                opt_s(&p.crypt_number),
+                p.crypt_built_year,
+                opt_s(&p.crypt_permit),
+                opt_s(&p.crypt_holder_instructions),
+                now_ts(),
+                s.user_name
             ],
         )?;
         if ptype.category == "crypt" {
@@ -398,14 +423,25 @@ impl Store {
                 return Err(CoreError::validation("size", "invalid geometry"));
             }
             let n = tx.execute(
-                &format!("UPDATE {table} SET map_x=?2, map_y=?3, map_w=?4, map_h=?5, map_rot=?6, updated_at=?7, updated_by=?8 WHERE id=?1 AND voided_at IS NULL"),
+                &format!(
+                    "UPDATE {table} SET map_x=?2, map_y=?3, map_w=?4, map_h=?5, map_rot=?6, updated_at=?7, updated_by=?8 WHERE id=?1 AND voided_at IS NULL"
+                ),
                 params![id, x, y, w, h, rot, now_ts(), s.user_name],
             )?;
             if n == 0 {
                 return Err(CoreError::not_found(entity, id));
             }
         }
-        audit::record(&tx, s, entity, &items.first().map(|i| i.0.clone()).unwrap_or_default(), "geometry", None::<&()>, Some(&serde_json::json!({"count": items.len()})), None)?;
+        audit::record(
+            &tx,
+            s,
+            entity,
+            &items.first().map(|i| i.0.clone()).unwrap_or_default(),
+            "geometry",
+            None::<&()>,
+            Some(&serde_json::json!({"count": items.len()})),
+            None,
+        )?;
         tx.commit()?;
         Ok(())
     }
@@ -420,11 +456,9 @@ impl Store {
         if t.id == a.id || t.cemetery_id != a.cemetery_id {
             return Err(CoreError::validation("absorbedId", "plots must be different and in the same cemetery"));
         }
-        let occupied: i64 = self.conn.query_row(
-            &format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"),
-            [absorbed_id],
-            |r| r.get(0),
-        )?;
+        let occupied: i64 =
+            self.conn
+                .query_row(&format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"), [absorbed_id], |r| r.get(0))?;
         let leased: i64 = self.conn.query_row("SELECT count(*) FROM leases WHERE plot_id=?1 AND voided_at IS NULL", [absorbed_id], |r| r.get(0))?;
         if occupied > 0 || leased > 0 {
             return Err(CoreError::new("merge_not_empty", "the absorbed plot must be empty and without leases"));
@@ -439,10 +473,7 @@ impl Store {
             "UPDATE plots SET coffin_capacity=coffin_capacity+?2, urn_capacity=urn_capacity+?3, map_x=?4, map_y=?5, map_w=?6, map_h=?7, updated_at=?8, updated_by=?9 WHERE id=?1",
             params![t.id, a.coffin_capacity, a.urn_capacity, x0, y0, x1 - x0, y1 - y0, ts, s.user_name],
         )?;
-        tx.execute(
-            "UPDATE plots SET merged_into_id=?2, voided_at=?3, voided_by=?4, void_reason=?5 WHERE id=?1",
-            params![a.id, t.id, ts, s.user_name, reason],
-        )?;
+        tx.execute("UPDATE plots SET merged_into_id=?2, voided_at=?3, voided_by=?4, void_reason=?5 WHERE id=?1", params![a.id, t.id, ts, s.user_name, reason])?;
         audit::record(&tx, s, "plot", &t.id, "merge", Some(&a), Some(&t), Some(&reason))?;
         tx.commit()?;
         self.get_plot(target_id)
@@ -543,24 +574,16 @@ impl Store {
 
     /// Status inputs for one plot.
     pub(crate) fn status_inputs(&self, plot: &Plot) -> Result<StatusInputs> {
-        let occupants: i32 = self.conn.query_row(
-            &format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"),
-            [&plot.id],
-            |r| r.get(0),
-        )?;
+        let occupants: i32 =
+            self.conn.query_row(&format!("SELECT count(*) FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"), [&plot.id], |r| r.get(0))?;
         let lease: Option<(String, String)> = self
             .conn
-            .query_row(
-                "SELECT start_date, expiry_date FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL",
-                [&plot.id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
+            .query_row("SELECT start_date, expiry_date FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL", [&plot.id], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
             .optional()?;
-        let last_notice: Option<String> = self.conn.query_row(
-            "SELECT max(notice_date) FROM notices WHERE plot_id=?1 AND voided_at IS NULL",
-            [&plot.id],
-            |r| r.get(0),
-        )?;
+        let last_notice: Option<String> =
+            self.conn.query_row("SELECT max(notice_date) FROM notices WHERE plot_id=?1 AND voided_at IS NULL", [&plot.id], |r| r.get(0))?;
         Ok(StatusInputs {
             status_override: plot.status_override.as_deref().and_then(PlotStatus::parse),
             unusable: plot.unusable,
@@ -617,20 +640,16 @@ impl Store {
             let a = args.len();
             args.push(Value::Text(to));
             let b = args.len();
-            where_.push(format!(
-                "EXISTS (SELECT 1 FROM interment_events b WHERE b.plot_id=p.id AND b.voided_at IS NULL AND b.event_date BETWEEN ?{a} AND ?{b})"
-            ));
+            where_
+                .push(format!("EXISTS (SELECT 1 FROM interment_events b WHERE b.plot_id=p.id AND b.voided_at IS NULL AND b.event_date BETWEEN ?{a} AND ?{b})"));
         }
         if f.protected_only {
             where_.push("p.protected = 1".into());
         }
         // Aggregates are computed once per query (grouped CTEs) instead of
         // per plot – keeps the 50 000-plot map under a second (NFR-TEL-02).
-        let names_sql = if f.light {
-            "NULL AS names".to_string()
-        } else {
-            "group_concat(trim(d.family_name || ' ' || d.given_name), ', ') AS names".to_string()
-        };
+        let names_sql =
+            if f.light { "NULL AS names".to_string() } else { "group_concat(trim(d.family_name || ' ' || d.given_name), ', ') AS names".to_string() };
         let names_join = if f.light { "" } else { "JOIN deceased d ON d.id = e.deceased_id" };
         let holder_sql = if f.light {
             "NULL"
@@ -750,21 +769,36 @@ impl Store {
             audit::record_simple(&self.conn, s, "plot", plot_id, "view_personal", Some("holders"))?;
         }
         let restrictions = {
-            let mut stmt = self.conn.prepare(
-                "SELECT id, plot_id, kind, text, valid_from, valid_to, voided_at FROM plot_restrictions WHERE plot_id=?1 ORDER BY created_at",
-            )?;
+            let mut stmt = self
+                .conn
+                .prepare("SELECT id, plot_id, kind, text, valid_from, valid_to, voided_at FROM plot_restrictions WHERE plot_id=?1 ORDER BY created_at")?;
             let rows = stmt.query_map([plot_id], |r| {
-                Ok(Restriction { id: r.get(0)?, plot_id: r.get(1)?, kind: r.get(2)?, text: r.get(3)?, valid_from: r.get(4)?, valid_to: r.get(5)?, voided_at: r.get(6)? })
+                Ok(Restriction {
+                    id: r.get(0)?,
+                    plot_id: r.get(1)?,
+                    kind: r.get(2)?,
+                    text: r.get(3)?,
+                    valid_from: r.get(4)?,
+                    valid_to: r.get(5)?,
+                    voided_at: r.get(6)?,
+                })
             })?;
             rows.collect::<std::result::Result<Vec<_>, _>>()?
         };
         let monuments = self.monuments_for_plot(plot_id)?;
         let notices = {
-            let mut stmt = self.conn.prepare(
-                "SELECT id, plot_id, lease_id, kind, notice_date, result, voided_at FROM notices WHERE plot_id=?1 ORDER BY notice_date",
-            )?;
+            let mut stmt =
+                self.conn.prepare("SELECT id, plot_id, lease_id, kind, notice_date, result, voided_at FROM notices WHERE plot_id=?1 ORDER BY notice_date")?;
             let rows = stmt.query_map([plot_id], |r| {
-                Ok(Notice { id: r.get(0)?, plot_id: r.get(1)?, lease_id: r.get(2)?, kind: r.get(3)?, notice_date: r.get(4)?, result: r.get(5)?, voided_at: r.get(6)? })
+                Ok(Notice {
+                    id: r.get(0)?,
+                    plot_id: r.get(1)?,
+                    lease_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    notice_date: r.get(4)?,
+                    result: r.get(5)?,
+                    voided_at: r.get(6)?,
+                })
             })?;
             rows.collect::<std::result::Result<Vec<_>, _>>()?
         };

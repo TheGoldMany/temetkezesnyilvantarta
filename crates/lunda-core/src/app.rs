@@ -167,7 +167,9 @@ impl App {
                 if method == "import.read" {
                     let mapping = crate::io::guess_mapping(&table.headers);
                     let sample: Vec<Vec<String>> = table.rows.iter().take(10).cloned().collect();
-                    Ok(serde_json::json!({ "headers": table.headers, "rows": sample, "rowCount": table.rows.len(), "sheetNames": table.sheet_names, "mapping": mapping, "targets": crate::io::TARGETS }))
+                    Ok(
+                        serde_json::json!({ "headers": table.headers, "rows": sample, "rowCount": table.rows.len(), "sheetNames": table.sheet_names, "mapping": mapping, "targets": crate::io::TARGETS }),
+                    )
                 } else {
                     let opts: crate::io::ImportOptions = serde_json::from_value(args.get("options").cloned().unwrap_or_default())?;
                     Ok(serde_json::to_value(crate::io::import_rows(store, &s, &table, &opts)?)?)
@@ -202,10 +204,7 @@ impl App {
             (None, None) => Err(CoreError::new("db_key_missing", "the database key is missing; restore from a backup")),
             (Some(k), None) => {
                 let dd = data_dir.clone();
-                db::open(&path, k, |conn, _from| {
-                    backup::create(conn, &Session::system(), &dd, "pre-migration").map(|_| ())
-                })
-                .map(Store::new)
+                db::open(&path, k, |conn, _from| backup::create(conn, &Session::system(), &dd, "pre-migration").map(|_| ())).map(Store::new)
             }
         };
         let mut app = match result {

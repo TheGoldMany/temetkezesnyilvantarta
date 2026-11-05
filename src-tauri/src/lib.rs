@@ -2,6 +2,7 @@
 //! keychain and forwards UI calls to `lunda_core::app::App`.
 
 mod keystore;
+mod updater;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -93,7 +94,6 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let data_dir = match std::env::var("LUNDA_DATA_DIR") {
@@ -112,9 +112,21 @@ pub fn run() {
                 std::thread::sleep(Duration::from_secs(3600));
             });
             app.manage(AppState(shared));
+            app.manage(updater::PendingUpdate::default());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_status, setup_admin, login, logout, api, touch, restore_fresh, backup_before_update])
+        .invoke_handler(tauri::generate_handler![
+            app_status,
+            setup_admin,
+            login,
+            logout,
+            api,
+            touch,
+            restore_fresh,
+            backup_before_update,
+            updater::update_check,
+            updater::update_install
+        ])
         .build(tauri::generate_context!())
         .expect("error while building Lunda Temető");
     app.run(|handle, event| {

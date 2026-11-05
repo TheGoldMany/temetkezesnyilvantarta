@@ -314,7 +314,16 @@ pub struct BackupLogRow {
 pub fn log(conn: &Connection, limit: i64) -> Result<Vec<BackupLogRow>> {
     let mut st = conn.prepare("SELECT ts, kind, path, sha256, size_bytes, external, ok, message FROM backup_log ORDER BY ts DESC LIMIT ?1")?;
     let rows = st.query_map([limit], |r| {
-        Ok(BackupLogRow { ts: r.get(0)?, kind: r.get(1)?, path: r.get(2)?, sha256: r.get(3)?, size_bytes: r.get(4)?, external: r.get(5)?, ok: r.get(6)?, message: r.get(7)? })
+        Ok(BackupLogRow {
+            ts: r.get(0)?,
+            kind: r.get(1)?,
+            path: r.get(2)?,
+            sha256: r.get(3)?,
+            size_bytes: r.get(4)?,
+            external: r.get(5)?,
+            ok: r.get(6)?,
+            message: r.get(7)?,
+        })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
 }

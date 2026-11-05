@@ -45,27 +45,14 @@ pub fn compute_hash(
     reason: Option<&str>,
 ) -> String {
     let sep = "\u{1f}";
-    let payload = [
-        prev_hash,
-        ts,
-        user_id.unwrap_or(""),
-        user_name,
-        entity,
-        entity_id,
-        action,
-        old.unwrap_or("\u{0}"),
-        new.unwrap_or("\u{0}"),
-        reason.unwrap_or("\u{0}"),
-    ]
-    .join(sep);
+    let payload =
+        [prev_hash, ts, user_id.unwrap_or(""), user_name, entity, entity_id, action, old.unwrap_or("\u{0}"), new.unwrap_or("\u{0}"), reason.unwrap_or("\u{0}")]
+            .join(sep);
     sha256_hex(payload.as_bytes())
 }
 
 fn last_hash(conn: &Connection) -> Result<String> {
-    Ok(conn
-        .query_row("SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1", [], |r| r.get(0))
-        .optional()?
-        .unwrap_or_else(|| GENESIS.to_string()))
+    Ok(conn.query_row("SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1", [], |r| r.get(0)).optional()?.unwrap_or_else(|| GENESIS.to_string()))
 }
 
 /// Appends an entry. Must be called inside the same transaction as the change.
@@ -84,18 +71,7 @@ pub fn record<O: Serialize, N: Serialize>(
     let ts = now_ts();
     let prev = last_hash(conn)?;
     let reason = reason.map(str::trim).filter(|r| !r.is_empty());
-    let hash = compute_hash(
-        &prev,
-        &ts,
-        session.user_id.as_deref(),
-        &session.user_name,
-        entity,
-        entity_id,
-        action,
-        old_s.as_deref(),
-        new_s.as_deref(),
-        reason,
-    );
+    let hash = compute_hash(&prev, &ts, session.user_id.as_deref(), &session.user_name, entity, entity_id, action, old_s.as_deref(), new_s.as_deref(), reason);
     conn.execute(
         "INSERT INTO audit_log (ts, user_id, user_name, entity, entity_id, action, old_value, new_value, reason, prev_hash, hash)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",

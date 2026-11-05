@@ -163,11 +163,7 @@ impl Store {
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'active',?11,?12,?13,?14,?13,?14)",
             params![id, plot_id, person_id, kind, start, duration, expiry, fee, fee_rate_id, exempt, related_event_id, notes, ts, s.user_name],
         )?;
-        let lease = tx.query_row(
-            "SELECT l.*, NULL AS person_name FROM leases l WHERE l.id=?1",
-            [&id],
-            map_lease,
-        )?;
+        let lease = tx.query_row("SELECT l.*, NULL AS person_name FROM leases l WHERE l.id=?1", [&id], map_lease)?;
         audit::record(tx, s, "lease", &id, "create", None::<&()>, Some(&serde_json::json!({ "lease": lease, "superseded": prev })), None)?;
         Ok(lease)
     }
@@ -182,7 +178,11 @@ impl Store {
             (Some(s), _, _) => parse_date(s)?,
             (None, "renewal", Some(a)) => {
                 let exp = parse_date(&a.expiry_date)?;
-                if exp >= today() { exp } else { today() }
+                if exp >= today() {
+                    exp
+                } else {
+                    today()
+                }
             }
             _ => today(),
         };
@@ -241,7 +241,7 @@ impl Store {
         }
         let proposal = self.propose_lease(&plot.id, kind, if input.start_date.is_empty() { None } else { Some(&input.start_date) })?;
         let duration = input.duration_years.unwrap_or(proposal.duration_years);
-        if duration < 1 || duration > 200 {
+        if !(1..=200).contains(&duration) {
             return Err(CoreError::validation("durationYears", "invalid duration"));
         }
         let start = parse_date(&proposal.start_date)?;
@@ -267,11 +267,35 @@ impl Store {
                     )?;
                 }
                 if let Some(pid) = &person_id {
-                    self.insert_holder(&tx, s, &plot.id, pid, "primary", "", &proposal.start_date, if status == PlotStatus::Resellable { "újraértékesítés" } else { "megváltás" }, "")?;
+                    self.insert_holder(
+                        &tx,
+                        s,
+                        &plot.id,
+                        pid,
+                        "primary",
+                        "",
+                        &proposal.start_date,
+                        if status == PlotStatus::Resellable { "újraértékesítés" } else { "megváltás" },
+                        "",
+                    )?;
                 }
             }
         }
-        let lease = self.insert_lease(&tx, s, &plot.id, person_id.as_deref(), kind, &proposal.start_date, duration, &expiry, fee, proposal.fee_rate_id.as_deref(), proposal.fee_exempt, None, &input.notes)?;
+        let lease = self.insert_lease(
+            &tx,
+            s,
+            &plot.id,
+            person_id.as_deref(),
+            kind,
+            &proposal.start_date,
+            duration,
+            &expiry,
+            fee,
+            proposal.fee_rate_id.as_deref(),
+            proposal.fee_exempt,
+            None,
+            &input.notes,
+        )?;
         if status == PlotStatus::Resellable {
             // resale completed: the plot leaves the "újraértékesíthető" state
             tx.execute("UPDATE plots SET resale_ready_at=NULL, updated_at=?2, updated_by=?3 WHERE id=?1", params![plot.id, now_ts(), s.user_name])?;
@@ -301,7 +325,16 @@ impl Store {
             "UPDATE plot_holders SET end_date=?2, updated_at=?3, updated_by=?4 WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL",
             params![l.plot_id, cancel_date, now_ts(), s.user_name],
         )?;
-        audit::record(&tx, s, "lease", lease_id, "cancel", Some(&l), Some(&serde_json::json!({"cancelDate": cancel_date, "refundHuf": refund})), Some(&reason))?;
+        audit::record(
+            &tx,
+            s,
+            "lease",
+            lease_id,
+            "cancel",
+            Some(&l),
+            Some(&serde_json::json!({"cancelDate": cancel_date, "refundHuf": refund})),
+            Some(&reason),
+        )?;
         tx.commit()?;
         self.get_lease(lease_id)
     }
@@ -325,10 +358,7 @@ impl Store {
             return Ok(());
         }
         let ts = now_ts();
-        tx.execute(
-            "UPDATE leases SET voided_at=?2, voided_by=?3, void_reason=?4, updated_at=?2 WHERE id=?1",
-            params![lease_id, ts, s.user_name, reason],
-        )?;
+        tx.execute("UPDATE leases SET voided_at=?2, voided_by=?3, void_reason=?4, updated_at=?2 WHERE id=?1", params![lease_id, ts, s.user_name, reason])?;
         if l.status == "active" {
             tx.execute(
                 "UPDATE leases SET status='active', updated_at=?2 WHERE id = (
@@ -424,9 +454,8 @@ impl Store {
         let ts = now_ts();
         let mut n = 0;
         for pid in plot_ids {
-            let lease_id: Option<String> = tx
-                .query_row("SELECT id FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL", [pid], |r| r.get(0))
-                .optional()?;
+            let lease_id: Option<String> =
+                tx.query_row("SELECT id FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL", [pid], |r| r.get(0)).optional()?;
             let id = new_id();
             tx.execute(
                 "INSERT INTO notices (id, plot_id, lease_id, kind, notice_date, result, created_at, created_by, updated_at, updated_by)
@@ -455,7 +484,9 @@ impl Store {
         let grace = settings::get_i64(&self.conn, "rules.grace_period_days", Some(&plot.cemetery_id), 180)?;
         let allowed = resale_allowed_from(exp, inputs.last_notice, grace).ok_or_else(|| CoreError::new("not_notified", "no notice"))?;
         if today() < allowed || today() <= exp {
-            return Err(CoreError::new("grace_period_running", "grace period has not elapsed").with("from", fmt_date(allowed.max(exp + chrono::Duration::days(1)))));
+            return Err(
+                CoreError::new("grace_period_running", "grace period has not elapsed").with("from", fmt_date(allowed.max(exp + chrono::Duration::days(1))))
+            );
         }
         let tx = crate::db::tx(&self.conn)?;
         tx.execute(

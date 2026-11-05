@@ -58,12 +58,7 @@ fn fold_char(ch: char) -> String {
 
 /// Formats a name in Hungarian order: "dr. Kovács János".
 pub fn full_name(prefix: &str, family: &str, given: &str) -> String {
-    [prefix.trim(), family.trim(), given.trim()]
-        .iter()
-        .filter(|p| !p.is_empty())
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(" ")
+    [prefix.trim(), family.trim(), given.trim()].iter().filter(|p| !p.is_empty()).cloned().collect::<Vec<_>>().join(" ")
 }
 
 /// Sort name without prefix: "Kovács János" (FR-ELH-08 – prefixes do not affect order).
@@ -128,30 +123,12 @@ fn letter_weight(c: char) -> Option<Elem> {
 }
 
 /// Digraph/trigraph weights. Ordered longest first.
-const MULTI: &[(&str, u32)] = &[
-    ("dzs", w(7)),
-    ("cs", w(4)),
-    ("dz", w(6)),
-    ("gy", w(11)),
-    ("ly", w(17)),
-    ("ny", w(20)),
-    ("sz", w(27)),
-    ("ty", w(29)),
-    ("zs", w(37)),
-];
+const MULTI: &[(&str, u32)] =
+    &[("dzs", w(7)), ("cs", w(4)), ("dz", w(6)), ("gy", w(11)), ("ly", w(17)), ("ny", w(20)), ("sz", w(27)), ("ty", w(29)), ("zs", w(37))];
 
 /// Doubled long forms: "ssz" = "sz"+"sz", "ccs" = "cs"+"cs", "ddzs" = "dzs"+"dzs" ...
-const DOUBLED: &[(&str, &str)] = &[
-    ("ddzs", "dzs"),
-    ("ccs", "cs"),
-    ("ddz", "dz"),
-    ("ggy", "gy"),
-    ("lly", "ly"),
-    ("nny", "ny"),
-    ("ssz", "sz"),
-    ("tty", "ty"),
-    ("zzs", "zs"),
-];
+const DOUBLED: &[(&str, &str)] =
+    &[("ddzs", "dzs"), ("ccs", "cs"), ("ddz", "dz"), ("ggy", "gy"), ("lly", "ly"), ("nny", "ny"), ("ssz", "sz"), ("tty", "ty"), ("zzs", "zs")];
 
 fn weight_of_multi(m: &str) -> u32 {
     MULTI.iter().find(|(s, _)| *s == m).map(|(_, wt)| *wt).unwrap_or(0)
@@ -283,7 +260,10 @@ mod tests {
 
     #[test]
     fn sort_key_matches_collation() {
-        let names = ["Csonka", "Czakó", "Cukor", "Szabó", "Sütő", "Gyuri", "Gulyás", "Győző", "Ács", "Adorján", "Kerek", "Kerék", "Kis", "Kis Anna", "Kiss", "Hosszú", "Hoszu", "Zsolt", "Zoltán", "Dzsida", "Dzurik", "Ödön", "Oláh"];
+        let names = [
+            "Csonka", "Czakó", "Cukor", "Szabó", "Sütő", "Gyuri", "Gulyás", "Győző", "Ács", "Adorján", "Kerek", "Kerék", "Kis", "Kis Anna", "Kiss", "Hosszú",
+            "Hoszu", "Zsolt", "Zoltán", "Dzsida", "Dzurik", "Ödön", "Oláh",
+        ];
         let mut a: Vec<&str> = names.to_vec();
         let mut b: Vec<&str> = names.to_vec();
         a.sort_by(|x, y| hu_compare(x, y));

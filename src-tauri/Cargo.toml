@@ -17,7 +17,6 @@ lunda-core = { path = "../crates/lunda-core" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }

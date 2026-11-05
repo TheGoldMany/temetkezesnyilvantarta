@@ -10,3 +10,4 @@ src-tauri/gen/schemas
 test-results/
 playwright-report/
 .devdata/
+src-tauri/tauri.release.conf.json

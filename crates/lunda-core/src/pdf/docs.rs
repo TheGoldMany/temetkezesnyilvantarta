@@ -48,7 +48,7 @@ fn huf(n: i64) -> String {
     let s = n.abs().to_string();
     let mut out = String::new();
     for (i, ch) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
             out.push('\u{a0}');
         }
         out.push(ch);
@@ -147,7 +147,8 @@ fn letterhead(l: &mut Layout, op: &Operator, title: &str) {
 fn place_date(op: &Operator) -> String {
     let town = op.address.split(',').next().unwrap_or("").trim().trim_start_matches(|c: char| c.is_ascii_digit()).trim().to_string();
     let d = today();
-    format!("{}{}. {}. {}.", if town.is_empty() { String::new() } else { format!("{town}, ") }, d.year(), format!("{:02}", d.month()), format!("{:02}", d.day()))
+    let prefix = if town.is_empty() { String::new() } else { format!("{town}, ") };
+    format!("{prefix}{}. {:02}. {:02}.", d.year(), d.month(), d.day())
 }
 
 fn s_arg(args: &Value, k: &str) -> Result<String> {
@@ -243,7 +244,15 @@ fn holder_text(store: &Store, plot_id: &Option<String>) -> Result<String> {
 }
 
 #[allow(clippy::type_complexity)]
-fn register_book(store: &Store, op: &Operator, cemetery_id: &str, from: Option<&str>, to: Option<&str>, doc: &str, volume: &str) -> Result<(Vec<Page>, String, String)> {
+fn register_book(
+    store: &Store,
+    op: &Operator,
+    cemetery_id: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    doc: &str,
+    volume: &str,
+) -> Result<(Vec<Page>, String, String)> {
     let c = cemetery(store, cemetery_id)?;
     let period = match (from, to) {
         (Some(f), Some(t)) => format!("{} – {}", hu_date(f), hu_date(t)),
@@ -394,7 +403,12 @@ fn register_book(store: &Store, op: &Operator, cemetery_id: &str, from: Option<&
     l.gap(8.0);
     l.fields(&[("Kötet azonosító", volume.to_string()), ("Tartalmi kivonat (SHA-256)", hash.clone()), ("Nyomtatva", crate::util::now_ts())], 10.0);
     if !op.regulation.is_empty() {
-        l.paragraph(9.5, FontKind::Sans, &format!("Jogszabályi alap: 1999. évi XLIII. törvény 18. §, 145/1999. (X. 1.) Korm. rendelet 6. §, {}.", op.regulation), GREY);
+        l.paragraph(
+            9.5,
+            FontKind::Sans,
+            &format!("Jogszabályi alap: 1999. évi XLIII. törvény 18. §, 145/1999. (X. 1.) Korm. rendelet 6. §, {}.", op.regulation),
+            GREY,
+        );
     }
     l.signature(&place_date(op), &op.signer, &op.signer_title);
     pages_all.extend(l.pages);
@@ -454,7 +468,12 @@ fn crypt_details(store: &Store, l: &mut Layout, cemetery_id: &str, digest: &mut 
             digest.push_str(&r.cells.join("\u{1f}"));
             digest.push('\n');
         }
-        table(l, &[("Férőhely", 0.6), ("Nyugvó", 2.0), ("Elhelyezés napja", 1.0), ("Folyószám", 0.7)].map(|(t, w)| Column { title: t.into(), weight: w }), &rows, 8.5);
+        table(
+            l,
+            &[("Férőhely", 0.6), ("Nyugvó", 2.0), ("Elhelyezés napja", 1.0), ("Folyószám", 0.7)].map(|(t, w)| Column { title: t.into(), weight: w }),
+            &rows,
+            8.5,
+        );
         l.gap(12.0);
     }
     Ok(())
@@ -505,7 +524,7 @@ fn index_doc(store: &Store, op: &Operator, cemetery_id: &str) -> Result<(Vec<Pag
 fn information(store: &Store, op: &Operator, deceased_id: &str) -> Result<(Vec<Page>, String, Option<(String, String)>)> {
     let d = store.get_deceased(deceased_id)?;
     let ev = store.deceased_events(deceased_id)?;
-    let place = ev.iter().filter(|e| e.voided_at.is_none() && e.plot_id.is_some()).next_back().cloned();
+    let place = ev.iter().rfind(|e| e.voided_at.is_none() && e.plot_id.is_some()).cloned();
     let mut l = Layout::a4(false);
     letterhead(&mut l, op, "Felvilágosítás temetési helyről");
     let name = crate::text::full_name(&d.name_prefix, &d.family_name, &d.given_name);
@@ -528,7 +547,12 @@ fn information(store: &Store, op: &Operator, deceased_id: &str) -> Result<(Vec<P
         let h = 110.0 * MM;
         map_excerpt(store, &mut l, &plot, w, h)?;
         l.gap(h + 8.0);
-        l.paragraph(9.0, FontKind::Sans, "A keresett hely vastag kerettel jelölve. A parcellák, sorok és helyek számozása a helyszínen is fel van tüntetve.", GREY);
+        l.paragraph(
+            9.0,
+            FontKind::Sans,
+            "A keresett hely vastag kerettel jelölve. A parcellák, sorok és helyek számozása a helyszínen is fel van tüntetve.",
+            GREY,
+        );
     }
     l.gap(10.0);
     l.paragraph(9.0, FontKind::Sans, "A felvilágosítás személyes adatot (a rendelkezési jogosult adatait) nem tartalmaz.", GREY);
@@ -548,7 +572,9 @@ fn map_excerpt(store: &Store, l: &mut Layout, plot: &Plot, w: f32, h: f32) -> Re
         "SELECT identifier, map_x, map_y, map_w, map_h, map_rot, id FROM plots WHERE cemetery_id=?1 AND voided_at IS NULL AND map_x BETWEEN ?2 AND ?3 AND map_y BETWEEN ?4 AND ?5",
     )?;
     let near: Vec<(String, f64, f64, f64, f64, f64, String)> = st
-        .query_map(params![plot.cemetery_id, cx - r, cx + r, cy - r * 0.6, cy + r * 0.6], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
+        .query_map(params![plot.cemetery_id, cx - r, cx + r, cy - r * 0.6, cy + r * 0.6], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))
+        })?
         .collect::<std::result::Result<_, _>>()?;
     let scale = (w as f64 / (2.0 * r)).min(h as f64 / (1.2 * r)) as f32;
     let ox = x0 + w / 2.0 - (cx as f32) * scale;
@@ -603,7 +629,10 @@ fn lease_context(store: &Store, lease_id: &str) -> Result<(Lease, Plot, String, 
 
 fn person_line(p: &Option<Person>) -> (String, String) {
     match p {
-        Some(p) => (crate::text::full_name(&p.name_prefix, &p.family_name, &p.given_name), if p.mail_address.is_empty() { p.address.clone() } else { p.mail_address.clone() }),
+        Some(p) => (
+            crate::text::full_name(&p.name_prefix, &p.family_name, &p.given_name),
+            if p.mail_address.is_empty() { p.address.clone() } else { p.mail_address.clone() },
+        ),
         None => ("–".into(), String::new()),
     }
 }
@@ -638,7 +667,12 @@ fn lease_certificate(store: &Store, op: &Operator, lease_id: &str) -> Result<(Ve
         11.0,
     );
     l.gap(8.0);
-    l.paragraph(9.5, FontKind::Sans, "A rendelkezési jog a lejárat napján megszűnik, ha addig az újraváltás nem történik meg. A lejáratról az üzemeltető értesítést küld.", GREY);
+    l.paragraph(
+        9.5,
+        FontKind::Sans,
+        "A rendelkezési jog a lejárat napján megszűnik, ha addig az újraváltás nem történik meg. A lejáratról az üzemeltető értesítést küld.",
+        GREY,
+    );
     l.signature(&place_date(op), &op.signer, &op.signer_title);
     let mut pages = l.pages;
     add_footers(&mut pages, 18.0 * MM, &op.name);
@@ -659,7 +693,11 @@ fn fee_request(store: &Store, op: &Operator, lease_id: &str) -> Result<(Vec<Page
     table(
         &mut l,
         &[("Tétel", 3.0), ("Időszak", 2.0), ("Összeg", 1.0)].map(|(t, w)| Column { title: t.into(), weight: w }),
-        &[TableRow { cells: vec![kind.into(), format!("{} – {}", hu_date(&lease.start_date), hu_date(&lease.expiry_date)), huf(lease.fee_huf)], struck: false, bold_first: false }],
+        &[TableRow {
+            cells: vec![kind.into(), format!("{} – {}", hu_date(&lease.start_date), hu_date(&lease.expiry_date)), huf(lease.fee_huf)],
+            struck: false,
+            bold_first: false,
+        }],
         10.0,
     );
     l.gap(10.0);
@@ -742,7 +780,14 @@ fn grave_labels(store: &Store, op: &Operator, plot_ids: &[String]) -> Result<(Ve
             let bh = h / 2.0 - 25.0 * MM;
             page.ops.push(Op::Rect { x: left, y: top, w: bw, h: bh, fill: None, stroke: Some((BLACK, 1.5)), rot: 0.0 });
             page.ops.push(Op::Text { x: left + 10.0 * MM, y: top + 22.0 * MM, size: 26.0, font: FontKind::SerifBold, text: "FIGYELEM!".into(), color: BLACK });
-            page.ops.push(Op::Text { x: left + 10.0 * MM, y: top + 36.0 * MM, size: 30.0, font: FontKind::SerifBold, text: plot.identifier.clone(), color: BLACK });
+            page.ops.push(Op::Text {
+                x: left + 10.0 * MM,
+                y: top + 36.0 * MM,
+                size: 30.0,
+                font: FontKind::SerifBold,
+                text: plot.identifier.clone(),
+                color: BLACK,
+            });
             let msg = format!(
                 "E temetési hely megváltási ideje {} lejár(t). Kérjük, jelentkezzen az üzemeltetőnél: {}{}.",
                 lease.as_ref().map(|l| hu_date(&l.expiry_date)).unwrap_or_default(),
@@ -766,7 +811,15 @@ fn grave_labels(store: &Store, op: &Operator, plot_ids: &[String]) -> Result<(Ve
                 for (idx, c) in code.to_colors().iter().enumerate() {
                     if *c == qrcode::Color::Dark {
                         let (cx, cy) = ((idx % n) as f32, (idx / n) as f32);
-                        page.ops.push(Op::Rect { x: qx + cx * cell, y: qy + cy * cell, w: cell + 0.05, h: cell + 0.05, fill: Some(BLACK), stroke: None, rot: 0.0 });
+                        page.ops.push(Op::Rect {
+                            x: qx + cx * cell,
+                            y: qy + cy * cell,
+                            w: cell + 0.05,
+                            h: cell + 0.05,
+                            fill: Some(BLACK),
+                            stroke: None,
+                            rot: 0.0,
+                        });
                     }
                 }
             }
@@ -782,7 +835,11 @@ fn notice_board(store: &Store, op: &Operator, plot_ids: &[String]) -> Result<(Ve
         let plot = store.get_plot(pid)?;
         let lease = store.leases_for_plot(pid)?.into_iter().find(|l| l.status == "active" && l.voided_at.is_none());
         let occ = store.occupants(pid)?.iter().map(|o| o.deceased_name.clone()).collect::<Vec<_>>().join(", ");
-        rows.push(TableRow { cells: vec![plot.identifier.clone(), occ, lease.map(|l| hu_date(&l.expiry_date)).unwrap_or_default()], struck: false, bold_first: true });
+        rows.push(TableRow {
+            cells: vec![plot.identifier.clone(), occ, lease.map(|l| hu_date(&l.expiry_date)).unwrap_or_default()],
+            struck: false,
+            bold_first: true,
+        });
     }
     rows.sort_by_key(|r| crate::store::natural_key(&r.cells[0]));
     let mut l = Layout::a4(false);
@@ -894,8 +951,22 @@ fn map_doc(store: &Store, op: &Operator, cemetery_id: &str, paper: Paper) -> Res
     let margin = 12.0 * MM;
     let k = w / Paper::A4.size().1; // scale typography with the paper
     let mut page = Page { w, h, ops: vec![] };
-    page.ops.push(Op::Text { x: margin, y: margin + 18.0 * k, size: 18.0 * k, font: FontKind::SerifBold, text: format!("{} – helyszínrajz", c.name), color: BLACK });
-    page.ops.push(Op::Text { x: margin, y: margin + 32.0 * k, size: 9.0 * k, font: FontKind::Sans, text: format!("{} · {} · készült: {}", c.address, op.name, place_date(op)), color: GREY });
+    page.ops.push(Op::Text {
+        x: margin,
+        y: margin + 18.0 * k,
+        size: 18.0 * k,
+        font: FontKind::SerifBold,
+        text: format!("{} – helyszínrajz", c.name),
+        color: BLACK,
+    });
+    page.ops.push(Op::Text {
+        x: margin,
+        y: margin + 32.0 * k,
+        size: 9.0 * k,
+        font: FontKind::Sans,
+        text: format!("{} · {} · készült: {}", c.address, op.name, place_date(op)),
+        color: GREY,
+    });
     let top = margin + 58.0 * k;
     let legend_h = 18.0 * k;
     let area = (margin, top, w - 2.0 * margin, h - top - margin - legend_h);
@@ -917,8 +988,23 @@ fn map_doc(store: &Store, op: &Operator, cemetery_id: &str, paper: Paper) -> Res
     let ox = area.0 + (area.2 - (x1 - x0) * scale) / 2.0 - x0 * scale;
     let oy = area.1 + (area.3 - (y1 - y0) * scale) / 2.0 - y0 * scale;
     for s in &data.sections {
-        page.ops.push(Op::Rect { x: ox + s.map_x as f32 * scale, y: oy + s.map_y as f32 * scale, w: s.map_w as f32 * scale, h: s.map_h as f32 * scale, fill: Some(WHITE), stroke: Some((LIGHT, 0.8 * k)), rot: s.map_rot as f32 });
-        page.ops.push(Op::Text { x: ox + s.map_x as f32 * scale, y: oy + s.map_y as f32 * scale - 3.0 * k, size: 11.0 * k, font: FontKind::SerifBold, text: s.code.clone(), color: BLACK });
+        page.ops.push(Op::Rect {
+            x: ox + s.map_x as f32 * scale,
+            y: oy + s.map_y as f32 * scale,
+            w: s.map_w as f32 * scale,
+            h: s.map_h as f32 * scale,
+            fill: Some(WHITE),
+            stroke: Some((LIGHT, 0.8 * k)),
+            rot: s.map_rot as f32,
+        });
+        page.ops.push(Op::Text {
+            x: ox + s.map_x as f32 * scale,
+            y: oy + s.map_y as f32 * scale - 3.0 * k,
+            size: 11.0 * k,
+            font: FontKind::SerifBold,
+            text: s.code.clone(),
+            color: BLACK,
+        });
     }
     let label = scale * 10.0 >= 12.0; // plot ≥ ~12 pt wide → numbers fit
     for (ident, _si, st, prot, x, y, pw, ph, rot) in &data.plots {
@@ -939,7 +1025,14 @@ fn map_doc(store: &Store, op: &Operator, cemetery_id: &str, paper: Paper) -> Res
             let fs = (pw * scale * 0.4).min(8.0 * k);
             let tw = text_width(FontKind::Sans, fs, &n);
             let dark = matches!(status, PlotStatus::Free | PlotStatus::Expired);
-            page.ops.push(Op::Text { x: rx + pw * scale / 2.0 - tw / 2.0, y: ry + ph * scale / 2.0 + fs / 3.0, size: fs, font: FontKind::Sans, text: n, color: if dark { BLACK } else { WHITE } });
+            page.ops.push(Op::Text {
+                x: rx + pw * scale / 2.0 - tw / 2.0,
+                y: ry + ph * scale / 2.0 + fs / 3.0,
+                size: fs,
+                font: FontKind::Sans,
+                text: n,
+                color: if dark { BLACK } else { WHITE },
+            });
         }
     }
     // legend
@@ -970,7 +1063,11 @@ fn report_doc(store: &Store, op: &Operator, doc: &str, cemetery_id: Option<&str>
     letterhead(&mut l, op, title);
     if doc == "report_utilization" {
         let rows = store.utilization(cemetery_id)?;
-        let mut cols = vec![Column { title: "Temető".into(), weight: 2.0 }, Column { title: "Parcella".into(), weight: 1.0 }, Column { title: "Összesen".into(), weight: 1.0 }];
+        let mut cols = vec![
+            Column { title: "Temető".into(), weight: 2.0 },
+            Column { title: "Parcella".into(), weight: 1.0 },
+            Column { title: "Összesen".into(), weight: 1.0 },
+        ];
         for (_, n) in STATUS_HU {
             cols.push(Column { title: (*n).into(), weight: 1.0 });
         }

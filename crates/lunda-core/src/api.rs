@@ -183,9 +183,14 @@ mod tests {
         assert_eq!(list[0]["name"], "Próba temető");
         let types = dispatch(&store, &s, "plotTypes.list", &json!({})).unwrap();
         let single = types.as_array().unwrap().iter().find(|t| t["code"] == "single").unwrap()["id"].clone();
-        let r = dispatch(&store, &s, "structure.bulkCreate", &json!({"input": {
-            "cemeteryId": id, "sectionCode": "B", "rowFrom": 1, "rowTo": 2, "plotsPerRow": 3, "firstPlotNumber": 1, "plotTypeId": single
-        }}))
+        let r = dispatch(
+            &store,
+            &s,
+            "structure.bulkCreate",
+            &json!({"input": {
+                "cemeteryId": id, "sectionCode": "B", "rowFrom": 1, "rowTo": 2, "plotsPerRow": 3, "firstPlotNumber": 1, "plotTypeId": single
+            }}),
+        )
         .unwrap();
         assert_eq!(r["plotsCreated"], 6);
         let e = dispatch(&store, &s, "nope", &json!({})).unwrap_err();

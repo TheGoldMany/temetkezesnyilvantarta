@@ -15,8 +15,7 @@ pub fn today() -> NaiveDate {
 }
 
 pub fn parse_date(s: &str) -> Result<NaiveDate> {
-    NaiveDate::parse_from_str(s.trim(), "%Y-%m-%d")
-        .map_err(|_| CoreError::new("invalid_date", format!("invalid date: {s}")).with("value", s))
+    NaiveDate::parse_from_str(s.trim(), "%Y-%m-%d").map_err(|_| CoreError::new("invalid_date", format!("invalid date: {s}")).with("value", s))
 }
 
 pub fn fmt_date(d: NaiveDate) -> String {

@@ -64,7 +64,7 @@ fn decode(bytes: &[u8]) -> String {
 pub fn read_csv(bytes: &[u8]) -> Result<Table> {
     let text = decode(bytes);
     let first = text.lines().next().unwrap_or("");
-    let delim = [b';', b'\t', b','].into_iter().max_by_key(|d| first.matches(*d as char).count()).unwrap_or(b';');
+    let delim = b";\t,".iter().copied().max_by_key(|d| first.matches(*d as char).count()).unwrap_or(b';');
     let mut rdr = csv::ReaderBuilder::new().delimiter(delim).flexible(true).has_headers(true).from_reader(text.as_bytes());
     let headers = rdr.headers().map_err(|e| CoreError::new("import_format", e.to_string()))?.iter().map(|h| h.trim().to_string()).collect();
     let mut rows = vec![];
@@ -84,7 +84,10 @@ fn read_sheet(path: &Path, sheet: Option<&str>) -> Result<Table> {
     let names = wb.sheet_names().to_vec();
     let range = match sheet {
         Some(n) => wb.worksheet_range(n).map_err(|e| CoreError::new("import_format", e.to_string()))?,
-        None => wb.worksheet_range_at(0).ok_or_else(|| CoreError::new("import_format", "empty workbook"))?.map_err(|e| CoreError::new("import_format", e.to_string()))?,
+        None => wb
+            .worksheet_range_at(0)
+            .ok_or_else(|| CoreError::new("import_format", "empty workbook"))?
+            .map_err(|e| CoreError::new("import_format", e.to_string()))?,
     };
     let cell = |c: &Data| -> String {
         match c {
@@ -209,7 +212,13 @@ pub fn parse_hu_date(s: &str) -> Option<(NaiveDate, bool)> {
     let parts: Vec<&str> = t.split(|c: char| !c.is_ascii_digit()).filter(|p| !p.is_empty()).collect();
     if parts.len() == 3 {
         let (a, b, c) = (parts[0], parts[1], parts[2]);
-        let (y, m, d) = if a.len() == 4 { (a, b, c) } else if c.len() == 4 { (c, b, a) } else { return None };
+        let (y, m, d) = if a.len() == 4 {
+            (a, b, c)
+        } else if c.len() == 4 {
+            (c, b, a)
+        } else {
+            return None;
+        };
         return NaiveDate::from_ymd_opt(y.parse().ok()?, m.parse().ok()?, d.parse().ok()?).map(|d| (d, false));
     }
     if digits.len() == 8 && parts.len() == 1 {
@@ -273,7 +282,7 @@ fn parse_event_type(s: &str, default: &str) -> String {
 }
 
 fn parse_identifier(s: &str) -> Option<(String, String, String)> {
-    let parts: Vec<&str> = s.split(|c: char| c == '/' || c == '-' || c == ' ' || c == '.').map(str::trim).filter(|p| !p.is_empty()).collect();
+    let parts: Vec<&str> = s.split(['/', '-', ' ', '.']).map(str::trim).filter(|p| !p.is_empty()).collect();
     if parts.len() == 3 {
         Some((parts[0].to_uppercase(), parts[1].into(), parts[2].into()))
     } else {
@@ -424,7 +433,11 @@ pub fn import_rows(store: &Store, s: &Session, table: &Table, o: &ImportOptions)
             if raw.is_empty() {
                 default_plot_type.clone()
             } else {
-                types.iter().find(|t| normalize(&t.name) == raw || normalize(&t.code) == raw || normalize(&t.name).contains(&raw)).map(|t| t.id.clone()).unwrap_or(default_plot_type.clone())
+                types
+                    .iter()
+                    .find(|t| normalize(&t.name) == raw || normalize(&t.code) == raw || normalize(&t.name).contains(&raw))
+                    .map(|t| t.id.clone())
+                    .unwrap_or(default_plot_type.clone())
             }
         };
         if event_date.is_none() {
@@ -472,7 +485,14 @@ pub fn import_rows(store: &Store, s: &Session, table: &Table, o: &ImportOptions)
             } else {
                 let (p, f, g) = split_name(&holder_name);
                 Some(PersonRef::New {
-                    person: Person { name_prefix: p, family_name: f, given_name: g, address: get(row, m, "holderAddress"), phone: get(row, m, "holderPhone"), ..Default::default() },
+                    person: Person {
+                        name_prefix: p,
+                        family_name: f,
+                        given_name: g,
+                        address: get(row, m, "holderAddress"),
+                        phone: get(row, m, "holderPhone"),
+                        ..Default::default()
+                    },
                 })
             };
             let input = BurialInput {
@@ -508,14 +528,33 @@ pub fn import_rows(store: &Store, s: &Session, table: &Table, o: &ImportOptions)
                 if let Some(start) = lease_start.clone().or(event_date.clone()) {
                     let years: Option<i32> = get(row, m, "leaseYears").parse().ok();
                     let fee: Option<i64> = get(row, m, "leaseFee").replace([' ', '.'], "").trim_end_matches("Ft").trim().parse().ok();
-                    let has_lease: bool = store.conn.query_row("SELECT EXISTS(SELECT 1 FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL)", [&plot_id], |r| r.get(0))?;
+                    let has_lease: bool = store.conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM leases WHERE plot_id=?1 AND status='active' AND voided_at IS NULL)",
+                        [&plot_id],
+                        |r| r.get(0),
+                    )?;
                     if !has_lease && (years.is_some() || lease_expiry.is_some() || lease_start.is_some()) {
                         let ptype_full = store.get_plot_type(&ptype)?;
                         let duration = years.unwrap_or(ptype_full.default_lease_years.max(1));
-                        let expiry = lease_expiry.clone().unwrap_or_else(|| fmt_date(crate::rules::lease_expiry(crate::util::parse_date(&start).unwrap(), duration)));
+                        let expiry =
+                            lease_expiry.clone().unwrap_or_else(|| fmt_date(crate::rules::lease_expiry(crate::util::parse_date(&start).unwrap(), duration)));
                         let holder_id = store.primary_holder_id_pub(&plot_id)?;
                         let tx = crate::db::tx(&store.conn)?;
-                        store.insert_lease_pub(&tx, s, &plot_id, holder_id.as_deref(), "purchase", &start, duration, &expiry, fee.unwrap_or(0), None, false, None, "importált")?;
+                        store.insert_lease_pub(
+                            &tx,
+                            s,
+                            &plot_id,
+                            holder_id.as_deref(),
+                            "purchase",
+                            &start,
+                            duration,
+                            &expiry,
+                            fee.unwrap_or(0),
+                            None,
+                            false,
+                            None,
+                            "importált",
+                        )?;
                         tx.commit()?;
                     }
                 }
@@ -575,7 +614,7 @@ const EXPORT_TABLES: &[&str] = &[
 
 fn table_rows(store: &Store, table: &str) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     let mut st = store.conn.prepare(&format!("SELECT * FROM {table}"))?;
-    let cols: Vec<String> = st.column_names().into_iter().map(String::from).collect();
+    let cols: Vec<String> = st.column_names().map(String::from).collect();
     let skip: Vec<bool> = cols.iter().map(|c| c == "password_hash" || c == "search_text" || c == "sort_key").collect();
     let mut rows = vec![];
     let mut q = st.query([])?;
@@ -664,11 +703,41 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
         "full" => EXPORT_TABLES.iter().map(|t| table_rows(store, t).map(|(c, r)| (t.to_string(), c, r))).collect::<Result<_>>()?,
         "register" => {
             let ev = store.list_events(&EventFilter { cemetery_id: cem.clone(), include_voided: true, ..Default::default() })?.items;
-            let cols = ["folyószám", "temetés napja", "esemény", "elhunyt neve", "születési név", "születési idő", "anyja neve", "legutolsó lakóhely", "elhalálozás ideje", "hely", "eltemettető", "eltemettető lakcíme", "érvénytelenítve", "érvénytelenítés oka"];
+            let cols = [
+                "folyószám",
+                "temetés napja",
+                "esemény",
+                "elhunyt neve",
+                "születési név",
+                "születési idő",
+                "anyja neve",
+                "legutolsó lakóhely",
+                "elhalálozás ideje",
+                "hely",
+                "eltemettető",
+                "eltemettető lakcíme",
+                "érvénytelenítve",
+                "érvénytelenítés oka",
+            ];
             let rows = ev
                 .iter()
                 .map(|e| {
-                    vec![json!(e.folio), json!(e.event_date), json!(e.event_type), json!(e.deceased_name), json!(e.birth_name), json!(e.birth_date), json!(e.mother_name), json!(e.last_residence), json!(e.death_date), json!(e.plot_identifier), json!(e.arranger_name), json!(e.arranger_address), json!(e.voided_at), json!(e.void_reason)]
+                    vec![
+                        json!(e.folio),
+                        json!(e.event_date),
+                        json!(e.event_type),
+                        json!(e.deceased_name),
+                        json!(e.birth_name),
+                        json!(e.birth_date),
+                        json!(e.mother_name),
+                        json!(e.last_residence),
+                        json!(e.death_date),
+                        json!(e.plot_identifier),
+                        json!(e.arranger_name),
+                        json!(e.arranger_address),
+                        json!(e.voided_at),
+                        json!(e.void_reason),
+                    ]
                 })
                 .collect();
             vec![("Nyilvántartó könyv".into(), cols.iter().map(|s| s.to_string()).collect(), rows)]
@@ -676,14 +745,43 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
         "plots" => {
             let p = store.plot_summaries(&PlotFilter { cemetery_id: cem.clone(), ..Default::default() })?.items;
             let cols = ["hely", "típus", "állapot", "védett", "nyugvók száma", "nyugvók", "lejárat", "jogosult"];
-            let rows = p.iter().map(|p| vec![json!(p.identifier), json!(p.type_name), json!(p.status.as_str()), json!(p.protected), json!(p.occupants), json!(p.occupant_names), json!(p.lease_expiry), json!(p.holder_name)]).collect();
+            let rows = p
+                .iter()
+                .map(|p| {
+                    vec![
+                        json!(p.identifier),
+                        json!(p.type_name),
+                        json!(p.status.as_str()),
+                        json!(p.protected),
+                        json!(p.occupants),
+                        json!(p.occupant_names),
+                        json!(p.lease_expiry),
+                        json!(p.holder_name),
+                    ]
+                })
+                .collect();
             vec![("Temetési helyek".into(), cols.iter().map(|s| s.to_string()).collect(), rows)]
         }
         "expiries" => {
-            let f: ExpiryFilter = serde_json::from_value(args.get("filter").cloned().unwrap_or(json!({"withinDays": 365, "includeExpired": true}))).unwrap_or_default();
+            let f: ExpiryFilter =
+                serde_json::from_value(args.get("filter").cloned().unwrap_or(json!({"withinDays": 365, "includeExpired": true}))).unwrap_or_default();
             let e = store.expiries(s, &f)?;
             let cols = ["hely", "lejárat", "hátralévő nap", "állapot", "jogosult", "jogosult címe", "nyugvók", "utolsó értesítés"];
-            let rows = e.iter().map(|r| vec![json!(r.identifier), json!(r.lease_expiry), json!(r.days_left), json!(r.status.as_str()), json!(r.holder_name), json!(r.holder_address), json!(r.occupant_names), json!(r.last_notice)]).collect();
+            let rows = e
+                .iter()
+                .map(|r| {
+                    vec![
+                        json!(r.identifier),
+                        json!(r.lease_expiry),
+                        json!(r.days_left),
+                        json!(r.status.as_str()),
+                        json!(r.holder_name),
+                        json!(r.holder_address),
+                        json!(r.occupant_names),
+                        json!(r.last_notice),
+                    ]
+                })
+                .collect();
             vec![("Lejáratok".into(), cols.iter().map(|s| s.to_string()).collect(), rows)]
         }
         "report_utilization" => {
@@ -738,7 +836,12 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
                 })
                 .collect();
             let p = out_dir.join(format!("{base}.json"));
-            std::fs::write(&p, serde_json::to_vec_pretty(&json!({"app": "Lunda Temető", "version": env!("CARGO_PKG_VERSION"), "exportedAt": crate::util::now_ts(), "data": obj}))?)?;
+            std::fs::write(
+                &p,
+                serde_json::to_vec_pretty(
+                    &json!({"app": "Lunda Temető", "version": env!("CARGO_PKG_VERSION"), "exportedAt": crate::util::now_ts(), "data": obj}),
+                )?,
+            )?;
             p
         }
         "csv" => {
@@ -793,10 +896,12 @@ pub fn migration_check(store: &Store, cemetery_id: Option<&str>) -> Result<Migra
                AND NOT EXISTS (SELECT 1 FROM interment_events e WHERE e.deceased_id=d.id AND e.voided_at IS NULL
                     AND (e.plot_id IS NOT NULL OR e.destination<>'' OR e.receiver_name<>''))
              ORDER BY d.sort_key LIMIT 500")?,
-        leased_plots_without_deceased: q("SELECT p.identifier FROM plots p JOIN leases l ON l.plot_id=p.id AND l.status='active' AND l.voided_at IS NULL AND l.kind<>'prepurchase'
+        leased_plots_without_deceased: q(
+            "SELECT p.identifier FROM plots p JOIN leases l ON l.plot_id=p.id AND l.status='active' AND l.voided_at IS NULL AND l.kind<>'prepurchase'
              WHERE p.voided_at IS NULL AND (?1 IS NULL OR p.cemetery_id=?1)
                AND NOT EXISTS (SELECT 1 FROM interment_events e WHERE e.plot_id=p.id AND e.voided_at IS NULL)
-             ORDER BY p.identifier LIMIT 500")?,
+             ORDER BY p.identifier LIMIT 500",
+        )?,
         occupied_plots_without_lease: q("SELECT DISTINCT p.identifier FROM plots p JOIN interment_events e ON e.plot_id=p.id AND e.voided_at IS NULL
              JOIN plot_types t ON t.id=p.plot_type_id
              WHERE p.voided_at IS NULL AND (?1 IS NULL OR p.cemetery_id=?1) AND t.category NOT IN ('scatter','common')

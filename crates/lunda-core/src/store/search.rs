@@ -85,13 +85,18 @@ impl Store {
             let birth: Option<String> = r.get(3)?;
             let death: Option<String> = r.get(4)?;
             let birth_name: String = r.get(2)?;
-            let years = format!(
-                "{}–{}",
-                birth.as_deref().map(|b| &b[..4.min(b.len())]).unwrap_or("?"),
-                death.as_deref().map(|b| &b[..4.min(b.len())]).unwrap_or("?")
-            );
+            let years =
+                format!("{}–{}", birth.as_deref().map(|b| &b[..4.min(b.len())]).unwrap_or("?"), death.as_deref().map(|b| &b[..4.min(b.len())]).unwrap_or("?"));
             let subtitle = if birth_name.is_empty() { years } else { format!("{years} · szül. {birth_name}") };
-            deceased.push(SearchHit { kind: "deceased".into(), id: r.get(0)?, title: r.get(1)?, subtitle, plot_id: None, plot_identifier: None, cemetery_name: None });
+            deceased.push(SearchHit {
+                kind: "deceased".into(),
+                id: r.get(0)?,
+                title: r.get(1)?,
+                subtitle,
+                plot_id: None,
+                plot_identifier: None,
+                cemetery_name: None,
+            });
         }
         drop(rows);
         // resolve the resting place only for the returned rows
@@ -100,9 +105,8 @@ impl Store {
              WHERE e.deceased_id=?1 AND e.voided_at IS NULL ORDER BY e.event_date DESC, e.folio DESC LIMIT 1",
         )?;
         for mut h in deceased {
-            if let Some((pid, ident, cname)) = pst
-                .query_row([&h.id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
-                .optional()?
+            if let Some((pid, ident, cname)) =
+                pst.query_row([&h.id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).optional()?
             {
                 h.plot_id = Some(pid);
                 h.plot_identifier = Some(ident);

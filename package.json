@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "e2e": "pnpm build && playwright test"
   },
   "dependencies": {
     "@fontsource-variable/literata": "^5.3.0",
@@ -19,8 +20,6 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.4",
     "@tauri-apps/plugin-opener": "^2.7.2",
-    "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.14.1",
     "i18next": "^26.7.1",
     "lucide-react": "^1.69.0",
     "react": "^19.3.1",
@@ -28,6 +27,7 @@
     "react-i18next": "^17.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.4",
     "@tauri-apps/cli": "^2.12.4",
     "@testing-library/react": "^16.3.3",

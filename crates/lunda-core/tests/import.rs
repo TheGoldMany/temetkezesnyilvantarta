@@ -94,7 +94,8 @@ fn import_keeps_paper_folios_and_creates_plots_holders_leases() {
 fn import_requires_permission() {
     let fx = fixture();
     let t = read_csv(CSV.as_bytes()).unwrap();
-    let clerk_without_import = lunda_core::auth::Session { permissions: vec![lunda_core::auth::Permission::RecordEvents], ..session(lunda_core::auth::Role::Clerk) };
+    let clerk_without_import =
+        lunda_core::auth::Session { permissions: vec![lunda_core::auth::Permission::RecordEvents], ..session(lunda_core::auth::Role::Clerk) };
     assert_eq!(import_rows(&fx.store, &clerk_without_import, &t, &options(&fx, true, false, &t.headers)).unwrap_err().code, "forbidden");
 }
 

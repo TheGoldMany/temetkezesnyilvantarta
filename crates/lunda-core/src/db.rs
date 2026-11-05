@@ -50,10 +50,7 @@ fn configure(conn: &Connection) -> Result<()> {
 /// `before_migrate` is invoked with the current version when a migration is
 /// pending on an existing database (used to take a backup, NFR-KAR-01).
 pub fn open(path: &Path, key_hex: &str, before_migrate: impl FnOnce(&Connection, i64) -> Result<()>) -> Result<Connection> {
-    let conn = Connection::open_with_flags(
-        path,
-        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )?;
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
     apply_key(&conn, key_hex)?;
     configure(&conn)?;
     let v = user_version(&conn)?;
@@ -172,10 +169,7 @@ fn seed_initial(conn: &Connection) -> Result<()> {
         )?;
     }
     for (k, v) in crate::settings::DEFAULTS {
-        conn.execute(
-            "INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES (?1, '', ?2, ?3)",
-            params![k, v, ts],
-        )?;
+        conn.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES (?1, '', ?2, ?3)", params![k, v, ts])?;
     }
     Ok(())
 }
@@ -214,9 +208,7 @@ mod tests {
     fn trigram_fts_is_available() {
         let c = open_in_memory().unwrap();
         c.execute("INSERT INTO search_index(kind, ref_id, text) VALUES ('d','1','kovacs janos')", []).unwrap();
-        let n: i64 = c
-            .query_row("SELECT count(*) FROM search_index WHERE text LIKE '%vacs%'", [], |r| r.get(0))
-            .unwrap();
+        let n: i64 = c.query_row("SELECT count(*) FROM search_index WHERE text LIKE '%vacs%'", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 1);
     }
 
