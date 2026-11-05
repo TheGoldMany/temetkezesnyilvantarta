@@ -216,7 +216,7 @@ OV vagy EV tanúsítvány egy hitelesítésszolgáltatótól (pl. Sectigo, DigiC
 
 ## Letöltőoldal
 
-A `website/` mappa egy statikus oldal, amelyet a Vercel szolgál ki (`vercel.json`). Az oldal a GitHub API-ból kérdezi le a legújabb kiadást, és a látogató gépéhez illő telepítőt ajánlja: Windows x64, Windows ARM64 vagy Mac. A többi változat a „Másik rendszerre” alatt érhető el. Build nem kell hozzá. A képernyőképek a `website/img/` mappában vannak.
+A `website/` mappa egy statikus oldal, amelyet a Vercel szolgál ki (`vercel.json`). Az oldal a GitHub API-ból kérdezi le a legújabb kiadást, és a látogató gépéhez illő telepítőt ajánlja: Windows x64, Windows ARM64 vagy Mac. A többi változat a „Másik rendszerre” alatt érhető el. Build nem kell hozzá. A nyitóoldal temetőtérképét a `website/map.js` rajzolja (kitalált adatokkal).
 
 ## Felépítés
 
