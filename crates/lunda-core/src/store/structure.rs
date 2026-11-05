@@ -38,7 +38,7 @@ impl Store {
         non_empty("name", &input.name)?;
         let kind = if input.kind == "denominational" { "denominational" } else { "public" };
         let scope = if input.folio_scope == "yearly" { "yearly" } else { "continuous" };
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         let id = if input.id.is_empty() {
             let id = new_id();
@@ -70,7 +70,7 @@ impl Store {
         self.get_cemetery(&id)
     }
 
-    fn get_cemetery_tx(&self, tx: &rusqlite::Transaction, id: &str) -> Result<Cemetery> {
+    fn get_cemetery_tx(&self, tx: &rusqlite::Connection, id: &str) -> Result<Cemetery> {
         tx.query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery)
             .optional()?
             .ok_or_else(|| CoreError::not_found("cemetery", id))
@@ -101,7 +101,7 @@ impl Store {
         if t.default_lease_years < 0 || t.rest_period_years < 0 || t.coffin_capacity < 0 || t.urn_capacity < 0 {
             return Err(CoreError::validation("default_lease_years", "values must not be negative"));
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         let id = if t.id.is_empty() {
             let id = new_id();
@@ -181,7 +181,7 @@ impl Store {
         let pw = ptype.width_cm.unwrap_or(100) as f64 / 10.0;
         let ph = ptype.length_cm.unwrap_or(200) as f64 / 10.0;
 
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         let existing: Option<(String, f64, f64)> = tx
             .query_row(
@@ -354,7 +354,7 @@ impl Store {
             return Err(CoreError::validation("coffinCapacity", "capacity must not be negative"));
         }
         let ptype = self.get_plot_type(&p.plot_type_id)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE plots SET plot_type_id=?2, coffin_capacity=?3, urn_capacity=?4, width_cm=?5, length_cm=?6, rest_period_years=?7,
                 status_override=?8, status_override_reason=?9, unusable=?10, protected=?11, protection_kind=?12, protection_reason=?13,
@@ -392,7 +392,7 @@ impl Store {
             "section" => "sections",
             _ => return Err(CoreError::validation("entity", "plot or section")),
         };
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         for (id, x, y, w, h, rot) in items {
             if !(w.is_finite() && h.is_finite() && *w > 0.0 && *h > 0.0) {
                 return Err(CoreError::validation("size", "invalid geometry"));
@@ -433,7 +433,7 @@ impl Store {
         let y0 = t.map_y.min(a.map_y);
         let x1 = (t.map_x + t.map_w).max(a.map_x + a.map_w);
         let y1 = (t.map_y + t.map_h).max(a.map_y + a.map_h);
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         tx.execute(
             "UPDATE plots SET coffin_capacity=coffin_capacity+?2, urn_capacity=urn_capacity+?3, map_x=?4, map_y=?5, map_w=?6, map_h=?7, updated_at=?8, updated_by=?9 WHERE id=?1",
@@ -483,7 +483,7 @@ impl Store {
                 return Err(CoreError::new("void_in_use", "deceased has register entries; void the entries first"));
             }
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let n = tx.execute(
             &format!("UPDATE {table} SET voided_at=?2, voided_by=?3, void_reason=?4 WHERE id=?1 AND voided_at IS NULL"),
             params![id, now_ts(), s.user_name, reason],
@@ -507,7 +507,7 @@ impl Store {
         let kind = if r.kind == "ban" { "ban" } else { "condition" };
         self.get_plot(&r.plot_id)?;
         let id = new_id();
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         tx.execute(
             "INSERT INTO plot_restrictions (id, plot_id, kind, text, valid_from, valid_to, created_at, created_by, updated_at, updated_by)
@@ -526,7 +526,7 @@ impl Store {
         parse_date(&m.entry_date)?;
         self.get_plot(&m.plot_id)?;
         let id = new_id();
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         tx.execute(
             "INSERT INTO monuments (id, plot_id, entry_date, description, contractor, material, size, permit_date, protected, created_at, created_by, updated_at, updated_by)
@@ -867,14 +867,14 @@ impl Store {
     }
 }
 
-fn create_slots(tx: &rusqlite::Transaction, s: &Session, plot_id: &str, n: i32) -> Result<()> {
+fn create_slots(tx: &rusqlite::Connection, s: &Session, plot_id: &str, n: i32) -> Result<()> {
     for i in 1..=n {
         insert_slot(tx, s, plot_id, i)?;
     }
     Ok(())
 }
 
-fn insert_slot(tx: &rusqlite::Transaction, s: &Session, plot_id: &str, no: i32) -> Result<()> {
+fn insert_slot(tx: &rusqlite::Connection, s: &Session, plot_id: &str, no: i32) -> Result<()> {
     let ts = now_ts();
     tx.execute(
         "INSERT INTO crypt_slots (id, plot_id, slot_no, label, created_at, created_by, updated_at, updated_by) VALUES (?1,?2,?3,'',?4,?5,?4,?5)",
@@ -883,7 +883,7 @@ fn insert_slot(tx: &rusqlite::Transaction, s: &Session, plot_id: &str, no: i32) 
     Ok(())
 }
 
-fn update_section_bounds(tx: &rusqlite::Transaction, section_id: &str) -> Result<()> {
+fn update_section_bounds(tx: &rusqlite::Connection, section_id: &str) -> Result<()> {
     let (x0, y0, x1, y1): (Option<f64>, Option<f64>, Option<f64>, Option<f64>) = tx.query_row(
         "SELECT min(map_x), min(map_y), max(map_x+map_w), max(map_y+map_h) FROM plots WHERE section_id=?1 AND voided_at IS NULL",
         [section_id],

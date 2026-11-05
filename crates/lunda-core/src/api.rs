@@ -39,6 +39,18 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         "plots.list" => ok(store.plot_summaries(&arg(a, "filter")?)?),
         "plots.get" => ok(store.plot_detail(s, &arg::<String>(a, "id")?)?),
         "plots.find" => ok(store.find_plot(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "identifier")?)?),
+        "plots.ensure" => {
+            let ident: String = arg(a, "identifier")?;
+            let parts: Vec<&str> = ident.split('/').map(str::trim).collect();
+            if parts.len() != 3 || parts.iter().any(|p| p.is_empty()) {
+                return Err(CoreError::validation("plotIdentifier", "format: parcella/sor/hely").with("code", "invalid_identifier"));
+            }
+            let type_id = match opt::<String>(a, "plotTypeId")? {
+                Some(t) if !t.is_empty() => t,
+                _ => store.get_plot_type("single")?.id,
+            };
+            ok(store.ensure_plot(s, &arg::<String>(a, "cemeteryId")?, parts[0], parts[1], parts[2], &type_id)?)
+        }
         "plots.update" => ok(store.update_plot(s, &arg(a, "plot")?, opt::<String>(a, "reason")?.as_deref())?),
         "plots.geometry" => {
             let items: Vec<(String, f64, f64, f64, f64, f64)> = arg(a, "items")?;

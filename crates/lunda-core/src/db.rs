@@ -85,6 +85,46 @@ pub fn open_in_memory() -> Result<Connection> {
     Ok(conn)
 }
 
+/// Nestable transaction based on SAVEPOINTs: outside a transaction it acts
+/// like BEGIN, inside one (e.g. an import dry run) it nests. Rolls back on
+/// drop unless committed.
+pub struct Tx<'a> {
+    conn: &'a Connection,
+    name: String,
+    done: bool,
+}
+
+static TX_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+pub fn tx(conn: &Connection) -> Result<Tx<'_>> {
+    let name = format!("sp{}", TX_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    conn.execute_batch(&format!("SAVEPOINT {name}"))?;
+    Ok(Tx { conn, name, done: false })
+}
+
+impl Tx<'_> {
+    pub fn commit(mut self) -> Result<()> {
+        self.conn.execute_batch(&format!("RELEASE {}", self.name))?;
+        self.done = true;
+        Ok(())
+    }
+}
+
+impl std::ops::Deref for Tx<'_> {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        self.conn
+    }
+}
+
+impl Drop for Tx<'_> {
+    fn drop(&mut self) {
+        if !self.done {
+            let _ = self.conn.execute_batch(&format!("ROLLBACK TO {0}; RELEASE {0}", self.name));
+        }
+    }
+}
+
 pub fn user_version(conn: &Connection) -> Result<i64> {
     Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
 }

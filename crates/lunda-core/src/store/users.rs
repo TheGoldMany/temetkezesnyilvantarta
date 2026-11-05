@@ -69,7 +69,7 @@ impl Store {
         let hash = hash_password(password)?;
         let id = new_id();
         let ts = now_ts();
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "INSERT INTO users (id, username, display_name, role, extra_permissions, password_hash, must_change_password, created_at, created_by, updated_at, updated_by)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?8,?9)",
@@ -92,7 +92,7 @@ impl Store {
                 return Err(CoreError::new("last_admin", "at least one active administrator is required"));
             }
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE users SET display_name=?2, role=?3, extra_permissions=?4, active=?5, updated_at=?6, updated_by=?7 WHERE id=?1",
             params![id, display_name.trim(), role.as_str(), serde_json::to_string(extra)?, active, now_ts(), s.user_name],

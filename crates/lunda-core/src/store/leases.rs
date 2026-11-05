@@ -42,7 +42,7 @@ impl Store {
             return Err(CoreError::validation("amountHuf", "amount must not be negative"));
         }
         non_empty("feeKind", &r.fee_kind)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         tx.execute(
             "UPDATE fee_rates SET valid_to=?5, updated_at=?6, updated_by=?7
@@ -109,6 +109,25 @@ impl Store {
             )
             .optional()?
             .ok_or_else(|| CoreError::not_found("lease", id))
+    }
+
+    pub(crate) fn insert_lease_pub(
+        &self,
+        tx: &rusqlite::Connection,
+        s: &Session,
+        plot_id: &str,
+        person_id: Option<&str>,
+        kind: &str,
+        start: &str,
+        duration: i32,
+        expiry: &str,
+        fee: i64,
+        fee_rate_id: Option<&str>,
+        exempt: bool,
+        related_event_id: Option<&str>,
+        notes: &str,
+    ) -> Result<Lease> {
+        self.insert_lease(tx, s, plot_id, person_id, kind, start, duration, expiry, fee, fee_rate_id, exempt, related_event_id, notes)
     }
 
     /// Inserts a lease and supersedes the currently active one (invariant: one active lease per plot).
@@ -232,7 +251,7 @@ impl Store {
             return Err(CoreError::validation("feeHuf", "fee must not be negative"));
         }
 
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let person_id = match &input.person {
             Some(p) => Some(self.resolve_person(&tx, s, p)?),
             None => self.primary_holder_id(&tx, &plot.id)?,
@@ -273,7 +292,7 @@ impl Store {
         let cd = parse_date(cancel_date)?;
         // the original purchase fee is the refund base
         let refund = if occ.is_empty() { pro_rata_refund(parse_date(&l.start_date)?, parse_date(&l.expiry_date)?, cd, l.fee_huf) } else { 0 };
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE leases SET status='cancelled', cancel_date=?2, refund_huf=?3, updated_at=?4, updated_by=?5 WHERE id=?1",
             params![lease_id, cancel_date, refund, now_ts(), s.user_name],
@@ -290,7 +309,7 @@ impl Store {
     pub fn void_lease(&self, s: &Session, lease_id: &str, reason: Option<&str>) -> Result<()> {
         s.require(Permission::VoidEntries)?;
         let reason = require_reason(reason)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         self.void_lease_tx(&tx, s, lease_id, &reason)?;
         tx.commit()?;
         Ok(())
@@ -401,7 +420,7 @@ impl Store {
             return Err(CoreError::validation("kind", "invalid notice kind"));
         }
         parse_date(notice_date)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         let mut n = 0;
         for pid in plot_ids {
@@ -438,7 +457,7 @@ impl Store {
         if today() < allowed || today() <= exp {
             return Err(CoreError::new("grace_period_running", "grace period has not elapsed").with("from", fmt_date(allowed.max(exp + chrono::Duration::days(1)))));
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE plots SET resale_ready_at=?2, updated_at=?3, updated_by=?4 WHERE id=?1",
             params![plot_id, fmt_date(today()), now_ts(), s.user_name],

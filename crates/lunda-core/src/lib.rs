@@ -12,6 +12,7 @@ pub mod backup;
 pub mod auth;
 pub mod db;
 pub mod error;
+pub mod io;
 pub mod model;
 pub mod pdf;
 pub mod rules;

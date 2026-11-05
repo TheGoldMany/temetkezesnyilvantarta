@@ -20,5 +20,9 @@ argon2 = "0.5"
 rand = "0.8"
 thiserror = "2"
 krilla = "0.8"
+calamine = { version = "0.38", features = ["dates"] }
+csv = "1"
+rust_xlsxwriter = "0.102"
+encoding_rs = "0.8"
 ttf-parser = "0.25"
 qrcode = { version = "0.14", default-features = false }

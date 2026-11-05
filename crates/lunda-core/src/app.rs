@@ -149,6 +149,31 @@ impl App {
                 let a = args.get("args").unwrap_or(&empty);
                 Ok(serde_json::to_value(crate::pdf::generate(store, &s, &doc, a, &self.data_dir.join("exports"))?)?)
             }
+            "export.file" => {
+                let kind = str_arg("kind")?;
+                let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("xlsx").to_string();
+                let empty = Value::Object(Default::default());
+                let a = args.get("args").unwrap_or(&empty);
+                Ok(serde_json::to_value(crate::io::export(store, &s, &kind, &format, a, &self.data_dir.join("exports"))?)?)
+            }
+            "import.read" | "import.run" => {
+                s.require(Permission::Import)?;
+                let sheet = args.get("sheet").and_then(|v| v.as_str());
+                let table = match (args.get("path").and_then(|v| v.as_str()), args.get("content").and_then(|v| v.as_str())) {
+                    (Some(p), _) => crate::io::read_table(Path::new(p), sheet)?,
+                    (None, Some(c)) => crate::io::read_upload(&str_arg("fileName")?, c, sheet)?,
+                    _ => return Err(CoreError::new("bad_request", "path or content required")),
+                };
+                if method == "import.read" {
+                    let mapping = crate::io::guess_mapping(&table.headers);
+                    let sample: Vec<Vec<String>> = table.rows.iter().take(10).cloned().collect();
+                    Ok(serde_json::json!({ "headers": table.headers, "rows": sample, "rowCount": table.rows.len(), "sheetNames": table.sheet_names, "mapping": mapping, "targets": crate::io::TARGETS }))
+                } else {
+                    let opts: crate::io::ImportOptions = serde_json::from_value(args.get("options").cloned().unwrap_or_default())?;
+                    Ok(serde_json::to_value(crate::io::import_rows(store, &s, &table, &opts)?)?)
+                }
+            }
+            "import.check" => Ok(serde_json::to_value(crate::io::migration_check(store, args.get("cemeteryId").and_then(|v| v.as_str()))?)?),
             "backup.log" => Ok(serde_json::to_value(backup::log(&store.conn, 50)?)?),
             "backup.verify" => {
                 s.require(Permission::Backup)?;

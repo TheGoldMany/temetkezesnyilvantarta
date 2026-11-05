@@ -249,7 +249,7 @@ pub fn load_sample(store: &Store, s: &Session) -> Result<SampleSummary> {
 /// transaction (bypassing per-row audit) – never used on real databases.
 pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<String> {
     let mut r = StdRng::seed_from_u64(42);
-    let tx = store.conn.unchecked_transaction()?;
+    let tx = crate::db::tx(&store.conn)?;
     let ts = now_ts();
     let cem = new_id();
     tx.execute(

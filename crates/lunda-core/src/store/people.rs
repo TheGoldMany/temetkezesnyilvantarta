@@ -93,6 +93,16 @@ impl Store {
         Ok(d)
     }
 
+    /// Import path: inserts without the mandatory-column validation (the gaps
+    /// are reported as warnings by the importer).
+    pub(crate) fn insert_deceased_unchecked(&self, tx: &rusqlite::Connection, s: &Session, d: &Deceased) -> Result<String> {
+        Ok(self.insert_deceased(tx, s, d, false)?.id)
+    }
+
+    pub(crate) fn primary_holder_id_pub(&self, plot_id: &str) -> Result<Option<String>> {
+        self.primary_holder_id(&self.conn, plot_id)
+    }
+
     /// Updates a deceased person's data. When the person already appears in
     /// the register, this is a correction (FR-JOG-03): needs `correct_entries`
     /// and a justification; the original stays in the audit log.
@@ -110,7 +120,7 @@ impl Store {
         } else {
             None
         };
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE deceased SET name_prefix=?2, family_name=?3, given_name=?4, birth_name=?5, sex=?6, birth_place=?7, birth_date=?8, mother_name=?9,
                 last_residence=?10, death_place=?11, death_date=?12, death_cert_no=?13, unknown_identity=?14, authority_name=?15, case_number=?16,
@@ -198,7 +208,7 @@ impl Store {
             return Err(CoreError::forbidden("record_events"));
         }
         non_empty("familyName", &p.family_name)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let out = if p.id.is_empty() {
             self.insert_person(&tx, s, p)?
         } else {
@@ -304,7 +314,7 @@ impl Store {
             non_empty("legalBasis", &input.legal_basis)?;
         }
         self.get_plot(&input.plot_id)?;
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let person_id = self.resolve_person(&tx, s, person)?;
         if role == "primary" {
             let current: Vec<(String, String)> = {

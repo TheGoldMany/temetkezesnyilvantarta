@@ -164,6 +164,11 @@ impl Store {
         let verdict = check_burial(&ctx);
         let override_reason = if verdict.allowed {
             None
+        } else if input.historical_folio.is_some() && s.can(Permission::Import) {
+            // QUESTIONS Q17: entries copied from the paper register record
+            // past facts; the check result is kept as a note instead of blocking.
+            let codes: Vec<String> = verdict.blockers.iter().map(|b| b.code.clone()).collect();
+            Some(format!("Papír alapú nyilvántartásból átvett bejegyzés (ellenőrzés: {})", codes.join(", ")))
         } else {
             match input.override_reason.as_deref().map(str::trim).filter(|r| r.len() >= 3) {
                 Some(r) if s.can(Permission::OverrideChecks) => Some(r.to_string()),
@@ -172,7 +177,7 @@ impl Store {
         };
         let proposal = if input.lease.create { self.lease_proposal_for_burial(&plot, date, container)? } else { None };
 
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let deceased_id = match &input.deceased {
             DeceasedRef::Existing { id } => {
                 let d = tx.query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased).optional()?.ok_or_else(|| CoreError::not_found("deceased", id))?;
@@ -304,7 +309,7 @@ impl Store {
                 None => non_empty("destination", &input.destination)?,
             }
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let (scope_key, folio) = allocate_folio(&tx, &src.cemetery_id, date, input.historical_folio)?;
         let id = new_id();
         let ts = now_ts();
@@ -341,7 +346,7 @@ impl Store {
         if dependants > 0 {
             return Err(CoreError::new("void_in_use", "a later removal refers to this entry; void that first"));
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         let ts = now_ts();
         tx.execute(
             "UPDATE interment_events SET voided_at=?2, voided_by=?3, void_reason=?4, updated_at=?2, updated_by=?3 WHERE id=?1",
@@ -371,7 +376,7 @@ impl Store {
         if old.voided_at.is_some() {
             return Err(CoreError::new("immutable", "voided record is final"));
         }
-        let tx = self.conn.unchecked_transaction()?;
+        let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "UPDATE interment_events SET event_date=?2, notes=?3, arranger_id=?4, receiver_name=?5, receiver_address=?6, destination=?7, updated_at=?8, updated_by=?9 WHERE id=?1",
             params![e.id, e.event_date, e.notes, e.arranger_id, e.receiver_name, e.receiver_address, e.destination, now_ts(), s.user_name],

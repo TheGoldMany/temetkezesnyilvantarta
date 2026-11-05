@@ -98,6 +98,10 @@ fn operator(store: &Store) -> Result<Operator> {
     })
 }
 
+pub fn base64_decode_pub(s: &str) -> Option<Vec<u8>> {
+    base64_decode(s)
+}
+
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = Vec::with_capacity(s.len() * 3 / 4);

@@ -84,7 +84,7 @@ pub fn all(conn: &Connection, cemetery_id: Option<&str>) -> Result<BTreeMap<Stri
 pub fn set_many(conn: &Connection, session: &Session, cemetery_id: Option<&str>, values: &BTreeMap<String, String>) -> Result<()> {
     session.require(Permission::ManageSettings)?;
     let cid = cemetery_id.unwrap_or("");
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::tx(&conn)?;
     for (k, v) in values {
         if k.starts_with("internal.") && session.user_id.is_some() {
             return Err(CoreError::forbidden("internal_settings"));
