@@ -18,7 +18,7 @@ export function setSessionExpiredHandler(fn: () => void) {
   onSessionExpired = fn;
 }
 
-async function command<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+export async function command<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
     const res = await fetch("/rpc", {
       method: "POST",

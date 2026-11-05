@@ -20,7 +20,8 @@ export type Route =
   | { view: "reports" }
   | { view: "importExport" }
   | { view: "quickEntry" }
-  | { view: "settings"; tab?: string };
+  | { view: "settings"; tab?: string }
+  | { view: "platform" };
 
 interface Nav {
   route: Route;

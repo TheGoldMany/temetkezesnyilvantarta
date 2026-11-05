@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
-import { api, shell } from "../../lib/api";
+import { api, command, shell } from "../../lib/api";
 import { PERMISSIONS, type Cemetery, type FeeRate, type PlotType, type User } from "../../lib/types";
 import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, Tabs, TextField, useErrorText } from "../../components/ui";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
@@ -11,15 +11,16 @@ import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSect
 import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
 import { SecurityPanel } from "../account/Security";
+import { SubscriptionTab, huf } from "../account/Subscription";
 import { AuditTab } from "./AuditTab";
 
-type Tab = "operator" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "backup" | "audit" | "appearance" | "about";
+type Tab = "operator" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "subscription" | "backup" | "audit" | "appearance" | "about";
 
 export function SettingsView({ tab }: { tab?: string }) {
   const { t } = useTranslation();
   const { can } = useApp();
   const [current, setCurrent] = useState<Tab>((tab as Tab) ?? "operator");
-  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", "backup", "audit", "appearance", "about"];
+  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", ...(can("manage_settings") ? (["subscription"] as Tab[]) : []), "backup", "audit", "appearance", "about"];
   return (
     <>
       <PageHeader title={t("settings.title")} />
@@ -31,6 +32,7 @@ export function SettingsView({ tab }: { tab?: string }) {
         {current === "fees" && <FeesTab />}
         {current === "rules" && <SettingsForm keys={RULE_KEYS} />}
         {current === "users" && <UsersTab />}
+        {current === "subscription" && <SubscriptionTab />}
         {current === "account" && (
           <div className="flex flex-col gap-6">
             <SecurityPanel />
@@ -212,6 +214,24 @@ function CemeteriesTab() {
   );
 }
 
+/** FR-ELO-01: what a new cemetery adds to the subscription, shown before creating it. */
+function CemeteryPriceNotice() {
+  const { t } = useTranslation();
+  const q = useQuery({
+    queryKey: ["billing-quote"],
+    queryFn: () => command<{ inTrial: boolean; monthlyNet?: number; yearlyNet?: number; plan?: string; unitNet?: number; nowGross?: number; periodEnd?: string }>("billing_quote_cemetery"),
+  });
+  if (!q.data) return null;
+  const d = q.data;
+  return (
+    <Alert tone="info" title={t("billing.newCemeteryTitle")}>
+      {d.plan
+        ? t("billing.newCemeteryPaid", { now: huf(d.nowGross ?? 0), date: d.periodEnd, unit: huf(d.unitNet ?? 0), per: t(`billing.per.${d.plan}`) })
+        : t("billing.newCemeteryTrial", { monthly: huf(d.monthlyNet ?? 45000), yearly: huf(d.yearlyNet ?? 450000) })}
+    </Alert>
+  );
+}
+
 function CemeteryDialog({ cemetery, onClose }: { cemetery: Cemetery; onClose: () => void }) {
   const { t } = useTranslation();
   const [c, setC] = useState(cemetery);
@@ -247,6 +267,11 @@ function CemeteryDialog({ cemetery, onClose }: { cemetery: Cemetery; onClose: ()
       }
     >
       <div className="grid gap-4 md:grid-cols-2">
+        {!cemetery.id && (
+          <div className="md:col-span-2">
+            <CemeteryPriceNotice />
+          </div>
+        )}
         <TextField className="md:col-span-2" label={t("settings.cemeteryName")} value={c.name} onChange={set("name")} required />
         <TextField label={t("settings.operatorAddress")} value={c.address} onChange={set("address")} />
         <TextField label={t("settings.parcelNumber")} value={c.parcelNumber} onChange={set("parcelNumber")} />

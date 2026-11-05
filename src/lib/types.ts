@@ -86,6 +86,7 @@ export interface AccountInfo {
   tenantStatus: "trial" | "active" | "read_only" | "closed";
   trialEndsAt: string;
   trialDaysLeft: number;
+  superadmin?: boolean;
 }
 
 /** First sign-in step answer when an authenticator code is needed. */

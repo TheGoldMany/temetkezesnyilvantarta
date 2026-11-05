@@ -158,7 +158,7 @@ export function SecurityPanel() {
 /** Notices under the top bar: unconfirmed e-mail address, trial days left. */
 export function AccountBanners() {
   const { t } = useTranslation();
-  const { status } = useApp();
+  const { status, can, nav } = useApp();
   const [sent, setSent] = useState(false);
   const acc = status?.account;
   if (!acc) return null;
@@ -184,8 +184,23 @@ export function AccountBanners() {
         </div>
       )}
       {acc.tenantStatus === "trial" && (
-        <div className="no-print border-b border-seam bg-slab px-6 py-2 text-sm text-granite" role="status" data-testid="trial-banner">
-          {t("account.trialLeft", { count: acc.trialDaysLeft, date: acc.trialEndsAt })}
+        <div className="no-print flex flex-wrap items-center gap-3 border-b border-seam bg-slab px-6 py-2 text-sm text-granite" role="status" data-testid="trial-banner">
+          <span>{t("account.trialLeft", { count: acc.trialDaysLeft, date: acc.trialEndsAt })}</span>
+          {can("manage_settings") && (
+            <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
+              {t("account.subscribe")}
+            </button>
+          )}
+        </div>
+      )}
+      {acc.tenantStatus === "read_only" && (
+        <div className="no-print flex flex-wrap items-center gap-3 border-b border-accent/40 bg-lichen px-6 py-2 text-sm font-semibold" role="alert" data-testid="readonly-banner">
+          <span>{t("account.readOnly")}</span>
+          {can("manage_settings") && (
+            <button type="button" className="text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
+              {t("account.subscribe")}
+            </button>
+          )}
         </div>
       )}
     </>

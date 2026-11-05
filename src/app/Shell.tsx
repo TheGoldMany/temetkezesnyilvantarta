@@ -15,6 +15,7 @@ import {
   LogOut,
   Search,
   ArrowLeft,
+  Building2,
 } from "lucide-react";
 import { useApp, type Route } from "./context";
 import { api, shell } from "../lib/api";
@@ -120,7 +121,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4">
           <ul className="flex min-w-max">
-            {NAV.map((n) => {
+            {[...NAV, ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
               return (

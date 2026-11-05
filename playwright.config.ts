@@ -24,5 +24,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/`,
     timeout: 300_000,
     reuseExistingServer: false,
+    env: { SUPERADMIN_EMAILS: "admin@minta.temisz.hu" },
   },
 });

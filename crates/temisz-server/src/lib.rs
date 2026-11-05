@@ -7,7 +7,10 @@
 //! * every signed-in request runs inside the customer's own schema.
 
 pub mod accounts;
+pub mod billing;
 pub mod mail;
+pub mod stripe;
+pub mod szamlazz;
 pub mod totp;
 
 use std::path::{Path, PathBuf};
@@ -24,7 +27,11 @@ pub const COOKIE: &str = "temisz_session";
 pub const SESSION_HOURS: i64 = 12;
 pub const TRIAL_DAYS: i64 = 30;
 
-const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/0001_platform.sql")), (2, include_str!("../migrations/0002_accounts.sql"))];
+const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
+    (1, include_str!("../migrations/0001_platform.sql")),
+    (2, include_str!("../migrations/0002_accounts.sql")),
+    (3, include_str!("../migrations/0003_billing.sql")),
+];
 
 // ---------------------------------------------------------------- HTTP types
 
@@ -104,6 +111,28 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
+        ("POST", "/api/stripe/webhook") => stripe_webhook(store, req),
+        ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
+            let secret = std::env::var("CRON_SECRET").unwrap_or_default();
+            let ok = (!secret.is_empty() && req.header("authorization") == Some(&format!("Bearer {secret}"))) || cfg.dev_mode;
+            if !ok {
+                return Response::text(401, "unauthorized");
+            }
+            match billing::daily(store, &accounts::base_url(req)) {
+                Ok(v) => Response::json(&v),
+                Err(e) => Response::text(500, &e.to_string()),
+            }
+        }
+        ("POST", "/dev/expire-trial") if cfg.dev_mode => {
+            let email = req.path.split("email=").nth(1).unwrap_or("").replace("%40", "@");
+            match store.conn.execute(
+                "UPDATE platform.tenants SET trial_ends_at = now() - interval '1 minute' WHERE id = (SELECT tenant_id FROM platform.accounts WHERE lower(email) = lower(?1))",
+                params![email],
+            ) {
+                Ok(n) => Response::text(200, &n.to_string()),
+                Err(e) => Response::text(500, &e.to_string()),
+            }
+        }
         ("GET", "/dev/outbox") if cfg.dev_mode => {
             let to = req.path.split("to=").nth(1).unwrap_or("").replace("%40", "@");
             let rows = store.conn.query_row(
@@ -145,7 +174,9 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
         let signed_in = |c: &Current| -> Result<Value> {
             let mut v = serde_json::to_value(app::status(Some(store), Some(c.session.clone())))?;
             let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+            billing::effective_status(&store.conn, &c.tenant_id)?;
             v["account"] = accounts::account_status(store, &acc, c.mfa_setup)?;
+            v["account"]["superadmin"] = json!(is_superadmin(&acc.email));
             v["web"] = json!(true);
             Ok(v)
         };
@@ -258,10 +289,16 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 if c.mfa_setup {
                     return Err(CoreError::new("totp_required", "turn on two-factor sign-in first"));
                 }
+                // after the trial or an unpaid proforma the register can only be read
+                let read_only = billing::effective_status(&store.conn, &c.tenant_id)? == "read_only";
+                if read_only && !billing::is_read_method(&method) {
+                    return Err(CoreError::new("read_only", "the account is read-only until a subscription is paid"));
+                }
+                let session = if read_only { billing::read_only_session(&c.session) } else { c.session.clone() };
                 match method.as_str() {
-                    "users.create" => accounts::invite(store, &c.session, &c.tenant_id, a, req),
+                    "users.create" => accounts::invite(store, &session, &c.tenant_id, a, req),
                     "users.update" => {
-                        let v = call_api(store, &c.session, &method, a)?;
+                        let v = call_api(store, &session, &method, a)?;
                         if a["active"].as_bool() == Some(false) {
                             store.conn.execute(
                                 "DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1 AND user_id = ?2)",
@@ -270,10 +307,71 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                         }
                         Ok(v)
                     }
-                    "users.changePassword" if a["id"].as_str() != c.session.user_id.as_deref() => {
+                    "users.changePassword" if a["id"].as_str() != session.user_id.as_deref() => {
                         Err(CoreError::new("not_available", "send a password link instead"))
                     }
-                    _ => call_api(store, &c.session, &method, a),
+                    "cemeteries.save" | "records.void" => {
+                        let v = call_api(store, &session, &method, a)?;
+                        // a new or archived cemetery changes the subscription quantity
+                        billing::sync_cemetery_count(store, &c.tenant_id)?;
+                        Ok(v)
+                    }
+                    _ => call_api(store, &session, &method, a),
+                }
+            }
+            "billing_overview" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                billing::overview(store, &c.tenant_id)
+            }
+            "billing_save_details" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                billing::save_details(&store.conn, &c.tenant_id, args)?;
+                billing::overview(store, &c.tenant_id)
+            }
+            "billing_subscribe" => {
+                let c = require(store, req)?;
+                billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"), &accounts::base_url(req))
+            }
+            "billing_portal" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                let sub = billing::subscription(&store.conn, &c.tenant_id)?
+                    .and_then(|x| x.stripe_customer)
+                    .ok_or_else(|| CoreError::new("card_unavailable", "no card subscription"))?;
+                Ok(json!({ "redirect": stripe::portal(&sub, &accounts::base_url(req))? }))
+            }
+            "billing_quote_cemetery" => {
+                let c = require(store, req)?;
+                billing::quote_new_cemetery(store, &c.tenant_id)
+            }
+            "billing_invoice_pdf" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                billing::invoice_pdf(&store.conn, &c.tenant_id, &s("id"))
+            }
+            "admin_overview" | "admin_mark_paid" | "admin_extend_trial" => {
+                let c = require(store, req)?;
+                let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                if !is_superadmin(&acc.email) {
+                    return Err(CoreError::forbidden("platform_admin"));
+                }
+                match cmd {
+                    "admin_mark_paid" => {
+                        billing::mark_paid(&store.conn, &s("invoiceId"))?;
+                        admin_overview(store)
+                    }
+                    "admin_extend_trial" => {
+                        let days = args["days"].as_i64().unwrap_or(14).clamp(1, 90) as i32;
+                        store.conn.execute(
+                            "UPDATE platform.tenants SET trial_ends_at = greatest(trial_ends_at, now()) + make_interval(days => ?2),
+                                    status = CASE WHEN status = 'read_only' THEN 'trial' ELSE status END WHERE id = ?1",
+                            params![s("tenantId"), days],
+                        )?;
+                        admin_overview(store)
+                    }
+                    _ => admin_overview(store),
                 }
             }
             _ => Err(CoreError::new("not_available", format!("{cmd} is not available in the web version"))),
@@ -538,4 +636,59 @@ pub fn drop_sample_account(store: &Store) -> Result<()> {
         t.commit()?;
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------- platform admin, webhooks
+
+/// TEMISZ operators (comma-separated SUPERADMIN_EMAILS) see every customer's billing.
+pub fn is_superadmin(email: &str) -> bool {
+    std::env::var("SUPERADMIN_EMAILS").map(|v| v.split(',').any(|e| e.trim().eq_ignore_ascii_case(email))).unwrap_or(false)
+}
+
+fn admin_overview(store: &Store) -> Result<Value> {
+    let rows: Vec<Value> = store
+        .conn
+        .prepare(
+            "SELECT t.id, t.name, t.status, to_char(t.trial_ends_at, 'YYYY-MM-DD'), to_char(t.created_at, 'YYYY-MM-DD'), t.billing_email,
+                    s.plan, s.payment_method, s.cemetery_count, s.status, to_char(s.current_period_end, 'YYYY-MM-DD'),
+                    (SELECT count(*) FROM platform.accounts a WHERE a.tenant_id = t.id)
+             FROM platform.tenants t LEFT JOIN platform.subscriptions s ON s.tenant_id = t.id
+             ORDER BY t.created_at DESC LIMIT 500",
+        )?
+        .query_map([], |r| {
+            Ok(json!({ "id": r.get::<_, String>(0)?, "name": r.get::<_, String>(1)?, "status": r.get::<_, String>(2)?, "trialEndsAt": r.get::<_, String>(3)?,
+                       "createdAt": r.get::<_, String>(4)?, "email": r.get::<_, String>(5)?, "plan": r.get::<_, Option<String>>(6)?,
+                       "paymentMethod": r.get::<_, Option<String>>(7)?, "cemeteryCount": r.get::<_, Option<i64>>(8)?,
+                       "subscriptionStatus": r.get::<_, Option<String>>(9)?, "periodEnd": r.get::<_, Option<String>>(10)?, "users": r.get::<_, i64>(11)? }))
+        })?
+        .collect::<std::result::Result<_, _>>()?;
+    let open: Vec<Value> = store
+        .conn
+        .prepare(
+            "SELECT i.id, t.name, i.number, i.gross_huf, to_char(i.due_date, 'YYYY-MM-DD'), i.description, substr(i.tenant_id, 1, 8)
+             FROM platform.invoices i JOIN platform.tenants t ON t.id = i.tenant_id
+             WHERE i.kind = 'proforma' AND i.status = 'open' ORDER BY i.due_date",
+        )?
+        .query_map([], |r| {
+            Ok(json!({ "id": r.get::<_, String>(0)?, "tenant": r.get::<_, String>(1)?, "number": r.get::<_, String>(2)?, "grossHuf": r.get::<_, i64>(3)?,
+                       "dueDate": r.get::<_, Option<String>>(4)?, "description": r.get::<_, String>(5)?, "reference": r.get::<_, String>(6)? }))
+        })?
+        .collect::<std::result::Result<_, _>>()?;
+    Ok(json!({ "tenants": rows, "openProformas": open }))
+}
+
+fn stripe_webhook(store: &Store, req: &Request) -> Response {
+    let Ok(secret) = std::env::var("STRIPE_WEBHOOK_SECRET") else { return Response::text(404, "not configured") };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    if !stripe::verify_webhook(&req.body, req.header("stripe-signature").unwrap_or(""), &secret, now) {
+        return Response::text(400, "bad signature");
+    }
+    let ev: Value = match serde_json::from_slice(&req.body) {
+        Ok(v) => v,
+        Err(_) => return Response::text(400, "bad payload"),
+    };
+    match billing::stripe_event(store, &ev) {
+        Ok(()) => Response::text(200, "ok"),
+        Err(e) => Response::text(500, &e.to_string()),
+    }
 }

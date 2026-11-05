@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Login } from "./features/auth/Login";
 import { TotpRequired } from "./features/account/Security";
+import { PlatformAdmin } from "./features/account/PlatformAdmin";
 import { shell } from "./lib/api";
 import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
@@ -43,6 +44,12 @@ function useEmailVerificationLink() {
       );
     };
     check();
+    // back from Stripe Checkout
+    if (window.location.hash.startsWith("#elofizetes=")) {
+      const ok = window.location.hash === "#elofizetes=sikeres";
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      toast(ok ? t("billing.cardDone") : t("billing.cardCanceled"), ok ? "ok" : "error");
+    }
     window.addEventListener("hashchange", check);
     return () => window.removeEventListener("hashchange", check);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,7 +80,8 @@ export function App() {
       {r.view === "reports" && <Reports />}
       {r.view === "importExport" && <ImportExport />}
       {r.view === "quickEntry" && <QuickEntry />}
-      {r.view === "settings" && <SettingsView tab={r.tab} />}
+      {r.view === "settings" && <SettingsView key={r.tab ?? ""} tab={r.tab} />}
+      {r.view === "platform" && <PlatformAdmin />}
     </Shell>
   );
 }

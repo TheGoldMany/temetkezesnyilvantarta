@@ -118,6 +118,17 @@ impl ToSql for Value {
                 _ => as_text(&r.to_string(), out),
             },
             Value::Text(s) => match *ty {
+                Type::DATE => {
+                    let d = chrono::NaiveDate::parse_from_str(&s[..10.min(s.len())], "%Y-%m-%d").map_err(|_| format!("not a date: {s:?}"))?;
+                    let days = (d - chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()).num_days() as i32;
+                    days.to_sql(&Type::INT4, out)
+                }
+                Type::TIMESTAMPTZ | Type::TIMESTAMP => {
+                    let t = chrono::DateTime::parse_from_rfc3339(s).map_err(|_| format!("not a timestamp: {s:?}"))?;
+                    let base = chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap().and_utc();
+                    let micros = (t.with_timezone(&chrono::Utc) - base).num_microseconds().ok_or("timestamp out of range")?;
+                    micros.to_sql(&Type::INT8, out)
+                }
                 Type::INT2 | Type::INT4 | Type::INT8 => {
                     let n: i64 = s.trim().parse().map_err(|_| format!("not an integer: {s:?}"))?;
                     Value::Integer(n).to_sql(ty, out)
@@ -180,6 +191,16 @@ impl<'a> FromSql<'a> for AnyValue {
             Type::FLOAT8 => Value::Real(f64::from_sql(ty, raw)?),
             Type::NUMERIC => decode_numeric(raw)?,
             Type::BYTEA => Value::Blob(raw.to_vec()),
+            Type::DATE => {
+                let days = i32::from_sql(&Type::INT4, raw)?;
+                let d = chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap() + chrono::Duration::days(days as i64);
+                Value::Text(d.format("%Y-%m-%d").to_string())
+            }
+            Type::TIMESTAMPTZ | Type::TIMESTAMP => {
+                let micros = i64::from_sql(&Type::INT8, raw)?;
+                let base = chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap().and_utc();
+                Value::Text((base + chrono::Duration::microseconds(micros)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+            }
             _ => Value::Text(String::from_utf8(raw.to_vec())?),
         }))
     }
@@ -200,6 +221,9 @@ impl<'a> FromSql<'a> for AnyValue {
                 | Type::FLOAT8
                 | Type::NUMERIC
                 | Type::BYTEA
+                | Type::DATE
+                | Type::TIMESTAMP
+                | Type::TIMESTAMPTZ
                 | Type::TEXT
                 | Type::VARCHAR
                 | Type::BPCHAR
@@ -847,5 +871,14 @@ mod tests {
         assert_eq!(translate("x = ?3 AND y = ?"), "x = $3 AND y = $4");
         assert_eq!(translate("coalesce(x,'?') || ? -- ?\n, \"a?\""), "coalesce(x,'?') || $1 -- ?\n, \"a?\"");
         assert_eq!(translate("név = 'ő?' AND ű = ?"), "név = 'ő?' AND ű = $1");
+    }
+
+    #[test]
+    fn dates_round_trip() {
+        let c = crate::db::open_in_memory().unwrap();
+        let d: String = c.query_row("SELECT CAST(?1 AS DATE) + 1", crate::params!["2026-12-31"], |r| r.get(0)).unwrap();
+        assert_eq!(d, "2027-01-01");
+        let t: String = c.query_row("SELECT CAST(?1 AS TIMESTAMPTZ) + interval '1 hour'", crate::params!["2026-11-05T10:00:00Z"], |r| r.get(0)).unwrap();
+        assert_eq!(t, "2026-11-05T11:00:00Z");
     }
 }
