@@ -4,16 +4,34 @@ import { useApp } from "../../app/context";
 import { shell } from "../../lib/api";
 import { Alert, Button, ErrorAlert, TextField } from "../../components/ui";
 import { RestoreForm } from "../settings/BackupTab";
+import mark from "../../assets/mark.svg";
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-full items-center justify-center px-6 py-10">
-      <div className="w-full max-w-lg">
-        <p className="mb-6 font-serif text-3xl font-semibold">{t("app.name")}</p>
-        <div className="rounded-lg border border-seam bg-slab px-8 py-7">{children}</div>
+    <div className="grid min-h-full lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <aside className="flex flex-col justify-between bg-rail px-10 py-10 text-rail-ink">
+        <p className="flex items-center gap-3">
+          <img src={mark} alt="" className="size-10" />
+          <span className="text-3xl font-extrabold tracking-[-0.03em]">{t("app.name")}</span>
+        </p>
+        <p className="mt-10 max-w-sm text-lg leading-snug text-rail-muted" aria-label={t("app.tagline")}>
+          <Acronym />
+        </p>
+      </aside>
+      <div className="flex items-center px-6 py-10 lg:px-16">
+        <div className="w-full max-w-lg">{children}</div>
       </div>
     </div>
+  );
+}
+
+/** "TEMetőmenedzsment és Informatikai SZoftver" with the letters of the name lit. */
+export function Acronym() {
+  return (
+    <span aria-hidden>
+      <b className="text-accent">Tem</b>etőmenedzsment és <b className="text-accent">I</b>nformatikai <b className="text-accent">Sz</b>oftver
+    </span>
   );
 }
 

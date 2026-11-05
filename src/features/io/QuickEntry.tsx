@@ -163,7 +163,7 @@ export function QuickEntry() {
           <ul className="flex flex-col gap-2" data-testid="quick-recent">
             {saved.map((s, i) => (
               <li key={i}>
-                <strong>{s.folio}.</strong> {s.name} · {fmtDate(s.date)} · {s.plot}
+                <strong>{s.folio}.</strong> {s.name}, {fmtDate(s.date)}, {s.plot}
               </li>
             ))}
           </ul>

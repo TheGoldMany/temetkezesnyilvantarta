@@ -1,4 +1,4 @@
-//! Lunda Temető core library.
+//! TEMISZ core library.
 //!
 //! All business rules and permission checks live here so they can be tested
 //! without the desktop shell (see docs/PLAN.md).

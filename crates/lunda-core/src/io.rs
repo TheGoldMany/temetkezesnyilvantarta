@@ -838,9 +838,7 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
             let p = out_dir.join(format!("{base}.json"));
             std::fs::write(
                 &p,
-                serde_json::to_vec_pretty(
-                    &json!({"app": "Lunda Temető", "version": env!("CARGO_PKG_VERSION"), "exportedAt": crate::util::now_ts(), "data": obj}),
-                )?,
+                serde_json::to_vec_pretty(&json!({"app": "TEMISZ", "version": env!("CARGO_PKG_VERSION"), "exportedAt": crate::util::now_ts(), "data": obj}))?,
             )?;
             p
         }

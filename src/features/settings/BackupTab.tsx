@@ -125,7 +125,7 @@ export function BackupTab() {
           {(list.data ?? []).map((b) => (
             <li key={b.path} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <span className="min-w-0">
-                <span className="font-semibold">{fmtDateTime(b.manifest.createdAt)}</span> · {t(`backup.kind.${b.manifest.kind}`, { defaultValue: b.manifest.kind })}
+                <span className="font-semibold">{fmtDateTime(b.manifest.createdAt)}</span>, {t(`backup.kind.${b.manifest.kind}`, { defaultValue: b.manifest.kind })}
                 <span className="block truncate text-sm text-granite">{b.path}</span>
                 <span className="block font-mono text-xs text-granite">
                   {t("backup.checksum")}: {b.manifest.sha256.slice(0, 24)}…
@@ -149,7 +149,7 @@ export function BackupTab() {
         <ul className="flex flex-col gap-1 text-sm">
           {(log.data ?? []).map((l, i) => (
             <li key={i} className={l.ok ? "" : "text-alert"}>
-              {fmtDateTime(l.ts)} · {t(`backup.kind.${l.kind}`, { defaultValue: l.kind })} · {l.external ? t("backup.external") : t("backup.local")} · {l.ok ? "✓" : `✗ ${l.message}`}
+              {fmtDateTime(l.ts)}, {t(`backup.kind.${l.kind}`, { defaultValue: l.kind })}, {l.external ? t("backup.external") : t("backup.local")}, {l.ok ? "✓" : `✗ ${l.message}`}
             </li>
           ))}
         </ul>

@@ -30,15 +30,14 @@ pub enum FontKind {
 
 static SANS: &[u8] = include_bytes!("../../fonts/AtkinsonHyperlegibleNext_400Regular.ttf");
 static SANS_BOLD: &[u8] = include_bytes!("../../fonts/AtkinsonHyperlegibleNext_700Bold.ttf");
-static SERIF: &[u8] = include_bytes!("../../fonts/Literata_400Regular.ttf");
-static SERIF_BOLD: &[u8] = include_bytes!("../../fonts/Literata_600SemiBold.ttf");
 
 fn bytes(k: FontKind) -> &'static [u8] {
     match k {
         FontKind::Sans => SANS,
         FontKind::SansBold => SANS_BOLD,
-        FontKind::Serif => SERIF,
-        FontKind::SerifBold => SERIF_BOLD,
+        // one type family across the product (TEMISZ design): headings use the bold cut
+        FontKind::Serif => SANS,
+        FontKind::SerifBold => SANS_BOLD,
     }
 }
 
@@ -409,7 +408,7 @@ pub fn render(pages: &[Page], title: &str) -> Result<Vec<u8>> {
         .map(|k| Font::new(bytes(*k).to_vec().into(), 0).ok_or_else(|| CoreError::new("pdf", "font")))
         .collect::<Result<_>>()?;
     let mut doc = Document::new();
-    doc.set_metadata(Metadata::new().title(title.to_string()).creator("Lunda Temető".to_string()).producer("Lunda Temető".to_string()));
+    doc.set_metadata(Metadata::new().title(title.to_string()).creator("TEMISZ".to_string()).producer("TEMISZ".to_string()));
     for p in pages {
         let mut page = doc.start_page_with(PageSettings::from_wh(p.w, p.h).ok_or_else(|| CoreError::new("pdf", "page size"))?);
         let mut s = page.surface();

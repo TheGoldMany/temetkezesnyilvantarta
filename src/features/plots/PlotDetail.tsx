@@ -39,7 +39,7 @@ export function PlotDetailView({ id }: { id: string }) {
         subtitle={
           <span className="mt-2 flex flex-wrap items-center gap-3">
             <StatusBadge status={d.status} protectedPlot={p.protected} />
-            <span>· {d.cemeteryName}</span>
+            <span className="text-granite">{d.cemeteryName}</span>
           </span>
         }
         actions={
@@ -71,7 +71,7 @@ export function PlotDetailView({ id }: { id: string }) {
         <div className="mb-4">
           <Alert tone="info" title={p.protectionKind === "national" ? t("plots.protectedNational") : t("plots.protectedLocal")}>
             <span className="flex items-center gap-2">
-              <ShieldCheck className="size-5 text-gilt" aria-hidden /> {p.protectionReason} · {t("plots.furtherBurial")}: {p.furtherBurialAllowed ? t("common.yes") : t("common.no")}
+              <ShieldCheck className="size-5 text-gilt" aria-hidden /> {p.protectionReason}, {t("plots.furtherBurial")}: {p.furtherBurialAllowed ? t("common.yes") : t("common.no")}
             </span>
           </Alert>
         </div>
@@ -105,7 +105,7 @@ export function PlotDetailView({ id }: { id: string }) {
                     <span className="block font-semibold">{s.occupantName ?? t("plots.slotFree")}</span>
                     {s.occupantDate && (
                       <span className="text-sm text-granite">
-                        {fmtDate(s.occupantDate)} · {s.occupantFolio}.
+                        {fmtDate(s.occupantDate)}, {s.occupantFolio}.
                       </span>
                     )}
                   </li>
@@ -125,7 +125,7 @@ export function PlotDetailView({ id }: { id: string }) {
                         </span>
                       </span>
                       <span className="text-right text-sm text-granite">
-                        {t(`container.${o.container}`)} · {fmtDate(o.eventDate)}
+                        {t(`container.${o.container}`)}, {fmtDate(o.eventDate)}
                         <span className="block">
                           {o.folio}. {t("fields.folio").toLowerCase()}
                         </span>
@@ -171,7 +171,7 @@ export function PlotDetailView({ id }: { id: string }) {
                 {d.monuments.map((m) => (
                   <li key={m.id}>
                     <strong>{fmtDate(m.entryDate)}</strong> – {m.description}
-                    {m.contractor && <span className="text-granite"> · {m.contractor}</span>}
+                    {m.contractor && <span className="text-granite">, {m.contractor}</span>}
                   </li>
                 ))}
               </ul>
@@ -207,7 +207,7 @@ export function PlotDetailView({ id }: { id: string }) {
                 <ul className="mt-2 flex flex-col gap-1 text-sm">
                   {d.leases.map((l) => (
                     <li key={l.id} className={cx(l.voidedAt && "line-through")}>
-                      {t(`leaseKind.${l.kind}`)}: {fmtDate(l.startDate)} – {fmtDate(l.expiryDate)} · {fmtHuf(l.feeHuf)} · {t(`leaseStatus.${l.status}`)}
+                      {t(`leaseKind.${l.kind}`)}: {fmtDate(l.startDate)} – {fmtDate(l.expiryDate)}, {fmtHuf(l.feeHuf)}, {t(`leaseStatus.${l.status}`)}
                     </li>
                   ))}
                 </ul>
@@ -250,8 +250,8 @@ export function PlotDetailView({ id }: { id: string }) {
                     </button>
                     <span className="block text-sm">
                       {t(`holder.role.${h.role}`)}
-                      {h.relation && ` · ${h.relation}`} · {h.endDate ? `${fmtDate(h.startDate)} – ${fmtDate(h.endDate)}` : t("plots.since", { date: fmtDate(h.startDate) })}
-                      {h.legalBasis && ` · ${h.legalBasis}`}
+                      {h.relation && `, ${h.relation}`}, {h.endDate ? `${fmtDate(h.startDate)} – ${fmtDate(h.endDate)}` : t("plots.since", { date: fmtDate(h.startDate) })}
+                      {h.legalBasis && `, ${h.legalBasis}`}
                     </span>
                     {!h.endDate && h.personAddress && <span className="block text-sm text-granite">{h.personAddress}</span>}
                   </li>
@@ -290,7 +290,7 @@ export function PlotDetailView({ id }: { id: string }) {
               <ul className="flex flex-col gap-1">
                 {d.notices.map((n) => (
                   <li key={n.id}>
-                    {fmtDate(n.noticeDate)} · {t(`noticeKind.${n.kind}`)} {n.result && `· ${n.result}`}
+                    {fmtDate(n.noticeDate)}, {t(`noticeKind.${n.kind}`)} {n.result && `, ${n.result}`}
                   </li>
                 ))}
               </ul>

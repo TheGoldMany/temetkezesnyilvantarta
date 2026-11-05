@@ -49,15 +49,15 @@ export function Onboarding() {
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
-        <p className="mb-2 font-serif text-3xl font-semibold">{t("onboarding.title")}</p>
+        <p className="mb-2 text-3xl font-semibold">{t("onboarding.title")}</p>
         <ol className="mb-6 flex flex-wrap gap-2" aria-label={t("onboarding.title")}>
           {steps.map((s, i) => (
-            <li key={s} aria-current={i === step ? "step" : undefined} className={cx("rounded-full border px-3 py-1 text-sm", i === step ? "border-moss bg-lichen font-semibold" : i < step ? "border-seam text-slate" : "border-seam text-granite")}>
+            <li key={s} aria-current={i === step ? "step" : undefined} className={cx("rounded-full border px-3 py-1 text-sm", i === step ? "border-slate bg-lichen font-semibold" : i < step ? "border-seam text-slate" : "border-seam text-granite")}>
               {i + 1}. {s}
             </li>
           ))}
         </ol>
-        <div className="flex flex-col gap-4 rounded-lg border border-seam bg-slab px-8 py-7">
+        <div className="flex flex-col gap-4 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-8 py-7">
           <h1 className="text-2xl">{steps[step]}</h1>
           {step === 0 && (
             <>
@@ -86,7 +86,7 @@ export function Onboarding() {
                 <Button onClick={() => window.print()}>{t("onboarding.printKey")}</Button>
               </div>
               <label className="flex items-center gap-3 font-semibold">
-                <input type="checkbox" className="size-5 accent-[var(--c-moss)]" checked={keyStored} onChange={(e) => setKeyStored(e.target.checked)} />
+                <input type="checkbox" className="size-5 accent-[var(--c-slate)]" checked={keyStored} onChange={(e) => setKeyStored(e.target.checked)} />
                 {t("onboarding.keyStored")}
               </label>
             </>

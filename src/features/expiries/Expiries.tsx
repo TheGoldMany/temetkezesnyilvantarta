@@ -36,7 +36,7 @@ export function Expiries() {
   return (
     <>
       <PageHeader title={t("expiries.title")} subtitle={t("expiries.subtitle")} />
-      <div className="mb-5 flex flex-wrap items-end gap-5 rounded-lg border border-seam bg-slab px-5 py-4">
+      <div className="mb-5 flex flex-wrap items-end gap-5 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-5 py-4">
         <Field label={t("expiries.within")}>
           <Select value={within} onChange={(e) => setWithin(Number(e.target.value))}>
             <option value={30}>{t("expiries.within30")}</option>
@@ -49,7 +49,7 @@ export function Expiries() {
         <Checkbox label={t("expiries.onlyNotNotified")} checked={onlyNotNotified} onChange={setOnlyNotNotified} />
       </div>
       {ids.length > 0 && (
-        <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-moss/40 bg-lichen px-5 py-3" data-testid="bulk-bar">
+        <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-3 rounded-[4px] border border-accent bg-lichen px-5 py-3" data-testid="bulk-bar">
           <span className="font-semibold">{t("expiries.selected", { count: ids.length })}</span>
           <PrintButton doc="expiry_notice" args={{ plotIds: ids }} label={t("expiries.printLetters")} />
           <PrintButton doc="grave_labels" args={{ plotIds: ids }} label={t("expiries.printLabels")} />
@@ -66,12 +66,12 @@ export function Expiries() {
       ) : rows.length === 0 ? (
         <Empty>{t("expiries.empty")}</Empty>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-seam bg-slab">
+        <div className="overflow-x-auto border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)]">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-seam text-left text-granite">
                 <th className="w-12 px-4 py-3">
-                  <input type="checkbox" aria-label={t("expiries.selectAll")} className="size-5 accent-[var(--c-moss)]" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.plotId)))} />
+                  <input type="checkbox" aria-label={t("expiries.selectAll")} className="size-5 accent-[var(--c-slate)]" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.plotId)))} />
                 </th>
                 <th className="px-4 py-3 font-semibold">{t("fields.plot")}</th>
                 <th className="px-4 py-3 font-semibold">{t("fields.leaseExpiry")}</th>
@@ -84,7 +84,7 @@ export function Expiries() {
               {rows.map((r) => (
                 <tr key={r.plotId} className={cx("border-b border-seam last:border-0", selected.has(r.plotId) && "bg-lichen/40")}>
                   <td className="px-4 py-3">
-                    <input type="checkbox" aria-label={r.identifier} className="size-5 accent-[var(--c-moss)]" checked={selected.has(r.plotId)} onChange={() => toggle(r.plotId)} />
+                    <input type="checkbox" aria-label={r.identifier} className="size-5 accent-[var(--c-slate)]" checked={selected.has(r.plotId)} onChange={() => toggle(r.plotId)} />
                   </td>
                   <td className="px-4 py-3">
                     <button type="button" onClick={() => nav.go({ view: "plot", id: r.plotId })} className="text-left">

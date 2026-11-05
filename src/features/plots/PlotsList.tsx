@@ -51,7 +51,7 @@ export function PlotsList({ sectionId: presetSection }: { sectionId?: string }) 
   return (
     <>
       <PageHeader title={t("plots.title")} subtitle={data ? t("common.results", { count: data.total }) : undefined} />
-      <div className="mb-5 flex flex-col gap-4 rounded-lg border border-seam bg-slab px-5 py-4">
+      <div className="mb-5 flex flex-col gap-4 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-5 py-4">
         <div className="grid gap-4 md:grid-cols-4">
           <Field label={t("fields.plotIdentifier")}>
             <Input value={ident} onChange={(e) => setIdent(e.target.value.toUpperCase())} placeholder="A/3" />
@@ -100,7 +100,7 @@ export function PlotsList({ sectionId: presetSection }: { sectionId?: string }) 
               type="button"
               aria-pressed={statuses.includes(s)}
               onClick={() => toggle(s)}
-              className={cx("rounded-full border px-3 py-1", statuses.includes(s) ? "border-moss bg-lichen" : "border-seam bg-slab text-granite hover:text-slate")}
+              className={cx("rounded-full border px-3 py-1", statuses.includes(s) ? "border-slate bg-lichen" : "border-seam bg-slab text-granite hover:text-slate")}
             >
               <StatusBadge status={s} />
             </button>
@@ -112,7 +112,7 @@ export function PlotsList({ sectionId: presetSection }: { sectionId?: string }) 
       ) : items.length === 0 ? (
         <Empty>{t("plots.empty")}</Empty>
       ) : (
-        <div className="rounded-lg border border-seam bg-slab">
+        <div className="border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)]">
           <div className="grid grid-cols-[9rem_1fr_9rem_10rem_1fr] gap-4 border-b border-seam px-4 py-3 font-semibold text-granite">
             <span>{t("fields.plot")}</span>
             <span>{t("plots.occupants")}</span>

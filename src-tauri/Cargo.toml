@@ -3,7 +3,7 @@ name = "lunda-temeto"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Lunda Temető – temetőnyilvántartó"
+description = "TEMISZ – temetőnyilvántartó"
 
 [lib]
 name = "lunda_temeto_lib"

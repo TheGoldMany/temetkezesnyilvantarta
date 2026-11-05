@@ -1,18 +1,5 @@
-/* "Mészkő és moha" – same tokens as the app (docs/DESIGN.md) */
-@font-face {
-  font-family: "Literata";
-  src: url(fonts/literata-latin-ext-opsz-normal.woff2) format("woff2");
-  font-weight: 200 900;
-  font-display: swap;
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: "Literata";
-  src: url(fonts/literata-latin-opsz-normal.woff2) format("woff2");
-  font-weight: 200 900;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* TEMISZ – "gránit és mécses": graphite band, cool granite canvas,
+   one candle-amber accent. Same tokens as the desktop app (docs/DESIGN.md). */
 @font-face {
   font-family: "Atkinson";
   src: url(fonts/atkinson-hyperlegible-next-latin-ext-400-normal.woff2) format("woff2");
@@ -30,27 +17,29 @@
 @font-face {
   font-family: "Atkinson";
   src: url(fonts/atkinson-hyperlegible-next-latin-ext-700-normal.woff2) format("woff2");
-  font-weight: 700;
+  font-weight: 700 800;
   font-display: swap;
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+20A0-20C0, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
   font-family: "Atkinson";
   src: url(fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2");
-  font-weight: 700;
+  font-weight: 700 800;
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD;
 }
 
 :root {
-  --limestone: #edf0eb;
-  --slab: #ffffff;
-  --slate: #1f2a30;
-  --granite: #56656b;
-  --seam: #c9d0cb;
-  --moss: #2f5d45;
-  --lichen: #d6e4c8;
-  --serif: "Literata", Georgia, serif;
+  --canvas: #eceff1;
+  --surface: #ffffff;
+  --ink: #141b21;
+  --muted: #56626b;
+  --rule: #d3d9dd;
+  --rail: #1a2228;
+  --rail-ink: #f2f4f5;
+  --rail-muted: #9aa7b0;
+  --amber: #e3a21a;
+  --amber-ink: #7a4f00;
   --sans: "Atkinson", system-ui, sans-serif;
 }
 
@@ -58,40 +47,50 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
-  background: var(--limestone);
-  color: var(--slate);
+  background: var(--canvas);
+  color: var(--ink);
   font: 18px/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
 a {
-  color: var(--moss);
+  color: inherit;
 }
 
 :focus-visible {
-  outline: 3px solid var(--moss);
+  outline: 3px solid var(--amber);
   outline-offset: 3px;
-  border-radius: 4px;
 }
 
 h1,
 h2,
 h3 {
-  font-family: var(--serif);
-  font-weight: 560;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
   margin: 0;
+  line-height: 1.1;
 }
 
+.wrap,
 .top,
+.hero,
 main,
 .foot {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-inline: 28px;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 32px;
+}
+
+/* ---------------------------------------------------------------- band */
+.band {
+  background: var(--rail);
+  color: var(--rail-ink);
+  padding-bottom: 150px;
 }
 
 .top {
@@ -99,281 +98,322 @@ main,
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding-block: 22px;
+  padding-block: 24px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font: 600 22px var(--serif);
-  color: var(--slate);
   text-decoration: none;
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.03em;
 }
 
 .top nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 22px;
+  gap: 28px;
 }
 
 .top nav a {
-  color: var(--granite);
+  color: var(--rail-muted);
   text-decoration: none;
   font-weight: 700;
 }
 
 .top nav a:hover {
-  color: var(--slate);
+  color: var(--rail-ink);
 }
 
-/* hero */
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 56px;
-  align-items: center;
-  padding-block: 40px 72px;
+  padding-top: 64px;
 }
 
-.hero h1 {
-  font-size: clamp(38px, 4.6vw, 58px);
-  max-width: 13ch;
+/* the name is the hero */
+.name {
+  font-size: clamp(88px, 15vw, 210px);
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 0.82;
+  margin-left: -0.05em;
+}
+
+.expansion {
+  margin: 22px 0 0;
+  font-size: clamp(20px, 2.2vw, 28px);
+  color: var(--rail-muted);
+  letter-spacing: -0.01em;
+}
+
+.expansion b {
+  color: var(--amber);
+  font-weight: 800;
 }
 
 .lead {
-  font-size: 20px;
-  color: var(--granite);
-  max-width: 34em;
-  margin: 22px 0 30px;
+  max-width: 38em;
+  margin: 28px 0 36px;
+  font-size: 19px;
+  color: #c9d1d6;
+}
+
+.download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 28px;
 }
 
 .btn {
   display: inline-flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 16px 26px;
-  border-radius: 8px;
-  background: var(--moss);
-  color: #fff;
+  gap: 1px;
+  padding: 15px 26px 14px;
+  background: var(--amber);
+  color: var(--ink);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 21px;
-  transition: filter 0.15s;
+  font-weight: 800;
+  font-size: 22px;
+  border-radius: 4px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
 }
 
 .btn:hover {
-  filter: brightness(1.12);
+  background: #f0b43c;
 }
 
 .btn-sub {
   font-weight: 400;
   font-size: 15px;
-  opacity: 0.85;
 }
 
-.meta {
+.release {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 14px 0 0;
-  color: var(--granite);
+  gap: 14px;
+  color: var(--rail-muted);
   font-size: 16px;
 }
 
-/* the plot-identifier plaque from the app, used for the version */
-.plaque {
-  display: inline-block;
-  padding: 1px 10px 3px;
-  font: 600 16px var(--serif);
-  font-variant-numeric: tabular-nums lining-nums;
-  color: var(--slate);
-  background: linear-gradient(var(--slab), #f4f6f2);
-  border: 1px solid var(--seam);
-  outline: 1px solid rgba(201, 208, 203, 0.55);
-  outline-offset: 2px;
-  border-radius: 6px 6px 2px 2px;
-  box-shadow: inset 0 1px 2px rgba(31, 42, 48, 0.12);
+/* version shown like a grave label: segments with a dark first cell */
+.label {
+  display: inline-flex;
+  font-weight: 800;
+  line-height: 1;
+  border: 1.5px solid var(--rail-muted);
+  border-radius: 3px;
+}
+
+.label .seg {
+  padding: 6px 9px;
+  min-width: 26px;
+  text-align: center;
+  color: var(--rail-ink);
+}
+
+.label .seg + .seg {
+  border-left: 1.5px solid var(--rail-muted);
+}
+
+.label .seg:first-child {
+  background: var(--rail-ink);
+  color: var(--rail);
 }
 
 .others {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .others summary {
   cursor: pointer;
+  color: var(--rail-muted);
   font-weight: 700;
-  color: var(--moss);
 }
 
 .others ul {
   list-style: none;
-  padding: 0;
   margin: 10px 0 0;
+  padding: 0;
   display: grid;
   gap: 6px;
 }
 
-.others li a {
+.others a {
+  color: var(--amber);
   font-weight: 700;
 }
 
-.others li span {
-  color: var(--granite);
+.others span {
+  color: var(--rail-muted);
   font-size: 15px;
 }
 
 .notice {
-  margin-top: 16px;
-  padding: 12px 16px;
-  border: 1px solid #e3cf98;
-  background: #f5ecd2;
-  color: #5c4508;
-  border-radius: 6px;
-  max-width: 34em;
+  margin-top: 18px;
+  max-width: 38em;
+  border-left: 4px solid var(--amber);
+  padding: 8px 14px;
+  color: #c9d1d6;
 }
 
-.sysreq {
-  margin-top: 26px;
-  font-size: 15px;
-  color: var(--granite);
+/* ---------------------------------------------------------------- content */
+main {
+  padding-bottom: 40px;
 }
 
-.shot {
-  margin: 0;
+.screen {
+  margin: -110px 0 0;
 }
 
-.shot img {
+.screen img,
+.pair img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 10px;
-  border: 1px solid var(--seam);
-  box-shadow: 0 1px 0 var(--slab) inset, 0 18px 40px -24px rgba(31, 42, 48, 0.35);
+  border-top: 4px solid var(--amber);
+  box-shadow: 0 30px 60px -30px rgba(12, 16, 19, 0.55);
 }
 
-.shot figcaption {
-  margin-top: 10px;
-  color: var(--granite);
-  font-size: 15px;
+h2 {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-/* features as a register-like ruled list */
-.features,
-.install {
-  padding-block: 56px;
-  border-top: 1px solid var(--seam);
+.ledger {
+  margin-top: 96px;
 }
 
-.features h2,
+.ledger h2,
 .install h2 {
-  font-size: 34px;
-  margin-bottom: 28px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--ink);
 }
 
-.features dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 56px;
-  margin: 0;
+.ledger table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
 }
 
-.features dl > div {
-  padding: 18px 0;
-  border-bottom: 1px solid var(--seam);
+.ledger th,
+.ledger td {
+  text-align: left;
+  vertical-align: top;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--rule);
 }
 
-.features dt {
-  font: 600 21px var(--serif);
-  margin-bottom: 4px;
+.ledger th {
+  width: 28%;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
 }
 
-.features dd {
-  margin: 0;
-  color: var(--granite);
-  max-width: 36em;
+.ledger td {
+  color: var(--muted);
+  max-width: 44em;
 }
 
-.shots {
+.pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 28px;
-  margin-top: 48px;
+  gap: 32px;
+  margin-top: 72px;
 }
 
-.install ol {
+.pair figure {
   margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
+}
+
+.pair figcaption {
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.install {
+  margin-top: 96px;
+}
+
+.cols {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 36px;
+  gap: 0;
+  background: var(--surface);
 }
 
-.install li {
-  counter-increment: step;
+.cols > div {
+  padding: 22px 24px 26px;
+  border-right: 1px solid var(--rule);
 }
 
-.install li::before {
-  content: counter(step) ".";
-  display: block;
-  font: 600 28px var(--serif);
-  color: var(--moss);
-  margin-bottom: 6px;
+.cols > div:last-child {
+  border-right: 0;
 }
 
-.install h3 {
-  font-size: 22px;
-  margin-bottom: 6px;
+.cols h3 {
+  font-size: 21px;
+  font-weight: 800;
+  margin-bottom: 8px;
 }
 
-.install p {
+.cols p {
   margin: 0;
-  color: var(--granite);
+  color: var(--muted);
 }
 
-.install code {
+code {
   font-size: 15px;
-  background: var(--slab);
-  border: 1px solid var(--seam);
-  border-radius: 4px;
-  padding: 0 4px;
+  background: var(--canvas);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
 .fine {
-  margin-top: 32px !important;
   font-size: 15px;
+  color: var(--muted);
+  margin-top: 16px;
 }
 
 .foot {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding-block: 28px 40px;
-  border-top: 1px solid var(--seam);
-  color: var(--granite);
+  padding-block: 28px 44px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
   font-size: 15px;
 }
 
-@media (max-width: 900px) {
-  .hero,
-  .features dl,
-  .shots,
-  .install ol {
-    grid-template-columns: 1fr;
-  }
-  .hero {
-    gap: 36px;
-  }
+@media (max-width: 860px) {
   .top nav {
     display: none;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
+  .band {
+    padding-bottom: 90px;
+  }
+  .screen {
+    margin-top: -60px;
+  }
+  .pair,
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .cols > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ledger th,
+  .ledger td {
+    display: block;
+    width: auto;
+    padding: 12px 16px;
+  }
+  .ledger th {
+    border-bottom: 0;
+    padding-bottom: 0;
   }
 }

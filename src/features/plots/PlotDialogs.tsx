@@ -72,7 +72,7 @@ export function LeaseDialog({ detail, kind, onClose }: { detail: PlotDetail; kin
       <Dialog open onClose={onClose} title={title} footer={<Button variant="primary" onClick={onClose}>{t("common.close")}</Button>}>
         <div className="flex flex-col gap-4">
           <Alert tone="ok">
-            {t(`leaseKind.${created.kind}`)}: {fmtDate(created.startDate)} – {fmtDate(created.expiryDate)} · {fmtHuf(created.feeHuf)}
+            {t(`leaseKind.${created.kind}`)}: {fmtDate(created.startDate)} – {fmtDate(created.expiryDate)}, {fmtHuf(created.feeHuf)}
           </Alert>
           <div className="flex flex-wrap gap-2">
             <PrintButton doc="lease_certificate" args={{ leaseId: created.id }} label={t("wizard.printCertificate")} />
@@ -295,7 +295,7 @@ export function RemovalDialog({ detail, type, onClose }: { detail: PlotDetail; t
       }
     >
       <div className="flex flex-col gap-4">
-        <RadioGroup label={t("removal.source")} value={source} onChange={setSource} options={candidates.map((c) => ({ value: c.eventId, label: c.deceasedName, hint: `${t(`container.${c.container}`)} · ${fmtDate(c.eventDate)}` }))} />
+        <RadioGroup label={t("removal.source")} value={source} onChange={setSource} options={candidates.map((c) => ({ value: c.eventId, label: c.deceasedName, hint: `${t(`container.${c.container}`)}, ${fmtDate(c.eventDate)}` }))} />
         <TextField label={t("common.date")} type="date" value={date} onChange={setDate} />
         {type === "urn_release" && (
           <div className="grid gap-4 md:grid-cols-2">

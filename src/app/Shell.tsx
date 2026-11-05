@@ -21,6 +21,7 @@ import { api, shell } from "../lib/api";
 import type { SearchHit } from "../lib/types";
 import { cx, Plaque } from "../components/ui";
 import { useCurrentCemetery } from "../lib/queries";
+import mark from "../assets/mark.svg";
 
 const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "dashboard", key: "nav.dashboard", icon: Home },
@@ -69,13 +70,16 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full">
-      <aside className="no-print flex w-64 shrink-0 flex-col border-r border-seam bg-slab">
-        <div className="px-5 pt-5 pb-4">
-          <p className="font-serif text-xl font-semibold">{t("app.name")}</p>
+      <aside className="no-print flex w-64 shrink-0 flex-col bg-rail text-rail-ink">
+        <div className="px-5 pt-6 pb-5">
+          <p className="flex items-center gap-3">
+            <img src={mark} alt="" className="size-9" />
+            <span className="text-2xl font-extrabold tracking-[-0.03em]">{t("app.name")}</span>
+          </p>
           {list.length > 1 ? (
             <select
               aria-label={t("common.cemetery")}
-              className="mt-2 w-full rounded-md border border-seam bg-limestone px-2 py-1 text-sm"
+              className="mt-4 w-full rounded-[4px] border border-rail-muted/40 bg-rail px-2 py-1.5 text-sm text-rail-ink"
               value={current?.id ?? ""}
               onChange={(e) => setCemeteryId(e.target.value)}
             >
@@ -86,10 +90,10 @@ export function Shell({ children }: { children: ReactNode }) {
               ))}
             </select>
           ) : (
-            <p className="text-sm text-granite">{current?.name ?? t("app.tagline")}</p>
+            <p className="mt-3 text-sm text-rail-muted">{current?.name ?? t("app.tagline")}</p>
           )}
         </div>
-        <nav aria-label="Fő menü" className="flex-1 overflow-y-auto px-3">
+        <nav aria-label="Fő menü" className="flex-1 overflow-y-auto">
           <ul className="flex flex-col gap-0.5">
             {NAV.map((n) => {
               const Icon = n.icon;
@@ -101,11 +105,11 @@ export function Shell({ children }: { children: ReactNode }) {
                     onClick={() => nav.go({ view: n.view } as Route)}
                     aria-current={on ? "page" : undefined}
                     className={cx(
-                      "flex min-h-12 w-full items-center gap-3 rounded-md px-3 text-left font-semibold",
-                      on ? "bg-lichen text-slate" : "text-granite hover:bg-limestone hover:text-slate",
+                      "flex min-h-12 w-full items-center gap-3 border-l-4 px-4 text-left font-bold",
+                      on ? "border-accent bg-white/8 text-rail-ink" : "border-transparent text-rail-muted hover:bg-white/5 hover:text-rail-ink",
                     )}
                   >
-                    <Icon className={cx("size-5", on && "text-moss")} aria-hidden />
+                    <Icon className={cx("size-5", on && "text-accent")} aria-hidden />
                     {t(n.key)}
                   </button>
                 </li>
@@ -113,18 +117,18 @@ export function Shell({ children }: { children: ReactNode }) {
             })}
           </ul>
         </nav>
-        <div className="border-t border-seam px-5 py-4">
-          <p className="font-semibold">{status?.session?.displayName}</p>
-          <p className="text-sm text-granite">{status?.session ? t(`role.${status.session.role}`) : ""}</p>
+        <div className="border-t border-white/10 px-5 py-4">
+          <p className="font-bold">{status?.session?.displayName}</p>
+          <p className="text-sm text-rail-muted">{status?.session ? t(`role.${status.session.role}`) : ""}</p>
           {status?.loginRequired && (
-            <button type="button" className="mt-2 inline-flex items-center gap-2 text-sm text-granite hover:text-slate" onClick={async () => setStatus(await shell.logout())}>
+            <button type="button" className="mt-2 inline-flex items-center gap-2 text-sm text-rail-muted hover:text-rail-ink" onClick={async () => setStatus(await shell.logout())}>
               <LogOut className="size-4" aria-hidden /> {t("nav.logout")}
             </button>
           )}
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="no-print flex items-center gap-3 border-b border-seam bg-limestone/90 px-8 py-3">
+        <div className="no-print flex items-center gap-3 border-b border-seam bg-slab px-8 py-3">
           {nav.canGoBack && (
             <button type="button" onClick={nav.back} className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-granite hover:text-slate" aria-label={t("nav.back")}>
               <ArrowLeft className="size-5" aria-hidden />
@@ -215,11 +219,11 @@ function QuickSearch() {
             setOpen(false);
           }
         }}
-        className="min-h-12 w-full rounded-md border border-seam bg-slab pr-24 pl-10 text-lg focus:border-moss focus:outline-none focus-visible:outline-3 focus-visible:outline-moss"
+        className="min-h-12 w-full rounded-[4px] border border-seam bg-limestone pr-24 pl-10 text-lg focus:border-slate focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
       />
       <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-seam px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
       {open && debounced.length >= 2 && (
-        <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-lg border border-seam bg-slab py-2 shadow-lg">
+        <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] py-2 shadow-lg">
           {flat.length === 0 && !isFetching && <p className="px-4 py-3 text-granite">{t("search.noResults", { q: debounced })}</p>}
           {groups.map(([label, hits]) =>
             hits.length ? (
@@ -242,7 +246,7 @@ function QuickSearch() {
                         <span className="block font-semibold">{h.title}</span>
                         <span className="block text-sm text-granite">
                           {h.kind === "person" ? t("search.activeHolder", { count: Number(h.subtitle) }) : h.subtitle}
-                          {h.cemeteryName ? ` · ${h.cemeteryName}` : ""}
+                          {h.cemeteryName ? `, ${h.cemeteryName}` : ""}
                         </span>
                       </span>
                       {h.plotIdentifier && <Plaque identifier={h.plotIdentifier} />}

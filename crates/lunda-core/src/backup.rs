@@ -139,7 +139,7 @@ pub fn create_in(conn: &Connection, s: &Session, dir: &Path, external: bool, kin
         let bytes = std::fs::read(&path)?;
         let chain = audit::verify_chain(conn)?;
         let manifest = Manifest {
-            app: "Lunda Temető".into(),
+            app: "TEMISZ".into(),
             app_version: env!("CARGO_PKG_VERSION").into(),
             schema_version: version,
             created_at: now_ts(),

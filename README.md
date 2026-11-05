@@ -1,11 +1,12 @@
-# Lunda Temető
+# TEMISZ
 
-Temetőnyilvántartó asztali alkalmazás Windowsra és macOS-re. Elektronikusan vezeti a temetőüzemeltetők törvényben előírt nyilvántartásait: a nyilvántartó könyvet és a sírbolt könyvet. Kezeli a temetési helyek teljes életciklusát (megváltás, újraváltás, lejárat, újraértékesítés), a térképet és a nyomtatványokat. Internetkapcsolat nélkül is teljes értékűen működik.
+**Tem**etőmenedzsment és **I**nformatikai **Sz**oftver: temetőnyilvántartó asztali alkalmazás Windowsra és macOS-re. Elektronikusan vezeti a temetőüzemeltetők törvényben előírt nyilvántartásait: a nyilvántartó könyvet és a sírbolt könyvet. Kezeli a temetési helyek teljes életciklusát (megváltás, újraváltás, lejárat, újraértékesítés), a térképet és a nyomtatványokat. Internetkapcsolat nélkül is teljes értékűen működik.
 
 - Specifikáció: [`docs/FRS.md`](docs/FRS.md)
 - Megvalósítási terv: [`docs/PLAN.md`](docs/PLAN.md)
 - Nyitott kérdések és a választott alapértelmezések: [`docs/QUESTIONS.md`](docs/QUESTIONS.md)
 - Felületi irány: [`docs/DESIGN.md`](docs/DESIGN.md)
+- Letöltőoldal: https://temetkezesnyilvantarta.vercel.app/
 
 > A jogszabályi megfelelést (Ttv., Vhr., helyi rendeletek) élesítés előtt jogásszal kell ellenőriztetni. A helyi szabályokat a pilot üzemeltetővel kell egyeztetni (FRS 2. fejezet).
 
@@ -25,9 +26,9 @@ Temetőnyilvántartó asztali alkalmazás Windowsra és macOS-re. Elektronikusan
 
 | Rendszer | Fájl | Megjegyzés |
 | --- | --- | --- |
-| Windows 10/11, 64 bites (Intel/AMD) | `Lunda Temető_x.y.z_x64-setup.exe` vagy `…_x64_hu-HU.msi` | Az MSI csoportházirenddel is telepíthető. |
-| Windows 11 ARM | `Lunda Temető_x.y.z_arm64-setup.exe` | |
-| macOS 12 vagy újabb (Apple Silicon és Intel) | `Lunda Temető_x.y.z_universal.dmg` | Nyissa meg, és húzza az alkalmazást a Programok mappába. |
+| Windows 10/11, 64 bites (Intel/AMD) | `TEMISZ_x.y.z_x64-setup.exe` vagy `…_x64_hu-HU.msi` | Az MSI csoportházirenddel is telepíthető. |
+| Windows 11 ARM | `TEMISZ_x.y.z_arm64-setup.exe` | |
+| macOS 12 vagy újabb (Apple Silicon és Intel) | `TEMISZ_x.y.z_universal.dmg` | Nyissa meg, és húzza az alkalmazást a Programok mappába. |
 
 Aláíratlan telepítő esetén (amíg a kódaláíró tanúsítványok nincsenek beállítva):
 
@@ -252,4 +253,4 @@ e2e/                    Playwright end-to-end tesztek
 
 ### Betűkészletek
 
-A PDF-ekbe ágyazott Literata és Atkinson Hyperlegible Next betűkészlet a SIL Open Font License 1.1 alatt áll. A licencek: `crates/lunda-core/fonts/OFL-*.txt`.
+A felületen és a PDF-ekben használt Atkinson Hyperlegible Next betűkészlet a SIL Open Font License 1.1 alatt áll (`crates/lunda-core/fonts/OFL-AtkinsonHyperlegibleNext.txt`).

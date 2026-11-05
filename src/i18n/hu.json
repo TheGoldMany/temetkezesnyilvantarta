@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Lunda Temető",
-    "tagline": "Temetőnyilvántartó"
+    "name": "TEMISZ",
+    "tagline": "Temetőmenedzsment és Informatikai Szoftver"
   },
   "nav": {
     "dashboard": "Kezdőlap",
@@ -246,7 +246,7 @@
     "title": "Belépés",
     "intro": "Lépjen be a saját felhasználónevével.",
     "submit": "Belépés",
-    "firstRunTitle": "Üdvözöljük a Lunda Temetőben",
+    "firstRunTitle": "A TEMISZ első indítása",
     "firstRunIntro": "Hozza létre a rendszergazda fiókot. Ezzel tud később további munkatársakat felvenni.",
     "createAdmin": "Fiók létrehozása",
     "passwordAgain": "Jelszó még egyszer",
@@ -275,20 +275,27 @@
   "dashboard": {
     "title": "Kezdőlap",
     "greeting": "Jó napot, {{name}}!",
-    "plotsTotal": "temetési hely",
-    "eventsThisYear": "bejegyzés idén",
+    "plotsTotal": "Temetési hely összesen",
+    "eventsThisYear": "Bejegyzés idén",
     "expiring": "lejár 90 napon belül",
     "expired": "lejárt megváltás",
-    "deceasedTotal": "elhunyt a nyilvántartásban",
+    "deceasedTotal": "Elhunyt a nyilvántartásban",
     "occupancy": "Helyek állapota",
     "recent": "Legutóbbi bejegyzések",
     "quickActions": "Gyakori teendők",
     "newBurial": "Új temetés rögzítése",
     "findGrave": "Sír keresése",
-    "checkExpiries": "Lejáratok áttekintése",
-    "backupWarning": "7 napja nem volt sikeres külső mentés. Csatlakoztassa a mentőmeghajtót, és mentsen most.",
+    "checkExpiries": "Lejáratok",
+    "backupWarning": "7 napja nem volt sikeres mentés külső helyre. Csatlakoztassa a mentőmeghajtót.",
     "backupNow": "Mentés most",
-    "noEvents": "Még nincs bejegyzés. Az első temetést az „Új temetés rögzítése” gombbal rögzítheti."
+    "noEvents": "Még nincs bejegyzés. Az első temetést az „Új temetés rögzítése” gombbal rögzítheti.",
+    "tasks": "Teendők",
+    "noTasks": "Nincs sürgős teendő. A mentés rendben, lejárt és értesítetlen megváltás nincs.",
+    "taskExpired": "lejárt megváltás, a jogosult még nem kapott értesítést",
+    "taskExpiring": "megváltás jár le a következő 90 napban",
+    "taskNotified": "hely értesítve, a türelmi idő lejártára vár",
+    "allEntries": "Összes bejegyzés",
+    "colName": "Elhunyt, esemény"
   },
   "search": {
     "placeholder": "Név, évszám vagy helyazonosító (pl. A/3/12)",
@@ -730,7 +737,7 @@
     "overview": "Áttekintő nézet: nagyítson a helyek megjelenítéséhez.",
     "visible": "{{count}} hely látható",
     "export": "Térkép PDF-be",
-    "keyboardHelp": "Nyilak: mozgatás · + és −: nagyítás · 0: teljes nézet",
+    "keyboardHelp": "Nyilak: mozgatás, + és −: nagyítás, 0: teljes nézet",
     "section": "{{code}} parcella",
     "jumpButton": "Ugrás"
   },
@@ -779,7 +786,7 @@
   },
   "quick": {
     "title": "Gyors bevitel papírkönyvből",
-    "intro": "Enter: következő mező · Ctrl+Enter: mentés és új sor · a régi folyószám megmarad. A hely, ha még nincs, automatikusan létrejön.",
+    "intro": "Enter: következő mező, Ctrl+Enter: mentés és új sor, a régi folyószám megmarad. A hely, ha még nincs, automatikusan létrejön.",
     "saved": "Mentve: {{folio}}. folyószám – {{name}}",
     "save": "Mentés (Ctrl+Enter)",
     "recent": "Ebben a munkamenetben rögzítve",

@@ -72,12 +72,12 @@ export function DeceasedView({ id }: { id: string }) {
                 <li key={e.id} className={cx("flex flex-wrap items-center justify-between gap-3 py-3", e.voidedAt && "text-granite")}>
                   <div className={cx(e.voidedAt && "line-through")}>
                     <p className="font-semibold">
-                      {e.folio}. · {t(`eventType.${e.eventType}`)}
+                      {e.folio}. {t(`eventType.${e.eventType}`)}
                     </p>
                     <p className="text-sm text-granite">
-                      {fmtDate(e.eventDate)} · {e.cemeteryName}
-                      {e.arrangerName ? ` · ${t("fields.arranger")}: ${e.arrangerName}` : ""}
-                      {e.receiverName ? ` · ${t("fields.receiverName")}: ${e.receiverName}` : ""}
+                      {fmtDate(e.eventDate)}, {e.cemeteryName}
+                      {e.arrangerName ? `, ${t("fields.arranger")}: ${e.arrangerName}` : ""}
+                      {e.receiverName ? `, ${t("fields.receiverName")}: ${e.receiverName}` : ""}
                     </p>
                     {e.voidedAt && <p className="text-sm no-underline">{t("common.voided")}: {e.voidReason}</p>}
                   </div>
@@ -190,7 +190,7 @@ export function VoidEventDialog({ event, onClose }: { event: EventRow; onClose: 
     >
       <div className="flex flex-col gap-4">
         <p>
-          <strong>{event.folio}.</strong> {t(`eventType.${event.eventType}`)} · {event.deceasedName} · {fmtDate(event.eventDate)}
+          <strong>{event.folio}.</strong> {t(`eventType.${event.eventType}`)}, {event.deceasedName}, {fmtDate(event.eventDate)}
         </p>
         <p className="text-granite">{t("common.voidExplain")}</p>
         <ReasonField value={reason} onChange={setReason} />

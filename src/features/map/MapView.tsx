@@ -327,7 +327,7 @@ export function MapView({ plotId }: { plotId?: string }) {
         }
       />
       {editing && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-moss/40 bg-lichen/60 px-4 py-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[4px] border border-accent bg-lichen/60 px-4 py-3">
           <span className="mr-auto">{t("map.editOn")}</span>
           <Button icon={<RotateCw className="size-4" aria-hidden />} onClick={rotateSelected} disabled={!selected && !multi.length}>
             {t("map.rotate")}
@@ -375,7 +375,7 @@ export function MapView({ plotId }: { plotId?: string }) {
             tabIndex={0}
             onKeyDown={onKeyDown}
             aria-label={`${t("map.title")}. ${t("map.keyboardHelp")}`}
-            className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-lg border border-seam bg-[color-mix(in_oklab,var(--c-limestone)_70%,var(--c-slab))]"
+            className="relative h-[68vh] min-h-[420px] overflow-hidden border-t-2 border-slate bg-[#e4e8ea] dark:bg-[#0f1417]"
           >
             {plots.isLoading ? (
               <Spinner />
@@ -419,7 +419,7 @@ export function MapView({ plotId }: { plotId?: string }) {
                             acc += w;
                             return r;
                           })}
-                        <text x={g.x} y={g.y - 5 / view.scale} fontSize={16 / view.scale} fontFamily="Literata Variable, serif" fontWeight={600} fill="var(--c-slate)" pointerEvents="none">
+                        <text x={g.x} y={g.y - 5 / view.scale} fontSize={16 / view.scale} fontFamily="Atkinson Hyperlegible Next, sans-serif" fontWeight={600} fill="var(--c-slate)" pointerEvents="none">
                           {s.code}
                         </text>
                       </g>
@@ -461,7 +461,7 @@ export function MapView({ plotId }: { plotId?: string }) {
         </div>
         <aside className="flex flex-col gap-4">
           {selectedPlot && current ? <SelectedPanel plot={selectedPlot} cemeteryId={current.id} onOpen={(id) => nav.go({ view: "plot", id })} /> : <Alert>{t("map.keyboardHelp")}</Alert>}
-          <div className="rounded-lg border border-seam bg-slab px-4 py-3">
+          <div className="border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-4 py-3">
             <h2 className="mb-2 text-lg">{t("map.legend")}</h2>
             <ul className="flex flex-col gap-1.5">
               {PLOT_STATUSES.map((s) => (
@@ -489,7 +489,7 @@ function SelectedPanel({ plot, cemeteryId, onOpen }: { plot: MapPlot; cemeteryId
     queryFn: async () => api<PlotDetail>("plots.get", { id: await resolveId(cemeteryId, plot.identifier) }),
   });
   return (
-    <div className="rounded-lg border border-seam bg-slab px-4 py-4" data-testid="map-selected">
+    <div className="border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-4 py-4" data-testid="map-selected">
       <p className="mb-1 text-sm text-granite">{t("map.selected")}</p>
       <Plaque identifier={plot.identifier} large />
       <div className="mt-2">

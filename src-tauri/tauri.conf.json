@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Lunda Temető",
-  "version": "0.1.0",
+  "productName": "TEMISZ",
+  "version": "0.1.1",
   "identifier": "hu.lunda.temeto",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Lunda Temető",
+        "title": "TEMISZ – Temetőmenedzsment és Informatikai Szoftver",
         "width": 1360,
         "height": 880,
         "minWidth": 1024,
@@ -37,8 +37,8 @@
     "publisher": "Lunda Software",
     "copyright": "© 2026 Lunda Software",
     "category": "Business",
-    "shortDescription": "Temetőnyilvántartó",
-    "longDescription": "Temetőnyilvántartó asztali alkalmazás: nyilvántartó könyv, sírbolt könyv, megváltások, lejáratok, térkép.",
+    "shortDescription": "Temetőmenedzsment és Informatikai Szoftver",
+    "longDescription": "TEMISZ – Temetőmenedzsment és Informatikai Szoftver: nyilvántartó könyv, sírbolt könyv, megváltások, lejáratok, temetőtérkép.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

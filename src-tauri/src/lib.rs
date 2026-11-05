@@ -128,7 +128,7 @@ pub fn run() {
             updater::update_install
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Lunda Temető");
+        .expect("error while building TEMISZ");
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
             // FR-NAP-03: backup on exit

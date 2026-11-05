@@ -1,53 +1,57 @@
-# Lunda Temető – felületi irány
+# TEMISZ – felületi irány
 
-**Tárgy:** egy temetőiroda nyilvántartó programja. **Közönség:** 50–70 éves gondnokok, ügyintézők; nem informatikusok, sokszor szemüvegben, ügyféllel szemben ülve. **Fő feladat:** egy temetést hibátlanul rögzíteni, és egy sírt gyorsan megtalálni.
+**TEMISZ** = **Tem**etőmenedzsment és **I**nformatikai **Sz**oftver. Rövid, modern, jól csengő név.
 
-## Irány: „mészkő és moha”
-A temető anyagai – mészkő, gránit, moha, zuzmó – adják a palettát; nem krém és terrakotta, nem sötét fekete. Hideg, enyhén zöldes világos alap, palaszürke betű, mélyzöld (moha) akcentus. Sehol nincs díszítő gradiens vagy árnyék-kártyakészlet: a felületek kőlapként, vékony gránitszegéllyel különülnek el.
+**Tárgy:** egy temetőiroda nyilvántartó programja. **Közönség:** 50–70 éves gondnokok és ügyintézők; nem informatikusok, sokszor szemüvegben, ügyféllel szemben ülve. **Fő feladat:** egy temetést hibátlanul rögzíteni, és egy sírt gyorsan megtalálni.
+
+## Irány: „gránit és mécses”
+A program napi, órákon át tartó munkaeszköz (szuverén testtartás), nem marketingoldal. Ezért:
+
+- sűrű, főkönyvszerű táblák;
+- sötét grafit oldalsáv;
+- hideg gránitszürke munkafelület.
+
+Egyetlen meleg szín van, a mécseslángszerű borostyán. Ez csak a kijelölést, a fókuszt, a sürgős teendőt és a márkajelet jelöli. A panelek nem keretes kártyák, hanem fehér lapok, felül vastag tintavonallal.
+
+Kerülendő:
+
+- talpas díszbetű;
+- krém háttér;
+- egyforma, lekerekített kártyák;
+- „·” elválasztós meta-sorok;
+- üdvözlő szöveg és dísz-statisztikák.
 
 | Token | Világos | Sötét | Szerep |
 | --- | --- | --- | --- |
-| `limestone` | #EDF0EB | #151B1D | háttér |
-| `slab` | #FFFFFF | #1E272A | felületek, űrlapok |
-| `slate` | #1F2A30 | #E3E8E3 | szöveg (≥ 12:1) |
-| `granite` | #5B6A70 | #9AA8A3 | másodlagos szöveg (≥ 5:1) |
-| `seam` | #C9D0CB | #34413F | szegélyek, elválasztók |
-| `moss` | #2F5D45 | #8FC4A3 | elsődleges művelet, kijelölés (AA) |
-| `lichen` | #D6E4C8 | #2C3F33 | kijelölt háttér, fókusz-gyűrű kitöltés |
+| `limestone` (vászon) | #ECEFF1 | #11161A | háttér |
+| `slab` (lap) | #FFFFFF | #182026 | táblák, űrlapok |
+| `slate` (tinta) | #141B21 | #E7EBEE | szöveg, elsődleges gomb, lapok felső vonala |
+| `granite` | #56626B | #9BA8B1 | másodlagos szöveg |
+| `seam` | #D3D9DD | #2B353D | sorvonalak |
+| `rail` | #1A2228 | #0C1013 | oldalsáv, weboldal sávja |
+| `accent` (mécses) | #E3A21A | #F0B43C | kijelölés, fókusz, sürgős teendő, márkajel |
 
-Helyállapot-színek (térkép, jelvények) mindig felirattal és mintázattal együtt: szabad (fehér, szegély), lefoglalt (kék #6E93BF), foglalt (moha #4F7A60), lejárt (okker #C9962E), értesítve (rozsda #A65A2A, csíkos), újraértékesíthető (lila #7D62A0), felszámolt (szürke #7C8486), nem használható (sötét, sraffozott). Védett sír: aranyszínű kettős keret (#B08D2F).
+Helyállapotok (térkép, jelvények), mindig felirattal együtt:
 
-## Betűk
-- **Literata** (változó, optikai méretezés) – címek és a sírhely-azonosító. Könyvbetű, a nyilvántartó könyv hangulata; teljes magyar ékezetkészlet (ő, ű).
-- **Atkinson Hyperlegible Next** – minden más. Gyengénlátóknak tervezett, jól megkülönböztethető betűformák (I/l/1, O/0) – ügyfélszám, folyószám, dátum olvasásához ideális.
-- Alapméret 17 px, sorköz 1,55; skála 17 / 20 / 24 / 30 / 38. Számoknál táblázatos számjegyek. Nincs csupa nagybetűs címke.
+| Állapot | Szín |
+| --- | --- |
+| szabad | fehér, kerettel |
+| lefoglalt | #4F78B0 |
+| foglalt | #6B8574 |
+| lejárt | #E3A21A |
+| értesítve | #B4502A, csíkozva |
+| újraértékesíthető | #7A5CA8 |
+| felszámolt | #9AA3A8 |
+| nem használható | #2A3137, sraffozva |
 
-## Elrendezés
-```
-┌──────────────┬───────────────────────────────────────────────┐
-│ Lunda Temető │  [ Keresés: név, évszám vagy A/3/12   Ctrl+K ] │
-│              ├───────────────────────────────────────────────┤
-│ Kezdőlap     │  Oldalcím (Literata 30)          [Fő művelet] │
-│ Temetések    │                                               │
-│ Temetési h.  │  tartalom, balra zárt, max. 1200 px           │
-│ Térkép       │                                               │
-│ Személyek    │                                               │
-│ Lejáratok    │                                               │
-│ Nyomtatványok│                                               │
-│ Riportok     │                                               │
-│ Import/Export│                                               │
-│ Beállítások  │                                               │
-│ ──────────── │                                               │
-│ Felhasználó  │                                               │
-└──────────────┴───────────────────────────────────────────────┘
-```
-Bal oldali, mindig látható menü (ikon + felirat, 48 px magas sorok). A gyorskereső minden képernyő tetején. Tartalom balra zárt.
+## Betű
+Egyetlen család: **Atkinson Hyperlegible Next**, gyengénlátóknak tervezett betű. Jól megkülönböztethető alakjai (I/l/1, O/0) segítenek a folyószám és a dátum olvasásában. Címekhez 800-as, sorközi feszességgel. Alapméret 17 px. A PDF-nyomtatványok is ezt használják.
 
-## Egyetlen emlékezetes elem
-A **sírhely-azonosító tábla**: az „A / 3 / 12” azonosító mindenhol egy kis, kőlapra vésett táblaként jelenik meg (Literata, táblázatos számok, enyhén bemélyedő belső árnyék, vékony kettős szegély). Ez köti össze a keresési találatot, az adatlapot, a térképet és a nyomtatványokat. Minden más visszafogott.
+## Az egyetlen emlékezetes elem
+A **szegmentált sírhely-címke**: az „A/3/12” azonosító három cellában jelenik meg (parcella | sor | hely), az első cella sötét, mint egy gravírozott címketábla. Ugyanez jelzi a weboldalon a verziót (v | 0 | 1 | 1).
 
 ## Elvek
-- Egy képernyő = egy feladat; a fő művelet mindig jobb felül, egyértelmű igével („Temetés rögzítése”, nem „Mentés”).
-- Hibaüzenet: mi a baj és mit tegyen (pl. „A nyugvási idő 2040. április 1-jén telik le. Addig koporsós rátemetés nem lehetséges.”).
-- Teljes billentyűzetes kezelés, látható 3 px-es fókuszgyűrű, `prefers-reduced-motion` tisztelete, nagyítás 90–150 %.
-- Mozgás csak válaszként: párbeszédablak nyitása, mentés visszajelzése.
+- A kezdőlap munkafelület: teendők (lejárt, értesítésre váró, mentés), legutóbbi bejegyzések táblában, helyállapot-sáv.
+- A fő művelet mindig jobb felül; sötét tinta gomb, egyértelmű igével.
+- Hibaüzenet: mi a baj és mit tegyen.
+- Teljes billentyűzetes kezelés, 3 px borostyán fókuszgyűrű, `prefers-reduced-motion`, nagyítás 90–150 %.

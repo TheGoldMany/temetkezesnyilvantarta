@@ -39,7 +39,7 @@ export function PersonsList() {
       ) : !data?.length ? (
         <Empty>{t("persons.empty")}</Empty>
       ) : (
-        <ul className="divide-y divide-seam rounded-lg border border-seam bg-slab">
+        <ul className="divide-y divide-seam border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)]">
           {data.map((p) => (
             <li key={p.id}>
               <button type="button" onClick={() => nav.go({ view: "person", id: p.id })} className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left hover:bg-limestone">
@@ -101,7 +101,7 @@ export function PersonView({ id }: { id: string }) {
                 <li key={h.id}>
                   <button type="button" onClick={() => nav.go({ view: "plot", id: h.plotId })} className={cx("flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-limestone/60", h.endDate && "text-granite")}>
                     <span>
-                      {t(`holder.role.${h.role}`)} · {h.endDate ? `${fmtDate(h.startDate)} – ${fmtDate(h.endDate)}` : t("plots.since", { date: fmtDate(h.startDate) })}
+                      {t(`holder.role.${h.role}`)}, {h.endDate ? `${fmtDate(h.startDate)} – ${fmtDate(h.endDate)}` : t("plots.since", { date: fmtDate(h.startDate) })}
                     </span>
                     <Plaque identifier={h.plotIdentifier} />
                   </button>

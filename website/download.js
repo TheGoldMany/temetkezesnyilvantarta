@@ -55,10 +55,17 @@
     const primary = found.find((k) => k.id === want) || (want === "win-arm64" && found.find((k) => k.id === "win-x64")) || found[0];
     $("primary").href = primary.asset.browser_download_url;
     $("primary-label").textContent = want ? primary.label : "Letöltés";
-    $("primary-sub").textContent = `${primary.sub} · ${size(primary.asset.size)}`;
+    $("primary-sub").textContent = `${primary.sub}, ${size(primary.asset.size)}`;
+    // version as a segmented label: v | 0 | 1 | 1
     const v = $("version");
-    v.textContent = release.tag_name;
-    v.hidden = false;
+    v.setAttribute("aria-label", `verzió ${release.tag_name.replace(/^v/, "")}`);
+    for (const part of ["v", ...release.tag_name.replace(/^v/, "").split(".")]) {
+      const seg = document.createElement("span");
+      seg.className = "seg";
+      seg.textContent = part;
+      v.appendChild(seg);
+    }
+    $("release").hidden = false;
     $("release-date").textContent = new Date(release.published_at).toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
     const list = $("other-list");
     for (const k of found) {
@@ -66,7 +73,7 @@
       const li = document.createElement("li");
       li.innerHTML = `<a href="${k.asset.browser_download_url}"></a> <span></span>`;
       li.querySelector("a").textContent = k.label;
-      li.querySelector("span").textContent = `${k.sub} · ${size(k.asset.size)}`;
+      li.querySelector("span").textContent = `${k.sub}, ${size(k.asset.size)}`;
       list.appendChild(li);
     }
     $("others").hidden = list.children.length === 0;

@@ -108,7 +108,7 @@ export function PersonPicker({ label, value, onChange }: { label: string; value:
     if (!value) onChange({ mode: "new", person: { ...emptyPerson } });
   }, [value, onChange]);
   return (
-    <fieldset className="flex flex-col gap-3 rounded-lg border border-seam px-5 py-4">
+    <fieldset className="flex flex-col gap-3 border-l-4 border-seam py-1 pl-5">
       <legend className="px-1 text-lg font-semibold">{label}</legend>
       <div className="flex gap-2" role="radiogroup">
         {(["new", "existing"] as const).map((m) => (
@@ -118,7 +118,7 @@ export function PersonPicker({ label, value, onChange }: { label: string; value:
             role="radio"
             aria-checked={mode === m}
             onClick={() => onChange(m === "new" ? { mode: "new", person: { ...emptyPerson } } : { mode: "existing", id: "" })}
-            className={cx("min-h-10 rounded-md border px-3 font-semibold", mode === m ? "border-moss bg-lichen" : "border-seam bg-slab text-granite")}
+            className={cx("min-h-10 rounded-md border px-3 font-semibold", mode === m ? "border-slate bg-lichen" : "border-seam bg-slab text-granite")}
           >
             {m === "new" ? t("wizard.personNew") : t("wizard.personExisting")}
           </button>
@@ -131,8 +131,8 @@ export function PersonPicker({ label, value, onChange }: { label: string; value:
           <ul className="flex flex-col gap-1">
             {data.map((p) => (
               <li key={p.id}>
-                <label className={cx("flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2", value.id === p.id ? "border-moss bg-lichen/60" : "border-seam")}>
-                  <input type="radio" className="size-5 accent-[var(--c-moss)]" checked={value.id === p.id} onChange={() => onChange({ mode: "existing", id: p.id })} />
+                <label className={cx("flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2", value.id === p.id ? "border-slate bg-lichen/60" : "border-seam")}>
+                  <input type="radio" className="size-5 accent-[var(--c-slate)]" checked={value.id === p.id} onChange={() => onChange({ mode: "existing", id: p.id })} />
                   <span>
                     <span className="font-semibold">{fullName(p)}</span>
                     <span className="block text-sm text-granite">{p.masked ? t("common.hidden") : p.address}</span>
@@ -165,9 +165,9 @@ export function PlotPicker({ cemeteryId, value, onChange, allowed }: { cemeteryI
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("wizard.pickPlot")}>
         {(data?.items ?? []).map((p) => (
           <li key={p.id}>
-            <label className={cx("flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2", value === p.id ? "border-moss bg-lichen/60" : "border-seam bg-slab")}>
+            <label className={cx("flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2", value === p.id ? "border-slate bg-lichen/60" : "border-seam bg-slab")}>
               <span className="flex items-center gap-3">
-                <input type="radio" name={id} className="size-5 accent-[var(--c-moss)]" checked={value === p.id} onChange={() => onChange(p.id, p)} />
+                <input type="radio" name={id} className="size-5 accent-[var(--c-slate)]" checked={value === p.id} onChange={() => onChange(p.id, p)} />
                 <Plaque identifier={p.identifier} />
               </span>
               <span className="text-right text-sm">

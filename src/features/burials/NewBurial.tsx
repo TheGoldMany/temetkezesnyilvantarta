@@ -125,7 +125,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
         <PageHeader title={t(isReburial ? "plots.reburial" : "wizard.title")} />
         <div className="flex flex-col gap-5 rounded-lg border border-moss/40 bg-slab px-7 py-6" data-testid="burial-done">
           <p className="flex items-center gap-3 text-xl font-semibold">
-            <CheckCircle2 className="size-7 text-moss" aria-hidden />
+            <CheckCircle2 className="size-7 text-accent-ink" aria-hidden />
             {t("wizard.done", { folio: result.folio })}
           </p>
           <DefinitionList
@@ -134,7 +134,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
               [t("fields.eventType"), t(`eventType.${result.event.eventType}`)],
               [t("fields.eventDate"), fmtDate(result.event.eventDate)],
               [t("fields.plot"), <Plaque key="p" identifier={plot.data?.plot.identifier} />],
-              ...(result.lease ? ([[t(`leaseKind.${result.lease.kind}`), `${fmtDate(result.lease.startDate)} – ${fmtDate(result.lease.expiryDate)} · ${fmtHuf(result.lease.feeHuf)}`]] as [string, string][]) : []),
+              ...(result.lease ? ([[t(`leaseKind.${result.lease.kind}`), `${fmtDate(result.lease.startDate)} – ${fmtDate(result.lease.expiryDate)}, ${fmtHuf(result.lease.feeHuf)}`]] as [string, string][]) : []),
             ]}
           />
           <div className="flex flex-wrap gap-3">
@@ -160,7 +160,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
               type="button"
               onClick={() => i < stepIdx && setStep(s)}
               aria-current={s === step ? "step" : undefined}
-              className={cx("rounded-full border px-3 py-1 text-sm", s === step ? "border-moss bg-lichen font-semibold" : i < stepIdx ? "border-seam text-slate hover:border-granite" : "border-seam text-granite")}
+              className={cx("rounded-full border px-3 py-1 text-sm", s === step ? "border-slate bg-lichen font-semibold" : i < stepIdx ? "border-seam text-slate hover:border-granite" : "border-seam text-granite")}
             >
               {i + 1}. {t(`wizard.steps.${s}`)}
             </button>
@@ -168,7 +168,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
         ))}
       </ol>
 
-      <div className="flex flex-col gap-5 rounded-lg border border-seam bg-slab px-7 py-6">
+      <div className="flex flex-col gap-5 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-7 py-6">
         {step === "deceased" && (
           <>
             {existingDeceasedId ? (
@@ -186,7 +186,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
                   {similar.data!.map((d) => (
                     <li key={d.id} className="flex flex-wrap items-center gap-3">
                       <span>
-                        <strong>{fullName(d)}</strong> · {fmtDate(d.birthDate)} – {fmtDate(d.deathDate)} · {d.motherName}
+                        <strong>{fullName(d)}</strong>, {fmtDate(d.birthDate)} – {fmtDate(d.deathDate)}, {d.motherName}
                       </span>
                       <Button onClick={() => setExistingDeceasedId(d.id)}>{t("wizard.similarUse")}</Button>
                     </li>
@@ -317,7 +317,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
                 [t("fields.eventDate"), fmtDate(eventDate)],
                 [t("fields.plot"), <Plaque key="p" identifier={plot.data?.plot.identifier} />],
                 [t("fields.arranger"), arranger?.mode === "new" ? fullName(arranger.person) : "✓"],
-                ...(preview.data?.lease && leaseCreate ? ([[t(`leaseKind.${preview.data.lease.kind}`), `${leaseYears} év · ${fmtHuf(Number(leaseFee || 0))}`]] as [string, string][]) : []),
+                ...(preview.data?.lease && leaseCreate ? ([[t(`leaseKind.${preview.data.lease.kind}`), `${leaseYears} év, ${fmtHuf(Number(leaseFee || 0))}`]] as [string, string][]) : []),
               ]}
             />
             <VerdictView verdict={preview.data?.verdict} />

@@ -37,7 +37,7 @@ export function Prints() {
     <Panel key={key}>
       <div className="flex h-full flex-col gap-3">
         <h2 className="flex items-center gap-2 text-lg">
-          <Icon className="size-5 text-moss" aria-hidden /> {title}
+          <Icon className="size-5 text-accent-ink" aria-hidden /> {title}
         </h2>
         <p className="text-granite">{hint}</p>
         {extra}
@@ -52,7 +52,7 @@ export function Prints() {
   return (
     <>
       <PageHeader title={t("prints.title")} subtitle={current?.name} />
-      <div className="mb-6 flex flex-wrap items-end gap-4 rounded-lg border border-seam bg-slab px-5 py-4">
+      <div className="mb-6 flex flex-wrap items-end gap-4 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-5 py-4">
         <span className="font-semibold">{t("prints.period")}</span>
         <TextField label={t("common.from")} type="date" value={from} onChange={setFrom} />
         <TextField label={t("common.to")} type="date" value={to} onChange={setTo} />
@@ -62,7 +62,7 @@ export function Prints() {
         <div className="mb-4">
           <Alert tone="ok" title={t("prints.generated", { path: last.fileName })}>
             {t("prints.pages", { count: last.pages })}
-            {last.volumeId && ` · ${t("prints.volume", { id: last.volumeId })} · ${t("prints.digest", { hash: last.contentHash?.slice(0, 16) + "…" })}`}
+            {last.volumeId && `, ${t("prints.volume", { id: last.volumeId })}, ${t("prints.digest", { hash: last.contentHash?.slice(0, 16) + "…" })}`}
             <Button variant="quiet" className="ml-2" onClick={() => openGenerated(last)}>
               {t("prints.openFile")}
             </Button>

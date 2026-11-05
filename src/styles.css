@@ -1,15 +1,18 @@
 @import "tailwindcss";
-@import "@fontsource-variable/literata/opsz.css";
 @import "@fontsource/atkinson-hyperlegible-next/400.css";
 @import "@fontsource/atkinson-hyperlegible-next/600.css";
 @import "@fontsource/atkinson-hyperlegible-next/700.css";
+@import "@fontsource/atkinson-hyperlegible-next/800.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* "Mészkő és moha" tokens – see docs/DESIGN.md */
+/* TEMISZ "gránit és mécses" tokens – see docs/DESIGN.md.
+   Token names are historical: limestone = canvas, slab = surface, slate = ink,
+   granite = muted text, seam = rule, moss = primary (graphite ink),
+   lichen = selection wash (candle amber), accent = candle amber. */
 @theme {
   --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
-  --font-serif: "Literata Variable", Georgia, serif;
+  --font-serif: "Atkinson Hyperlegible Next", system-ui, sans-serif;
 
   --color-limestone: var(--c-limestone);
   --color-slab: var(--c-slab);
@@ -19,6 +22,11 @@
   --color-moss: var(--c-moss);
   --color-moss-ink: var(--c-moss-ink);
   --color-lichen: var(--c-lichen);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-rail: var(--c-rail);
+  --color-rail-ink: var(--c-rail-ink);
+  --color-rail-muted: var(--c-rail-muted);
   --color-alert: var(--c-alert);
   --color-alert-bg: var(--c-alert-bg);
   --color-warn: var(--c-warn);
@@ -43,37 +51,47 @@
 }
 
 :root {
-  --c-limestone: #edf0eb;
+  --c-limestone: #eceff1;
   --c-slab: #ffffff;
-  --c-slate: #1f2a30;
-  --c-granite: #56656b;
-  --c-seam: #c9d0cb;
-  --c-moss: #2f5d45;
+  --c-slate: #141b21;
+  --c-granite: #56626b;
+  --c-seam: #d3d9dd;
+  --c-moss: #1e2830;
   --c-moss-ink: #ffffff;
-  --c-lichen: #d6e4c8;
-  --c-alert: #9b2c22;
-  --c-alert-bg: #f6e3df;
-  --c-warn: #7a5a0c;
-  --c-warn-bg: #f5ecd2;
-  --st-free: #f7f9f5;
+  --c-lichen: #fff0c7;
+  --c-accent: #e3a21a;
+  --c-accent-ink: #7a4f00;
+  --c-rail: #1a2228;
+  --c-rail-ink: #f2f4f5;
+  --c-rail-muted: #9aa7b0;
+  --c-alert: #a3261b;
+  --c-alert-bg: #fbe7e4;
+  --c-warn: #7a4f00;
+  --c-warn-bg: #fff4d6;
+  --st-free: #ffffff;
   color-scheme: light;
   font-size: calc(17px * var(--zoom, 1));
 }
 
 [data-theme="dark"] {
-  --c-limestone: #151b1d;
-  --c-slab: #1e272a;
-  --c-slate: #e3e8e3;
-  --c-granite: #a3b0ab;
-  --c-seam: #34413f;
-  --c-moss: #8fc4a3;
-  --c-moss-ink: #10201a;
-  --c-lichen: #2c3f33;
-  --c-alert: #f0a39a;
-  --c-alert-bg: #3a2220;
-  --c-warn: #e7c46a;
-  --c-warn-bg: #3a3120;
-  --st-free: #2a3437;
+  --c-limestone: #11161a;
+  --c-slab: #182026;
+  --c-slate: #e7ebee;
+  --c-granite: #9ba8b1;
+  --c-seam: #2b353d;
+  --c-moss: #e7ebee;
+  --c-moss-ink: #11161a;
+  --c-lichen: #3a2f14;
+  --c-accent: #f0b43c;
+  --c-accent-ink: #f0b43c;
+  --c-rail: #0c1013;
+  --c-rail-ink: #e7ebee;
+  --c-rail-muted: #8796a0;
+  --c-alert: #f2a097;
+  --c-alert-bg: #3b1f1c;
+  --c-warn: #f0c46a;
+  --c-warn-bg: #3a2f14;
+  --st-free: #222c33;
   color-scheme: dark;
 }
 
@@ -97,16 +115,21 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-serif);
-  font-weight: 560;
-  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.015em;
   line-height: 1.2;
   margin: 0;
 }
 
+h1 {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
 /* Visible keyboard focus everywhere (NFR-HAS-03) */
 :focus-visible {
-  outline: 3px solid var(--c-moss);
+  outline: 3px solid var(--c-accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -120,33 +143,39 @@ h3 {
   }
 }
 
-/* The plot identifier plaque – the one memorable element (docs/DESIGN.md) */
+/* The plot identifier as a segmented grave label: parcella | sor | hely.
+   The one signature element (docs/DESIGN.md). */
 .plaque {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.28em;
-  padding: 0.12em 0.6em 0.16em;
-  font-family: var(--font-serif);
-  font-variation-settings: "opsz" 36;
-  font-weight: 600;
+  align-items: stretch;
+  font-family: var(--font-sans);
+  font-weight: 700;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--c-slate);
-  background: linear-gradient(var(--c-slab), color-mix(in oklab, var(--c-limestone) 70%, var(--c-slab)));
-  border: 1px solid var(--c-seam);
-  outline: 1px solid color-mix(in oklab, var(--c-seam) 55%, transparent);
-  outline-offset: 2px;
-  border-radius: 3px 3px 2px 2px;
-  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--c-slate) 14%, transparent);
+  background: var(--c-slab);
+  border: 1.5px solid color-mix(in oklab, var(--c-slate) 70%, transparent);
+  border-radius: 3px;
+  line-height: 1;
   white-space: nowrap;
 }
-.plaque .sep {
-  color: var(--c-granite);
-  font-weight: 400;
+.plaque > .seg {
+  padding: 0.28em 0.5em;
+  min-width: 1.6em;
+  text-align: center;
+}
+.plaque > .seg + .seg {
+  border-left: 1.5px solid color-mix(in oklab, var(--c-slate) 70%, transparent);
+}
+.plaque > .seg:first-child {
+  background: var(--c-slate);
+  color: var(--c-slab);
 }
 .plaque-lg {
   font-size: var(--text-2xl);
-  padding: 0.1em 0.5em 0.14em;
-  border-radius: 10px 10px 3px 3px;
+  border-width: 2px;
+}
+.plaque-lg > .seg + .seg {
+  border-left-width: 2px;
 }
 
 /* Hatched pattern for "unusable" and stripes for "notified" plots */

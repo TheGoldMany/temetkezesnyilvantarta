@@ -62,7 +62,7 @@ export function Reports() {
                 <tbody>
                   {util.data.map((r) => (
                     <tr key={r.cemeteryName + r.sectionCode} className="border-t border-seam">
-                      <td className="py-2 pr-4 font-serif font-semibold">{r.sectionCode}</td>
+                      <td className="py-2 pr-4 font-semibold">{r.sectionCode}</td>
                       <td className="py-2 pr-4 font-semibold">{fmtNum(r.total)}</td>
                       {PLOT_STATUSES.map((s) => (
                         <td key={s} className="py-2 pr-4">

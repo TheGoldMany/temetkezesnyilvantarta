@@ -155,7 +155,7 @@ function CemeteriesTab() {
               <span>
                 <span className="font-semibold">{c.name}</span>
                 <span className="block text-sm text-granite">
-                  {c.address} · {c.kind === "public" ? t("settings.kindPublic") : t("settings.kindDenominational")} · {c.folioScope === "yearly" ? t("settings.folioYearly") : t("settings.folioContinuous")}
+                  {c.address}, {c.kind === "public" ? t("settings.kindPublic") : t("settings.kindDenominational")}, {c.folioScope === "yearly" ? t("settings.folioYearly") : t("settings.folioContinuous")}
                 </span>
               </span>
               <span className="flex gap-2">
@@ -189,7 +189,7 @@ function CemeteriesTab() {
             <tbody>
               {(sections.data ?? []).map((s) => (
                 <tr key={s.id} className="border-t border-seam">
-                  <td className="py-2 font-serif font-semibold">{s.code}</td>
+                  <td className="py-2 font-semibold">{s.code}</td>
                   <td className="py-2">{s.name}</td>
                   <td className="py-2">{s.rowCount}</td>
                   <td className="py-2">{s.plotCount}</td>
@@ -545,8 +545,8 @@ function UsersTab() {
               <span>
                 <span className="font-semibold">{u.displayName}</span> <span className="text-granite">({u.username})</span>
                 <span className="block text-sm text-granite">
-                  {t(`role.${u.role}`)} · {u.active ? t("settings.active") : "inaktív"} · {fmtDateTime(u.lastLoginAt)}
-                  {u.lockedUntil && ` · ${t("settings.locked")}`}
+                  {t(`role.${u.role}`)}, {u.active ? t("settings.active") : "inaktív"}, {fmtDateTime(u.lastLoginAt)}
+                  {u.lockedUntil && `, ${t("settings.locked")}`}
                 </span>
               </span>
               <span className="flex gap-2">
@@ -740,7 +740,7 @@ function AboutTab() {
   return (
     <Panel>
       <div className="flex max-w-2xl flex-col gap-4">
-        <p className="font-serif text-xl">{t("app.name")}</p>
+        <p className="text-xl">{t("app.name")}</p>
         <p>{t("settings.version", { version: status?.version })}</p>
         <p className="text-granite">{t("settings.dataDir", { dir: status?.dataDir })}</p>
         {can("manage_settings") && (
