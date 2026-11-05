@@ -4,131 +4,173 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TEMISZ – Temetőmenedzsment és Informatikai Szoftver</title>
-    <meta name="description" content="TEMISZ: temetőnyilvántartó program Windowsra és macOS-re. Nyilvántartó könyv, sírbolt könyv, megváltások és lejáratok, temetőtérkép. Internet nélkül is működik." />
+    <meta name="description" content="TEMISZ: temetőnyilvántartó program Windowsra és macOS-re. Nyilvántartó könyv, sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. Internet nélkül is működik." />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="band">
-      <header class="top">
-        <a class="brand" href="./" aria-label="TEMISZ kezdőlap">
-          <img src="favicon.svg" alt="" width="34" height="34" />
-          <span>TEMISZ</span>
-        </a>
+    <header class="shell">
+      <div class="shell-inner">
+        <a class="wordmark" href="./">TEMISZ</a>
         <nav aria-label="Oldal">
-          <a href="#tudja">Mit tud</a>
+          <a href="#funkciok">Funkciók</a>
+          <a href="#kepek">Képernyők</a>
           <a href="#telepites">Telepítés</a>
-          <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Összes kiadás</a>
+          <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Kiadások</a>
         </nav>
-      </header>
-
-      <section class="hero">
-        <h1 class="name">TEMISZ</h1>
-        <p class="expansion"><b>Tem</b>etőmenedzsment és <b>I</b>nformatikai <b>Sz</b>oftver</p>
-        <p class="lead">
-          A temető nyilvántartó könyve, sírbolt könyve, megváltásai és térképe egy programban. Windowsra és Macre, internet nélkül is. Az adatok titkosítva a saját gépén maradnak.
-        </p>
-
-        <div class="download" aria-live="polite">
-          <a class="btn" id="primary" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">
-            <span id="primary-label">Letöltés</span>
-            <span class="btn-sub" id="primary-sub">a legfrissebb kiadás</span>
-          </a>
-          <div class="release" id="release" hidden>
-            <span class="label" id="version" aria-label=""></span>
-            <span id="release-date"></span>
-          </div>
-        </div>
-        <details class="others" id="others" hidden>
-          <summary>Másik rendszerre</summary>
-          <ul id="other-list"></ul>
-        </details>
-        <p class="notice" id="no-release" hidden>
-          A telepítők éppen készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
-          <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
-        </p>
-      </section>
-    </div>
+        <a class="btn btn-primary btn-sm" href="#letoltes">Letöltés</a>
+      </div>
+    </header>
 
     <main>
-      <figure class="screen">
-        <img src="img/kezdolap.png" width="1360" height="860" alt="A TEMISZ kezdőlapja: teendők, legutóbbi bejegyzések és a helyek állapota" />
-      </figure>
-
-      <section class="ledger" id="tudja" aria-labelledby="tudja-h">
-        <h2 id="tudja-h">Mit tud</h2>
-        <table>
-          <tbody>
-            <tr>
-              <th scope="row">Nyilvántartó könyv</th>
-              <td>Minden temetés kihagyás nélküli folyószámot kap. Bejegyzést törölni nem lehet, csak indoklással érvényteleníteni; a javítások naplózva maradnak.</td>
-            </tr>
-            <tr>
-              <th scope="row">Sírbolt könyv</th>
-              <td>Sírboltonként a férőhelyek foglaltsága, az építési adatok és a jogosult rendelkezései.</td>
-            </tr>
-            <tr>
-              <th scope="row">Rátemetés</th>
-              <td>A program ellenőrzi a férőhelyet, a nyugvási időt és a temetési tilalmakat. Ha a temetés nem engedélyezhető, megállít és megmondja, miért.</td>
-            </tr>
-            <tr>
-              <th scope="row">Megváltás és lejárat</th>
-              <td>Lejárat és időarányos díj számítása, lejáratfigyelő, tömeges értesítő levél, QR-kódos sírcímke és hirdetőtábla-lista.</td>
-            </tr>
-            <tr>
-              <th scope="row">Temetőtérkép</th>
-              <td>Színkódolt helyállapotok, kattintásra a hely adatlapja, nyomtatható helyszínrajz A4-től A0-ig. Ötvenezer hellyel is gördülékeny.</td>
-            </tr>
-            <tr>
-              <th scope="row">Hiteles nyomtatás</th>
-              <td>Nyilvántartó és sírbolt könyv oldalszámozással, kötetazonosítóval és hitelesítési záradékkal, jegyzői ellenőrzéshez is.</td>
-            </tr>
-            <tr>
-              <th scope="row">Átállás</th>
-              <td>Excel- és CSV-import próbafuttatással, a régi folyószámok megtartásával, valamint gyors bevitel a papírkönyvből, végig billentyűzetről.</td>
-            </tr>
-            <tr>
-              <th scope="row">Biztonság</th>
-              <td>Titkosított adatbázis, napi titkosított mentés ellenőrzőösszeggel, láncolt változásnapló, szerepkörök és jelszóval védett fiókok.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="pair" aria-label="Képernyőképek">
-        <figure>
-          <img src="img/terkep.png" width="1360" height="860" loading="lazy" alt="Temetőtérkép színkódolt helyállapotokkal és jelmagyarázattal" />
-          <figcaption>Térkép: a B/2/5 hely kijelölve</figcaption>
-        </figure>
-        <figure>
-          <img src="img/adatlap.png" width="1360" height="860" loading="lazy" alt="Egy temetési hely adatlapja nyugvókkal, megváltással és jogosulttal" />
-          <figcaption>Egy kettős sírhely adatlapja</figcaption>
-        </figure>
-      </section>
-
-      <section class="install" id="telepites" aria-labelledby="telepites-h">
-        <h2 id="telepites-h">Telepítés</h2>
-        <div class="cols">
-          <div>
-            <h3>Windows 10 és 11</h3>
-            <p>Futtassa a letöltött <code>…-setup.exe</code> fájlt. Ha megjelenik „A Windows megvédte a számítógépet” ablak, válassza a „További információ”, majd a „Futtatás mindenképp” gombot.</p>
+      <section class="hero" id="letoltes">
+        <div class="hero-text">
+          <p class="product">Temetőmenedzsment és Informatikai Szoftver</p>
+          <h1>A temető teljes nyilvántartása egy programban</h1>
+          <p class="lead">
+            Nyilvántartó könyv és sírbolt könyv, megváltások és lejáratok, temetőtérkép és hiteles nyomtatás. Önkormányzatoknak, egyházközségeknek és temetőüzemeltetőknek, internet nélkül is.
+          </p>
+          <div class="actions">
+            <a class="btn btn-primary btn-lg" id="primary" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16" /></svg>
+              <span id="primary-label">Letöltés</span>
+            </a>
+            <a class="btn btn-secondary btn-lg" href="#telepites">Telepítési útmutató</a>
           </div>
-          <div>
+          <p class="meta" id="primary-sub">A legfrissebb kiadás</p>
+          <details class="others" id="others" hidden>
+            <summary>Letöltés más rendszerre</summary>
+            <ul id="other-list"></ul>
+          </details>
+          <p class="notice" id="no-release" hidden>
+            A telepítők éppen készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
+            <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
+          </p>
+        </div>
+        <figure class="hero-shot">
+          <img src="img/kezdolap.png" width="1360" height="860" alt="A TEMISZ kezdőlapja: teendők, legutóbbi bejegyzések, helyek állapota" />
+        </figure>
+      </section>
+
+      <section class="facts" aria-label="Alapok">
+        <div class="fact">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+          <div><h2>Windows és macOS</h2><p>Telepíthető asztali program, Intel és ARM gépekre.</p></div>
+        </div>
+        <div class="fact">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0" /><path d="m3 3 18 18" /></svg>
+          <div><h2>Internet nélkül</h2><p>Minden adat a saját gépén. Hálózat csak a frissítéshez kell.</p></div>
+        </div>
+        <div class="fact">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+          <div><h2>Titkosított adatok</h2><p>Titkosított adatbázis, napi titkosított mentés, változásnapló.</p></div>
+        </div>
+        <div class="fact">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z" /><path d="M9 10h6M9 14h6M9 18h4" /></svg>
+          <div><h2>Jogszabálykövető</h2><p>Az 1999. évi XLIII. törvény és végrehajtási rendelete szerint.</p></div>
+        </div>
+      </section>
+
+      <section class="section" id="funkciok" aria-labelledby="funkciok-h">
+        <div class="section-head">
+          <h2 id="funkciok-h">Funkciók</h2>
+          <p>A napi temetői ügyintézés minden lépése, a temetés rögzítésétől a lejárati értesítésig.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z" /><path d="M4 21V5M8 7h6M8 11h6" /></svg>
+            <h3>Nyilvántartó könyv</h3>
+            <p>Minden temetés automatikus, kihagyás nélküli folyószámot kap. Bejegyzést törölni nem lehet, csak indoklással érvényteleníteni.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V10a7 7 0 0 1 14 0v11" /><path d="M3 21h18M12 8v6M9 11h6" /></svg>
+            <h3>Sírbolt könyv</h3>
+            <p>Sírboltonként a férőhelyek foglaltsága, az építési adatok és a jogosult rendelkezései.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg>
+            <h3>Rátemetés ellenőrzése</h3>
+            <p>Férőhely, nyugvási idő és temetési tilalom: ha a temetés nem engedélyezhető, a program jelzi és megindokolja.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M12 14v3l2 1" /></svg>
+            <h3>Megváltás és lejárat</h3>
+            <p>Lejárat és időarányos díj számítása, lejáratfigyelő, tömeges értesítő levél, QR-kódos sírcímke.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z" /><path d="M9 3v15M15 6v15" /></svg>
+            <h3>Temetőtérkép</h3>
+            <p>Színkódolt helyállapotok, kattintásra a hely adatlapja, nyomtatható helyszínrajz A4-től A0-ig.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7h-2" /><rect x="6" y="14" width="12" height="7" /></svg>
+            <h3>Hiteles nyomtatás</h3>
+            <p>Nyilvántartó és sírbolt könyv oldalszámozással és hitelesítési záradékkal, igazolások és értesítők.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4" /><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>
+            <h3>Átállás régi rendszerről</h3>
+            <p>Excel- és CSV-import próbafuttatással, a régi folyószámok megtartásával, gyors bevitel a papírkönyvből.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0M16 4a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6" /></svg>
+            <h3>Felhasználók és jogok</h3>
+            <p>Rendszergazda, ügyintéző, pénzügyes és olvasó szerepkör, zárolás és automatikus kijelentkezés.</p>
+          </article>
+          <article class="card">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></svg>
+            <h3>Mentés és visszaállítás</h3>
+            <p>Napi automatikus mentés külső helyre, ellenőrzőösszeggel; visszaállítás varázslóval, akár új gépen is.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="kepek" aria-labelledby="kepek-h">
+        <div class="section-head">
+          <h2 id="kepek-h">Képernyők</h2>
+          <p>Áttekinthető felület nagy betűkkel, egyértelmű feliratokkal, teljes billentyűzetes kezeléssel.</p>
+        </div>
+        <div class="shots">
+          <figure class="card shot">
+            <img src="img/terkep.png" width="1360" height="860" loading="lazy" alt="Temetőtérkép színkódolt helyállapotokkal" />
+            <figcaption>Temetőtérkép kijelölt hellyel</figcaption>
+          </figure>
+          <figure class="card shot">
+            <img src="img/adatlap.png" width="1360" height="860" loading="lazy" alt="Egy temetési hely adatlapja nyugvókkal, megváltással és jogosulttal" />
+            <figcaption>Temetési hely adatlapja</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section" id="telepites" aria-labelledby="telepites-h">
+        <div class="section-head">
+          <h2 id="telepites-h">Telepítés</h2>
+          <p>Néhány perc, rendszergazdai ismeretek nélkül.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Windows 10 és 11</h3>
+            <p>Futtassa a letöltött <code>…-setup.exe</code> fájlt. Ha megjelenik a „A Windows megvédte a számítógépet” ablak, válassza a „További információ”, majd a „Futtatás mindenképp” gombot.</p>
+          </article>
+          <article class="card">
             <h3>macOS 12 vagy újabb</h3>
             <p>Nyissa meg a <code>.dmg</code> fájlt, és húzza a TEMISZ-t a Programok mappába. Első indításkor jobb gomb, „Megnyitás”. Ha a rendszer nem engedi: Rendszerbeállítások › Adatvédelem és biztonság › „Megnyitás mindenképp”.</p>
-          </div>
-          <div>
+          </article>
+          <article class="card">
             <h3>Első indítás</h3>
             <p>Hozza létre a rendszergazda fiókot, adja meg a mentés helyét, és nyomtassa ki a helyreállító kulcsot. Kipróbáláshoz kitalált mintatemető is betölthető.</p>
-          </div>
+          </article>
         </div>
         <p class="fine">A biztonsági figyelmeztetés a kódaláíró tanúsítvány beszerzéséig jelenik meg.</p>
       </section>
     </main>
 
     <footer class="foot">
-      <p>© 2026 Lunda Software</p>
-      <p><a href="https://github.com/thegoldmany/temetkezesnyilvantarta">Forráskód és kiadások</a></p>
+      <div class="foot-inner">
+        <p class="wordmark wordmark-foot">TEMISZ</p>
+        <p>Temetőmenedzsment és Informatikai Szoftver</p>
+        <p class="foot-links"><span>© 2026 Lunda Software</span><a href="https://github.com/thegoldmany/temetkezesnyilvantarta">Forráskód és kiadások</a></p>
+      </div>
     </footer>
 
     <script src="download.js" defer></script>

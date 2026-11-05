@@ -43,7 +43,7 @@
     } catch (_) {
       $("no-release").hidden = false;
       $("primary").href = RELEASES;
-      $("primary-sub").textContent = "kiadások listája";
+      $("primary-sub").textContent = "A kiadások listája a GitHubon.";
       return;
     }
     const found = KINDS.map((k) => ({ ...k, asset: release.assets.find((a) => k.match(a.name)) })).filter((k) => k.asset);
@@ -55,18 +55,8 @@
     const primary = found.find((k) => k.id === want) || (want === "win-arm64" && found.find((k) => k.id === "win-x64")) || found[0];
     $("primary").href = primary.asset.browser_download_url;
     $("primary-label").textContent = want ? primary.label : "Letöltés";
-    $("primary-sub").textContent = `${primary.sub}, ${size(primary.asset.size)}`;
-    // version as a segmented label: v | 0 | 1 | 1
-    const v = $("version");
-    v.setAttribute("aria-label", `verzió ${release.tag_name.replace(/^v/, "")}`);
-    for (const part of ["v", ...release.tag_name.replace(/^v/, "").split(".")]) {
-      const seg = document.createElement("span");
-      seg.className = "seg";
-      seg.textContent = part;
-      v.appendChild(seg);
-    }
-    $("release").hidden = false;
-    $("release-date").textContent = new Date(release.published_at).toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+    const date = new Date(release.published_at).toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+    $("primary-sub").textContent = `${primary.sub}, ${size(primary.asset.size)}. Verzió ${release.tag_name.replace(/^v/, "")}, ${date}`;
     const list = $("other-list");
     for (const k of found) {
       if (k === primary) continue;
