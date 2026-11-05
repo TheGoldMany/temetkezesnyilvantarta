@@ -33,10 +33,10 @@
               Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-solid" href="#letoltes">Program letöltése</a>
+              <a class="btn btn-solid" id="hero-dl" href="#letoltes">Program letöltése</a>
               <a class="btn btn-quiet" href="#rogzites">Így működik</a>
             </div>
-            <p class="hero-note">Windows és macOS, internet nélkül is. Mintatemetővel kipróbálható.</p>
+            <p class="hero-note" id="hero-note">Windows és macOS, internet nélkül is. Mintatemetővel kipróbálható.</p>
           </div>
         </div>
 
@@ -66,111 +66,129 @@
       </section>
 
       <section class="steps" id="rogzites" aria-labelledby="rogzites-h">
-        <div class="head">
-          <h2 id="rogzites-h">Egy temetés rögzítése öt lépésben</h2>
-          <p>A program végigvezeti a bejegyzésen, és csak azt kérdezi, ami az adott temetéshez kell.</p>
-        </div>
+        <h2 id="rogzites-h">Egy temetés rögzítése</h2>
+        <p class="intro">A program öt lépésben vezet végig a bejegyzésen, és csak azt kérdezi, ami az adott temetéshez kell.</p>
         <ol class="steplist">
           <li><h3>Elhunyt</h3><p>Név, születési és halálozási adatok, a temetés módja és napja.</p></li>
           <li><h3>Hely</h3><p>Kiválasztás a térképen vagy kereséssel. A férőhelyet és a nyugvási időt rögtön ellenőrzi.</p></li>
-          <li><h3>Eltemettető és jogosult</h3><p>Korábbi ügyfél adatai egy kattintással, újat a helyszínen is felvehet.</p></li>
-          <li><h3>Megváltás</h3><p>Az időtartam alapján kiszámolja a lejáratot és a díjat a temető díjtáblája szerint.</p></li>
-          <li><h3>Ellenőrzés</h3><p>Egy oldalon minden adat. Jóváhagyás után a bejegyzés folyószámot kap.</p></li>
+          <li><h3>Eltemettető és jogosult</h3><p>Korábbi ügyfél egy kattintással, új ügyfél a helyszínen is felvehető.</p></li>
+          <li><h3>Megváltás</h3><p>A lejáratot és a díjat a temető díjtáblája szerint számolja ki.</p></li>
+          <li><h3>Ellenőrzés</h3><p>Minden adat egy oldalon. Jóváhagyás után a bejegyzés megkapja a következő folyószámot.</p></li>
         </ol>
-        <div class="receipt" role="note">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
-          <div>
-            <p class="r-title">Rögzítve a nyilvántartó könyv 183. folyószámán</p>
-            <p>Kovács Ilona, A parcella, 2. sor, 14. sír. A temetési engedély és a megváltási igazolás nyomtatható.</p>
+      </section>
+
+      <section class="tour" id="funkciok" aria-labelledby="funkciok-h">
+        <h2 id="funkciok-h">Funkciók</h2>
+        <p class="intro">A temetés rögzítésétől a lejárati értesítőig. Válasszon a listából, és megnézheti, hogyan jelenik meg a programban.</p>
+
+        <div class="tour-grid">
+          <div class="tour-list" role="tablist" aria-orientation="vertical" aria-label="Funkciók">
+            <button role="tab" id="tab-check" aria-controls="pane-check" aria-selected="true">
+              <b>Rátemetés előtti ellenőrzés</b>
+              <span>Férőhely, nyugvási idő, temetési tilalom. Ha a temetés nem engedélyezhető, a program megmondja, miért.</span>
+            </button>
+            <button role="tab" id="tab-expiry" aria-controls="pane-expiry" aria-selected="false" tabindex="-1">
+              <b>Lejáratfigyelő</b>
+              <span>A következő hónapokban lejáró megváltások, értesítő levelek egyszerre nyomtatva.</span>
+            </button>
+            <button role="tab" id="tab-book" aria-controls="pane-book" aria-selected="false" tabindex="-1">
+              <b>Hiteles nyilvántartó és sírbolt könyv</b>
+              <span>Kihagyás nélküli folyószám. Bejegyzést törölni nem lehet, csak indoklással érvényteleníteni.</span>
+            </button>
+            <button role="tab" id="tab-search" aria-controls="pane-search" aria-selected="false" tabindex="-1">
+              <b>Keresés ékezet nélkül is</b>
+              <span>Név, évszám vagy sírhely szerint, gépelés közben. A „kovacs” a Kovácsokat is megtalálja.</span>
+            </button>
+            <button role="tab" id="tab-import" aria-controls="pane-import" aria-selected="false" tabindex="-1">
+              <b>Átállás a régi nyilvántartásból</b>
+              <span>Excel- és CSV-import próbafuttatással, a régi folyószámok megtartásával.</span>
+            </button>
+          </div>
+
+          <div class="tour-window">
+            <div class="win-bar" aria-hidden="true">
+              <span class="win-mark">TEMISZ</span>
+              <span class="win-title" id="tour-title">Új temetés, 2. lépés: Hely</span>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-check" aria-labelledby="tab-check" data-title="Új temetés, 2. lépés: Hely">
+              <p class="p-sub">B parcella, 2. sor, 6. sír, kettes sírhely</p>
+              <div class="verdict">
+                <p class="v-no">Most nem engedélyezhető</p>
+                <p>A legutóbbi temetés nyugvási ideje 2027. március 14-én jár le. Addig rátemetés nem lehetséges.</p>
+              </div>
+              <ul class="checks">
+                <li class="ok"><b>Férőhely</b><span>1 szabad a 2-ből</span></li>
+                <li class="ok"><b>Temetési tilalom</b><span>Nincs</span></li>
+                <li class="no"><b>Nyugvási idő</b><span>Még 128 nap</span></li>
+                <li class="ok"><b>Megváltás</b><span>2031. október 5-ig érvényes</span></li>
+              </ul>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-expiry" aria-labelledby="tab-expiry" data-title="Lejáratok" hidden>
+              <p class="p-sub">A következő 6 hónapban lejáró megváltások: 12</p>
+              <table class="tbl">
+                <thead><tr><th>Jogosult</th><th>Hely</th><th class="r">Lejár</th></tr></thead>
+                <tbody>
+                  <tr><td>Szabó János</td><td>C/1/3</td><td class="r"><mark>2026. december 2.</mark></td></tr>
+                  <tr><td>Tóth Erzsébet</td><td>A/4/11</td><td class="r">2027. január 18.</td></tr>
+                  <tr><td>Németh Pál</td><td>B/2/9</td><td class="r">2027. február 6.</td></tr>
+                  <tr><td>Kiss Margit</td><td>B/4/1</td><td class="r">2027. március 30.</td></tr>
+                  <tr><td>Varga Péter</td><td>B/2/6</td><td class="r">2027. április 12.</td></tr>
+                </tbody>
+              </table>
+              <p class="p-action">Értesítők nyomtatása (12 levél)</p>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-book" aria-labelledby="tab-book" data-title="Nyilvántartó könyv, 2026" hidden>
+              <div class="page">
+                <div class="page-head"><b>Nyilvántartó könyv</b><span>Kisréti köztemető, 2026</span></div>
+                <table class="tbl tbl-book">
+                  <thead><tr><th>Folyószám</th><th>Elhunyt</th><th>Hely</th><th class="r">Temetés</th></tr></thead>
+                  <tbody>
+                    <tr><td>181.</td><td>Molnár Ferenc</td><td>A/3/2</td><td class="r">október 28.</td></tr>
+                    <tr><td>182.</td><td>Farkas Rozália</td><td>C/2/7</td><td class="r">november 2.</td></tr>
+                    <tr><td>183.</td><td>Kovács Ilona</td><td>A/2/14</td><td class="r">november 5.</td></tr>
+                    <tr class="void"><td>184.</td><td><s>Érvénytelenítve: elírás a névben</s></td><td></td><td class="r">november 5.</td></tr>
+                  </tbody>
+                </table>
+                <div class="page-foot"><span>Hitelesítési záradék</span><span>24. oldal, összesen 24</span></div>
+              </div>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-search" aria-labelledby="tab-search" data-title="Keresés" hidden>
+              <div class="field">kovacs 1975</div>
+              <table class="tbl">
+                <tbody>
+                  <tr><td><mark>Kovács</mark> Ilona</td><td>1937–<mark>1975</mark></td><td class="r">A/2/14</td></tr>
+                  <tr><td><mark>Kovács</mark> István</td><td>1902–<mark>1975</mark></td><td class="r">D/1/6</td></tr>
+                  <tr><td><mark>Kovács</mark>né Bíró Teréz</td><td>1911–<mark>1975</mark></td><td class="r">C/4/1</td></tr>
+                </tbody>
+              </table>
+              <p class="p-sub">3 találat, 0,02 másodperc</p>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-import" aria-labelledby="tab-import" data-title="Importálás: próbafuttatás" hidden>
+              <p class="p-sub">regi-konyv.xlsx, 1 485 sor</p>
+              <div class="meter"><i style="width: 99.8%"></i></div>
+              <p><b>1 482 sor rendben.</b> 3 sort javítani kell az importálás előtt:</p>
+              <table class="tbl">
+                <tbody>
+                  <tr><td>412. sor</td><td>Hiányzik a halálozás éve</td></tr>
+                  <tr><td>977. sor</td><td>A „B/7/3” sírhely nem létezik</td></tr>
+                  <tr><td>1 204. sor</td><td>A folyószám kétszer szerepel</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="features" id="funkciok" aria-labelledby="funkciok-h">
-        <div class="head">
-          <h2 id="funkciok-h">Amit a napi ügyintézéshez kap</h2>
-          <p>A temetés rögzítésétől a lejárati értesítőig, egyetlen programban.</p>
-        </div>
-
-        <div class="bento">
-          <article class="tile t-check">
-            <div class="tile-text">
-              <h3>Rátemetés előtti ellenőrzés</h3>
-              <p>Férőhely, nyugvási idő, temetési tilalom. Ha a temetés nem engedélyezhető, a program megmondja, miért.</p>
-            </div>
-            <div class="mini verdict" aria-hidden="true">
-              <p class="v-no">Most nem engedélyezhető</p>
-              <p>A legutóbbi temetés nyugvási ideje 2027. március 14-én jár le.</p>
-              <ul>
-                <li class="ok">Férőhely: 1 szabad a 2-ből</li>
-                <li class="ok">Nincs temetési tilalom</li>
-                <li class="no">Nyugvási idő: még 128 nap</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="tile t-expiry">
-            <div class="tile-text">
-              <h3>Lejáratfigyelő</h3>
-              <p>Látja, mely megváltások járnak le a következő hónapokban, és egyszerre nyomtatja az értesítő leveleket.</p>
-            </div>
-            <div class="mini expiry" aria-hidden="true">
-              <div class="row"><span>Szabó János</span><span>C/1/3</span><b>2026. dec. 2.</b></div>
-              <div class="row"><span>Tóth Erzsébet</span><span>A/4/11</span><b>2027. jan. 18.</b></div>
-              <div class="row"><span>Németh Pál</span><span>B/2/9</span><b>2027. febr. 6.</b></div>
-              <div class="row"><span>Kiss Margit</span><span>B/5/1</span><b>2027. márc. 30.</b></div>
-              <p class="bulk">Értesítők nyomtatása (12 levél)</p>
-            </div>
-          </article>
-
-          <article class="tile t-book">
-            <div class="tile-text">
-              <h3>Hiteles nyilvántartó és sírbolt könyv</h3>
-              <p>Folyamatos, kihagyás nélküli folyószám. Bejegyzést törölni nem lehet, csak indoklással érvényteleníteni. Nyomtatás oldalszámozással és záradékkal.</p>
-            </div>
-            <div class="mini page" aria-hidden="true">
-              <div class="page-head"><b>Nyilvántartó könyv</b><span>2026</span></div>
-              <div class="page-row"><span>181.</span><span>Molnár Ferenc</span><span>okt. 28.</span></div>
-              <div class="page-row"><span>182.</span><span>Farkas Rozália</span><span>nov. 2.</span></div>
-              <div class="page-row"><span>183.</span><span>Kovács Ilona</span><span>nov. 5.</span></div>
-              <div class="page-row void"><span>184.</span><span>Érvénytelenítve: elírás</span><span>nov. 5.</span></div>
-              <div class="page-foot"><span>Hitelesítési záradék</span><span>24. oldal, összesen 24</span></div>
-            </div>
-          </article>
-
-          <article class="tile t-search">
-            <div class="tile-text">
-              <h3>Keresés ékezet nélkül is</h3>
-              <p>Név, évszám vagy sírhely szerint, gépelés közben. A „kovacs” a Kovácsokat is megtalálja.</p>
-            </div>
-            <div class="mini search" aria-hidden="true">
-              <div class="field">kovacs 1975</div>
-              <div class="hit"><span class="who"><b>Kovács</b> Ilona</span> <span>1937–<b>1975</b>, A/2/14</span></div>
-              <div class="hit"><span class="who"><b>Kovács</b> István</span> <span>1902–<b>1975</b>, D/1/6</span></div>
-            </div>
-          </article>
-
-          <article class="tile t-import">
-            <div class="tile-text">
-              <h3>Átállás a régi nyilvántartásból</h3>
-              <p>Excel- és CSV-import próbafuttatással, a régi folyószámok megtartásával. A papírkönyvhöz gyors bevitel.</p>
-            </div>
-            <div class="mini import" aria-hidden="true">
-              <p class="i-file">regi-konyv.xlsx</p>
-              <div class="meter"><i style="width: 99.8%"></i></div>
-              <p><b>1 482 sor rendben</b>, 3 sort javítani kell az importálás előtt.</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
       <section class="trust" id="biztonsag" aria-labelledby="biztonsag-h">
-        <div class="trust-intro">
-          <h2 id="biztonsag-h">Az adatok a saját gépén maradnak</h2>
-          <p>A TEMISZ nem felhőszolgáltatás. Az adatbázis titkosítva a hivatal vagy a plébánia gépén van, hálózat csak a frissítéshez kell.</p>
-        </div>
+        <h2 id="biztonsag-h">Az adatok a saját gépén maradnak</h2>
+        <p class="intro">A TEMISZ nem felhőszolgáltatás. Az adatbázis titkosítva a hivatal vagy a plébánia gépén van, hálózat csak a frissítéshez kell.</p>
         <dl class="trust-list">
-          <div><dt>Titkosított adatbázis</dt><dd>A gép elvesztése esetén sem olvasható. Helyreállító kulcs papíron.</dd></div>
+          <div><dt>Titkosított adatbázis</dt><dd>A gép elvesztése esetén sem olvasható. A helyreállító kulcsot papíron őrzi.</dd></div>
           <div><dt>Napi mentés</dt><dd>Automatikusan, külső meghajtóra vagy hálózati mappába, ellenőrzőösszeggel. Visszaállítás új gépre is.</dd></div>
           <div><dt>Változásnapló</dt><dd>Ki, mikor, mit módosított. A napló utólag nem írható át.</dd></div>
           <div><dt>Felhasználók és jogok</dt><dd>Rendszergazda, ügyintéző, pénzügyes és olvasó szerepkör, automatikus kijelentkezés.</dd></div>
@@ -180,39 +198,35 @@
       </section>
 
       <section class="get" id="letoltes" aria-labelledby="letoltes-h">
-        <div class="get-main">
-          <h2 id="letoltes-h">Töltse le, és próbálja ki a mintatemetővel</h2>
-          <p class="get-lead">A telepítés néhány perc. Első indításkor egy kitalált temető tölthető be, így adatbevitel nélkül is körülnézhet.</p>
-          <a class="btn btn-light" id="primary" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" /></svg>
-            <span id="primary-label">Letöltés</span>
-          </a>
-          <p class="get-meta" id="primary-sub">A legfrissebb kiadás</p>
-          <details class="others" id="others" hidden>
-            <summary>Másik rendszerre</summary>
-            <ul id="other-list"></ul>
-          </details>
-          <p class="notice" id="no-release" hidden>
-            A telepítők most készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
-            <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
-          </p>
+        <h2 id="letoltes-h">Letöltés</h2>
+        <p class="intro" id="release-line">A legfrissebb kiadás telepítői. Első indításkor egy kitalált mintatemető tölthető be, így adatbevitel nélkül is kipróbálhatja.</p>
+
+        <table class="dl" id="dl-table">
+          <thead><tr><th>Rendszer</th><th>Fájl</th><th class="r">Méret</th><th><span class="sr">Letöltés</span></th></tr></thead>
+          <tbody id="dl-body">
+            <tr><td colspan="4"><a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">A telepítők a kiadások oldalán érhetők el.</a></td></tr>
+          </tbody>
+        </table>
+        <p class="notice" id="no-release" hidden>
+          A telepítők most készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
+          <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
+        </p>
+
+        <div class="install">
+          <div>
+            <h3>Windows 10 és 11</h3>
+            <p>Futtassa a letöltött <span class="file">-setup.exe</span> fájlt. Ha a „A Windows megvédte a számítógépet” ablak megjelenik, kattintson a „További információ”, majd a „Futtatás mindenképp” gombra.</p>
+          </div>
+          <div>
+            <h3>macOS 12 vagy újabb</h3>
+            <p>Nyissa meg a <span class="file">.dmg</span> fájlt, és húzza a TEMISZ-t a Programok mappába. Első indításkor kattintson rá jobb gombbal, és válassza a „Megnyitás” lehetőséget.</p>
+          </div>
+          <div>
+            <h3>Első indítás</h3>
+            <p>Hozza létre a rendszergazda fiókot, adja meg a mentés helyét, és nyomtassa ki a helyreállító kulcsot.</p>
+          </div>
         </div>
-        <div class="get-help">
-          <h3>Telepítés</h3>
-          <details open>
-            <summary>Windows 10 és 11</summary>
-            <p>Futtassa a letöltött <span class="file">…-setup.exe</span> fájlt. Ha a „A Windows megvédte a számítógépet” ablak megjelenik, kattintson a „További információ”, majd a „Futtatás mindenképp” gombra.</p>
-          </details>
-          <details>
-            <summary>macOS 12 vagy újabb</summary>
-            <p>Nyissa meg a <span class="file">.dmg</span> fájlt, és húzza a TEMISZ-t a Programok mappába. Első indításkor kattintson rá jobb gombbal, és válassza a „Megnyitás” lehetőséget. Ha a rendszer nem engedi: Rendszerbeállítások › Adatvédelem és biztonság › „Megnyitás mindenképp”.</p>
-          </details>
-          <details>
-            <summary>Első indítás</summary>
-            <p>Hozza létre a rendszergazda fiókot, adja meg a mentés helyét, és nyomtassa ki a helyreállító kulcsot. Ezután betöltheti a mintatemetőt, vagy kezdheti a saját adataival.</p>
-          </details>
-          <p class="fine">A biztonsági figyelmeztetés a kódaláíró tanúsítvány beszerzéséig jelenik meg.</p>
-        </div>
+        <p class="fine">A Windows és a macOS biztonsági figyelmeztetése a kódaláíró tanúsítvány beszerzéséig jelenik meg.</p>
       </section>
     </main>
 
@@ -227,6 +241,7 @@
     </footer>
 
     <script src="map.js" defer></script>
+    <script src="tour.js" defer></script>
     <script src="download.js" defer></script>
   </body>
 </html>
