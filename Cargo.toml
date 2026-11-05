@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/lunda-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+authors = ["Lunda Software"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
