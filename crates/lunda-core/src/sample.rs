@@ -293,8 +293,8 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
             }
         }
         let mut ins_d = tx.prepare(
-            "INSERT INTO deceased (id, family_name, given_name, birth_date, death_date, mother_name, last_residence, search_text, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,'Minta Anna','Mintavölgy',?6,?7,?7)",
+            "INSERT INTO deceased (id, family_name, given_name, birth_date, death_date, mother_name, last_residence, search_text, created_at, updated_at, sort_key)
+             VALUES (?1,?2,?3,?4,?5,'Minta Anna','Mintavölgy',?6,?7,?7,?8)",
         )?;
         let mut ins_fts = tx.prepare("INSERT INTO search_index (kind, ref_id, text) VALUES ('deceased', ?1, ?2)")?;
         let mut ins_e = tx.prepare(
@@ -313,7 +313,7 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
             let death = NaiveDate::from_ymd_opt(y, r.gen_range(1..=12), r.gen_range(1..=28)).unwrap();
             let birth = NaiveDate::from_ymd_opt(y - r.gen_range(40..95), 1, 1).unwrap();
             let text = normalize(&format!("{fam} {giv}"));
-            ins_d.execute(params![did, fam, giv, fmt_date(birth), fmt_date(death), text, ts])?;
+            ins_d.execute(params![did, fam, giv, fmt_date(birth), fmt_date(death), text, ts, crate::text::sort_key(&format!("{fam} {giv}"))])?;
             ins_fts.execute(params![did, text])?;
             let pid = &plot_ids[i % plot_ids.len()];
             ins_e.execute(params![new_id(), cem, (i + 1) as i64, fmt_date(death), did, pid, ts])?;

@@ -624,19 +624,39 @@ impl Store {
         if f.protected_only {
             where_.push("p.protected = 1".into());
         }
+        // Aggregates are computed once per query (grouped CTEs) instead of
+        // per plot – keeps the 50 000-plot map under a second (NFR-TEL-02).
+        let names_sql = if f.light {
+            "NULL AS names".to_string()
+        } else {
+            "group_concat(trim(d.family_name || ' ' || d.given_name), ', ') AS names".to_string()
+        };
+        let names_join = if f.light { "" } else { "JOIN deceased d ON d.id = e.deceased_id" };
+        let holder_sql = if f.light {
+            "NULL"
+        } else {
+            "(SELECT trim(pe.family_name || ' ' || pe.given_name) FROM plot_holders h JOIN persons pe ON pe.id=h.person_id
+               WHERE h.plot_id=p.id AND h.role='primary' AND h.end_date IS NULL AND h.voided_at IS NULL LIMIT 1)"
+        };
         let sql = format!(
-            "SELECT p.id, p.identifier, p.cemetery_id, p.section_id, p.row_id, t.code, t.name, p.protected, p.protection_kind,
+            "WITH occ AS (
+                SELECT e.plot_id, count(*) AS n, {names_sql}
+                FROM interment_events e {names_join}
+                WHERE {ACTIVE_PLACEMENT_SQL}
+                GROUP BY e.plot_id),
+             nt AS (SELECT plot_id, max(notice_date) AS d FROM notices WHERE voided_at IS NULL GROUP BY plot_id)
+             SELECT p.id, p.identifier, p.cemetery_id, p.section_id, p.row_id, t.code, t.name, p.protected, p.protection_kind,
                     p.status_override, p.unusable, p.resale_ready_at, p.map_x, p.map_y, p.map_w, p.map_h, p.map_rot,
                     l.start_date, l.expiry_date,
-                    (SELECT count(*) FROM interment_events e WHERE e.plot_id=p.id AND {ACTIVE_PLACEMENT_SQL}) AS occ,
-                    (SELECT group_concat(trim(d.family_name || ' ' || d.given_name), ', ') FROM interment_events e JOIN deceased d ON d.id=e.deceased_id
-                       WHERE e.plot_id=p.id AND {ACTIVE_PLACEMENT_SQL}) AS occ_names,
-                    (SELECT max(notice_date) FROM notices n WHERE n.plot_id=p.id AND n.voided_at IS NULL) AS last_notice,
-                    (SELECT trim(pe.family_name || ' ' || pe.given_name) FROM plot_holders h JOIN persons pe ON pe.id=h.person_id
-                       WHERE h.plot_id=p.id AND h.role='primary' AND h.end_date IS NULL AND h.voided_at IS NULL LIMIT 1) AS holder
+                    coalesce(occ.n, 0) AS occ,
+                    occ.names AS occ_names,
+                    nt.d AS last_notice,
+                    {holder_sql} AS holder
              FROM plots p
              JOIN plot_types t ON t.id = p.plot_type_id
              LEFT JOIN leases l ON l.plot_id = p.id AND l.status='active' AND l.voided_at IS NULL
+             LEFT JOIN occ ON occ.plot_id = p.id
+             LEFT JOIN nt ON nt.plot_id = p.id
              WHERE {}",
             where_.join(" AND ")
         );
@@ -683,7 +703,7 @@ impl Store {
             });
         }
         // natural sort by identifier parts (A/2/10 after A/2/9)
-        items.sort_by(|a, b| natural_key(&a.identifier).cmp(&natural_key(&b.identifier)));
+        items.sort_by_cached_key(|p| natural_key(&p.identifier));
         let total = items.len() as i64;
         let offset = f.offset.unwrap_or(0).max(0) as usize;
         let items = match f.limit {

@@ -167,11 +167,13 @@ CREATE TABLE deceased (
     case_number     TEXT NOT NULL DEFAULT '',
     notes           TEXT NOT NULL DEFAULT '',
     search_text     TEXT NOT NULL DEFAULT '',     -- normalized (no accents, lowercase)
+    sort_key        TEXT NOT NULL DEFAULT '',     -- text::sort_key(family + given)
     created_at TEXT NOT NULL, created_by TEXT, updated_at TEXT NOT NULL, updated_by TEXT,
     voided_at TEXT, voided_by TEXT, void_reason TEXT
 );
 CREATE INDEX ix_deceased_birth ON deceased(birth_date);
 CREATE INDEX ix_deceased_death ON deceased(death_date);
+CREATE INDEX ix_deceased_sort ON deceased(sort_key);
 
 CREATE TABLE persons (
     id            TEXT PRIMARY KEY,
@@ -184,9 +186,12 @@ CREATE TABLE persons (
     email         TEXT NOT NULL DEFAULT '',
     notes         TEXT NOT NULL DEFAULT '',
     search_text   TEXT NOT NULL DEFAULT '',
+    sort_key      TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, created_by TEXT, updated_at TEXT NOT NULL, updated_by TEXT,
     voided_at TEXT, voided_by TEXT, void_reason TEXT
 );
+
+CREATE INDEX ix_persons_sort ON persons(sort_key);
 
 CREATE TABLE register_sequences (
     cemetery_id TEXT NOT NULL REFERENCES cemeteries(id),

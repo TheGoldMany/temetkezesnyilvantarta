@@ -536,6 +536,7 @@ export interface PlotFilter {
   burialTo?: string | null;
   identifierPrefix?: string | null;
   protectedOnly?: boolean;
+  light?: boolean;
   limit?: number | null;
   offset?: number | null;
 }

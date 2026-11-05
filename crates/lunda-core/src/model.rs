@@ -587,6 +587,8 @@ pub struct PlotFilter {
     pub burial_to: Option<String>,
     pub identifier_prefix: Option<String>,
     pub protected_only: bool,
+    /// map mode: skip names and holders
+    pub light: bool,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }

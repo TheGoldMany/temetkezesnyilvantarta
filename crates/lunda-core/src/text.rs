@@ -216,6 +216,22 @@ pub fn hu_compare(a: &str, b: &str) -> Ordering {
         .then_with(|| a.cmp(b))
 }
 
+/// Binary-sortable key equivalent to [`hu_compare`]: primary weights as
+/// fixed-width hex, a zero separator, then secondary weights. Stored in the
+/// database so ORDER BY uses a plain index instead of a callback collation.
+pub fn sort_key(s: &str) -> String {
+    let e = elements(s);
+    let mut out = String::with_capacity(e.len() * 5 + 8);
+    for (p, _) in &e {
+        out.push_str(&format!("{:04x}", p.min(&0xffff)));
+    }
+    out.push_str("0000");
+    for (_, sec) in &e {
+        out.push(char::from(b'0' + sec));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,6 +279,16 @@ mod tests {
         // "Hosszú" = h o sz sz ú ; must sort after "Hoszu"? h o sz u  vs h o sz sz u -> sz < u? no: compare 3rd elem: u(30) vs sz(27)
         assert_eq!(sorted(vec!["Hoszu", "Hosszú"]), vec!["Hosszú", "Hoszu"]);
         assert_eq!(elements("ssz").len(), 2);
+    }
+
+    #[test]
+    fn sort_key_matches_collation() {
+        let names = ["Csonka", "Czakó", "Cukor", "Szabó", "Sütő", "Gyuri", "Gulyás", "Győző", "Ács", "Adorján", "Kerek", "Kerék", "Kis", "Kis Anna", "Kiss", "Hosszú", "Hoszu", "Zsolt", "Zoltán", "Dzsida", "Dzurik", "Ödön", "Oláh"];
+        let mut a: Vec<&str> = names.to_vec();
+        let mut b: Vec<&str> = names.to_vec();
+        a.sort_by(|x, y| hu_compare(x, y));
+        b.sort_by_key(|x| sort_key(x));
+        assert_eq!(a, b);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Quick search (FR-KER-01): accent/case-insensitive, partial matches on
 //! deceased and holder names, birth/death years and plot identifiers.
 
-use rusqlite::{params_from_iter, types::Value};
+use rusqlite::{params_from_iter, types::Value, OptionalExtension};
 
 use super::structure::like_escape;
 use super::*;
@@ -54,18 +54,17 @@ impl Store {
             return Ok(hits);
         }
 
-        // ---- deceased
+        // ---- deceased: trigram index narrows the candidates, the binary
+        // sort key (Hungarian order) avoids a callback collation
         let mut conds = vec!["d.voided_at IS NULL".to_string()];
         let mut args: Vec<Value> = vec![];
-        let mut from = "deceased d".to_string();
         if !words.is_empty() {
-            // trigram index on search_index narrows the candidates
             let mut sub = vec!["si.kind='deceased'".to_string()];
             for w in &words {
                 args.push(Value::Text(format!("%{}%", like_escape(w))));
                 sub.push(format!("si.text LIKE ?{} ESCAPE '\\'", args.len()));
             }
-            from = format!("(SELECT ref_id FROM search_index si WHERE {}) m JOIN deceased d ON d.id = m.ref_id", sub.join(" AND "));
+            conds.push(format!("d.id IN (SELECT si.ref_id FROM search_index si WHERE {})", sub.join(" AND ")));
         }
         for y in &years {
             args.push(Value::Text(y.to_string()));
@@ -74,15 +73,14 @@ impl Store {
         }
         args.push(Value::Integer(limit));
         let sql = format!(
-            "SELECT d.id, trim(d.name_prefix||' '||d.family_name||' '||d.given_name), d.birth_name, d.birth_date, d.death_date,
-                    (SELECT e.plot_id FROM interment_events e WHERE e.deceased_id=d.id AND e.voided_at IS NULL AND e.plot_id IS NOT NULL ORDER BY e.event_date DESC LIMIT 1) AS plot_id
-             FROM {from} WHERE {} ORDER BY d.family_name COLLATE HU, d.given_name COLLATE HU, d.death_date LIMIT ?{}",
+            "SELECT d.id, trim(d.name_prefix||' '||d.family_name||' '||d.given_name), d.birth_name, d.birth_date, d.death_date
+             FROM deceased d WHERE {} ORDER BY d.sort_key, d.death_date LIMIT ?{}",
             conds.join(" AND "),
             args.len()
         );
         let mut st = self.conn.prepare_cached(&sql)?;
         let mut rows = st.query(params_from_iter(args.iter()))?;
-        let mut deceased: Vec<(SearchHit, Option<String>)> = vec![];
+        let mut deceased: Vec<SearchHit> = vec![];
         while let Some(r) = rows.next()? {
             let birth: Option<String> = r.get(3)?;
             let death: Option<String> = r.get(4)?;
@@ -93,17 +91,20 @@ impl Store {
                 death.as_deref().map(|b| &b[..4.min(b.len())]).unwrap_or("?")
             );
             let subtitle = if birth_name.is_empty() { years } else { format!("{years} · szül. {birth_name}") };
-            let plot_id: Option<String> = r.get(5)?;
-            deceased.push((
-                SearchHit { kind: "deceased".into(), id: r.get(0)?, title: r.get(1)?, subtitle, plot_id: plot_id.clone(), plot_identifier: None, cemetery_name: None },
-                plot_id,
-            ));
+            deceased.push(SearchHit { kind: "deceased".into(), id: r.get(0)?, title: r.get(1)?, subtitle, plot_id: None, plot_identifier: None, cemetery_name: None });
         }
         drop(rows);
-        let mut pst = self.conn.prepare_cached("SELECT p.identifier, c.name FROM plots p JOIN cemeteries c ON c.id=p.cemetery_id WHERE p.id=?1")?;
-        for (mut h, pid) in deceased {
-            if let Some(pid) = pid {
-                let (ident, cname): (String, String) = pst.query_row([pid], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        // resolve the resting place only for the returned rows
+        let mut pst = self.conn.prepare_cached(
+            "SELECT p.id, p.identifier, c.name FROM interment_events e JOIN plots p ON p.id=e.plot_id JOIN cemeteries c ON c.id=p.cemetery_id
+             WHERE e.deceased_id=?1 AND e.voided_at IS NULL ORDER BY e.event_date DESC, e.folio DESC LIMIT 1",
+        )?;
+        for mut h in deceased {
+            if let Some((pid, ident, cname)) = pst
+                .query_row([&h.id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+                .optional()?
+            {
+                h.plot_id = Some(pid);
                 h.plot_identifier = Some(ident);
                 h.cemetery_name = Some(cname);
             }
@@ -122,8 +123,8 @@ impl Store {
             let sql = format!(
                 "SELECT pe.id, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name),
                         (SELECT count(*) FROM plot_holders h WHERE h.person_id=pe.id AND h.end_date IS NULL AND h.voided_at IS NULL)
-                 FROM (SELECT ref_id FROM search_index si WHERE {}) m JOIN persons pe ON pe.id=m.ref_id
-                 WHERE pe.voided_at IS NULL ORDER BY pe.family_name COLLATE HU, pe.given_name COLLATE HU LIMIT ?{}",
+                 FROM persons pe WHERE pe.id IN (SELECT si.ref_id FROM search_index si WHERE {}) AND pe.voided_at IS NULL
+                 ORDER BY pe.sort_key LIMIT ?{}",
                 sub.join(" AND "),
                 args.len()
             );

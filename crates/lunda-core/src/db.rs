@@ -38,6 +38,10 @@ fn configure(conn: &Connection) -> Result<()> {
     conn.pragma_update(None, "synchronous", "FULL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.pragma_update(None, "busy_timeout", 5000)?;
+    // Decrypted page cache: SQLCipher decrypts every page it reads, so a
+    // generous cache (64 MB) keeps large cemeteries fast (NFR-TEL-02).
+    conn.pragma_update(None, "cache_size", -65536)?;
+    conn.pragma_update(None, "temp_store", "MEMORY")?;
     conn.create_collation("HU", hu_compare)?;
     Ok(())
 }

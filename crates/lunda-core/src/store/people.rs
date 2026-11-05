@@ -12,6 +12,10 @@ pub(crate) fn deceased_search_text(d: &Deceased) -> String {
     normalize(&format!("{} {} {} {}", d.family_name, d.given_name, d.birth_name, d.name_prefix))
 }
 
+pub(crate) fn name_sort_key(family: &str, given: &str) -> String {
+    crate::text::sort_key(&format!("{} {}", family.trim(), given.trim()))
+}
+
 pub(crate) fn person_search_text(p: &Person) -> String {
     normalize(&format!("{} {} {}", p.family_name, p.given_name, p.name_prefix))
 }
@@ -75,12 +79,13 @@ impl Store {
         d.given_name = d.given_name.trim().into();
         tx.execute(
             "INSERT INTO deceased (id, name_prefix, family_name, given_name, birth_name, sex, birth_place, birth_date, mother_name, last_residence,
-                death_place, death_date, death_cert_no, unknown_identity, authority_name, case_number, notes, search_text, created_at, created_by, updated_at, updated_by)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?19,?20)",
+                death_place, death_date, death_cert_no, unknown_identity, authority_name, case_number, notes, search_text, created_at, created_by, updated_at, updated_by, sort_key)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?19,?20,?21)",
             params![
                 id, d.name_prefix.trim(), d.family_name, d.given_name, d.birth_name.trim(), d.sex, d.birth_place.trim(), opt_s(&d.birth_date),
                 d.mother_name.trim(), d.last_residence.trim(), d.death_place.trim(), opt_s(&d.death_date), d.death_cert_no.trim(),
-                d.unknown_identity, d.authority_name.trim(), d.case_number.trim(), d.notes, deceased_search_text(&d), ts, s.user_name
+                d.unknown_identity, d.authority_name.trim(), d.case_number.trim(), d.notes, deceased_search_text(&d), ts, s.user_name,
+                name_sort_key(&d.family_name, &d.given_name)
             ],
         )?;
         reindex(tx, "deceased", &id, &deceased_search_text(&d))?;
@@ -109,11 +114,12 @@ impl Store {
         tx.execute(
             "UPDATE deceased SET name_prefix=?2, family_name=?3, given_name=?4, birth_name=?5, sex=?6, birth_place=?7, birth_date=?8, mother_name=?9,
                 last_residence=?10, death_place=?11, death_date=?12, death_cert_no=?13, unknown_identity=?14, authority_name=?15, case_number=?16,
-                notes=?17, search_text=?18, updated_at=?19, updated_by=?20 WHERE id=?1",
+                notes=?17, search_text=?18, updated_at=?19, updated_by=?20, sort_key=?21 WHERE id=?1",
             params![
                 d.id, d.name_prefix.trim(), d.family_name.trim(), d.given_name.trim(), d.birth_name.trim(), d.sex, d.birth_place.trim(),
                 opt_s(&d.birth_date), d.mother_name.trim(), d.last_residence.trim(), d.death_place.trim(), opt_s(&d.death_date),
-                d.death_cert_no.trim(), d.unknown_identity, d.authority_name.trim(), d.case_number.trim(), d.notes, deceased_search_text(d), now_ts(), s.user_name
+                d.death_cert_no.trim(), d.unknown_identity, d.authority_name.trim(), d.case_number.trim(), d.notes, deceased_search_text(d), now_ts(), s.user_name,
+                name_sort_key(&d.family_name, &d.given_name)
             ],
         )?;
         reindex(&tx, "deceased", &d.id, &deceased_search_text(d))?;
@@ -132,7 +138,7 @@ impl Store {
         }
         let mut stmt = self.conn.prepare(
             "SELECT * FROM deceased WHERE voided_at IS NULL AND search_text LIKE ?1 || '%' AND (?2 = '' OR search_text LIKE '%' || ?2 || '%')
-             ORDER BY (birth_date = ?3) DESC, family_name COLLATE HU LIMIT 20",
+             ORDER BY (birth_date = ?3) DESC, sort_key LIMIT 20",
         )?;
         let rows = stmt.query_map(params![fam, giv, birth_date.unwrap_or("")], map_deceased)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -178,9 +184,9 @@ impl Store {
         p.id = id.clone();
         p.masked = false;
         tx.execute(
-            "INSERT INTO persons (id, name_prefix, family_name, given_name, address, mail_address, phone, email, notes, search_text, created_at, created_by, updated_at, updated_by)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?11,?12)",
-            params![id, p.name_prefix.trim(), p.family_name.trim(), p.given_name.trim(), p.address.trim(), p.mail_address.trim(), p.phone.trim(), p.email.trim(), p.notes, person_search_text(&p), ts, s.user_name],
+            "INSERT INTO persons (id, name_prefix, family_name, given_name, address, mail_address, phone, email, notes, search_text, created_at, created_by, updated_at, updated_by, sort_key)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?11,?12,?13)",
+            params![id, p.name_prefix.trim(), p.family_name.trim(), p.given_name.trim(), p.address.trim(), p.mail_address.trim(), p.phone.trim(), p.email.trim(), p.notes, person_search_text(&p), ts, s.user_name, name_sort_key(&p.family_name, &p.given_name)],
         )?;
         reindex(tx, "person", &id, &person_search_text(&p))?;
         audit::record(tx, s, "person", &id, "create", None::<&()>, Some(&p), None)?;
@@ -204,8 +210,8 @@ impl Store {
                 (p.address.trim().into(), p.mail_address.trim().into(), p.phone.trim().into(), p.email.trim().into())
             };
             tx.execute(
-                "UPDATE persons SET name_prefix=?2, family_name=?3, given_name=?4, address=?5, mail_address=?6, phone=?7, email=?8, notes=?9, search_text=?10, updated_at=?11, updated_by=?12 WHERE id=?1",
-                params![p.id, p.name_prefix.trim(), p.family_name.trim(), p.given_name.trim(), address, mail, phone, email, p.notes, person_search_text(p), now_ts(), s.user_name],
+                "UPDATE persons SET name_prefix=?2, family_name=?3, given_name=?4, address=?5, mail_address=?6, phone=?7, email=?8, notes=?9, search_text=?10, updated_at=?11, updated_by=?12, sort_key=?13 WHERE id=?1",
+                params![p.id, p.name_prefix.trim(), p.family_name.trim(), p.given_name.trim(), address, mail, phone, email, p.notes, person_search_text(p), now_ts(), s.user_name, name_sort_key(&p.family_name, &p.given_name)],
             )?;
             reindex(&tx, "person", &p.id, &person_search_text(p))?;
             let new = tx.query_row("SELECT * FROM persons WHERE id=?1", [&p.id], map_person)?;
@@ -233,7 +239,7 @@ impl Store {
         let q = normalize(query);
         let mut stmt = self.conn.prepare(
             "SELECT * FROM persons WHERE voided_at IS NULL AND (?1 = '' OR search_text LIKE '%' || ?1 || '%')
-             ORDER BY family_name COLLATE HU, given_name COLLATE HU LIMIT ?2",
+             ORDER BY sort_key LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![q, limit], map_person)?;
         let v: Vec<Person> = rows.collect::<std::result::Result<_, _>>()?;
