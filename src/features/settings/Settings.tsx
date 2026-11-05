@@ -3,22 +3,23 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
-import { api } from "../../lib/api";
+import { api, shell } from "../../lib/api";
 import { PERMISSIONS, type Cemetery, type FeeRate, type PlotType, type User } from "../../lib/types";
 import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, Tabs, TextField, useErrorText } from "../../components/ui";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
 import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSections } from "../../lib/queries";
 import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
+import { SecurityPanel } from "../account/Security";
 import { AuditTab } from "./AuditTab";
 
-type Tab = "operator" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "backup" | "audit" | "appearance" | "about";
+type Tab = "operator" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "backup" | "audit" | "appearance" | "about";
 
 export function SettingsView({ tab }: { tab?: string }) {
   const { t } = useTranslation();
   const { can } = useApp();
   const [current, setCurrent] = useState<Tab>((tab as Tab) ?? "operator");
-  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "backup", "audit", "appearance", "about"];
+  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", "backup", "audit", "appearance", "about"];
   return (
     <>
       <PageHeader title={t("settings.title")} />
@@ -30,6 +31,12 @@ export function SettingsView({ tab }: { tab?: string }) {
         {current === "fees" && <FeesTab />}
         {current === "rules" && <SettingsForm keys={RULE_KEYS} />}
         {current === "users" && <UsersTab />}
+        {current === "account" && (
+          <div className="flex flex-col gap-6">
+            <SecurityPanel />
+            <OwnPassword />
+          </div>
+        )}
         {current === "backup" && <BackupTab />}
         {current === "audit" && <AuditTab />}
         {current === "appearance" && <AppearanceTab />}
@@ -566,7 +573,6 @@ function UsersTab() {
           ))}
         </ul>
       </Panel>
-      <OwnPassword />
       {(editing || creating) && <UserDialog user={editing} onClose={() => (setEditing(null), setCreating(false))} />}
     </div>
   );
@@ -574,7 +580,8 @@ function UsersTab() {
 
 function UserDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
   const { t } = useTranslation();
-  const [v, setV] = useState({ username: user?.username ?? "", displayName: user?.displayName ?? "", role: user?.role ?? "clerk", extra: user?.extraPermissions ?? [], active: user?.active ?? true, password: "" });
+  const [v, setV] = useState({ username: user?.username ?? "", displayName: user?.displayName ?? "", role: user?.role ?? "clerk", extra: user?.extraPermissions ?? [], active: user?.active ?? true });
+  const [linkSent, setLinkSent] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const invalidate = useInvalidate();
   return (
@@ -592,9 +599,8 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
               try {
                 if (user) {
                   await api("users.update", { id: user.id, displayName: v.displayName, role: v.role, extraPermissions: v.extra, active: v.active });
-                  if (v.password) await api("users.changePassword", { id: user.id, newPassword: v.password });
                 } else {
-                  await api("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra, password: v.password });
+                  await api("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra });
                 }
                 await invalidate();
                 onClose();
@@ -603,15 +609,16 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
               }
             }}
           >
-            {t("common.save")}
+            {user ? t("common.save") : t("settings.sendInvite")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
+        {!user && <p className="text-granite">{t("settings.inviteIntro")}</p>}
         <div className="grid gap-4 md:grid-cols-2">
           <TextField label={t("fields.displayName")} value={v.displayName} onChange={(x) => setV({ ...v, displayName: x })} required />
-          <TextField label={t("fields.username")} value={v.username} onChange={(x) => setV({ ...v, username: x })} required inputProps={{ disabled: !!user }} />
+          <TextField label={t("fields.email")} type="email" value={v.username} onChange={(x) => setV({ ...v, username: x })} required inputProps={{ disabled: !!user, name: "email" }} />
           <Field label={t("fields.role")}>
             <Select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as User["role"] })}>
               {["admin", "clerk", "finance", "reader"].map((r) => (
@@ -621,8 +628,24 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
               ))}
             </Select>
           </Field>
-          <TextField label={user ? t("settings.resetPassword") : t("fields.password")} type="password" value={v.password} onChange={(x) => setV({ ...v, password: x })} hint={t("errors.password_too_short")} />
         </div>
+        {user && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={async () => {
+                try {
+                  await shell.userSendLink(user.id);
+                  setLinkSent(true);
+                } catch (e) {
+                  setError(e);
+                }
+              }}
+            >
+              {t("settings.sendLink")}
+            </Button>
+            {linkSent && <span className="text-granite">{t("settings.linkSent")}</span>}
+          </div>
+        )}
         {user && <Checkbox label={t("settings.active")} checked={v.active} onChange={(b) => setV({ ...v, active: b })} />}
         <fieldset>
           <legend className="mb-2 font-semibold">{t("settings.extraPermissions")}</legend>

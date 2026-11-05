@@ -174,6 +174,30 @@ impl Store {
         Ok(())
     }
 
+    /// Password set from an e-mailed link (reset, invitation): the link is the proof.
+    pub fn set_password_system(&self, user_id: &str, new_password: &str, display_name: Option<&str>) -> Result<()> {
+        crate::auth::validate_password(new_password)?;
+        let new_hash = hash_password(new_password)?;
+        let sys = Session::system();
+        self.conn.execute(
+            "UPDATE users SET password_hash=?2, must_change_password=0, failed_attempts=0, locked_until=NULL,
+                    display_name=coalesce(?3, display_name), updated_at=?4, updated_by='system' WHERE id=?1",
+            params![user_id, new_hash, display_name.map(str::trim).filter(|d| !d.is_empty()), now_ts()],
+        )?;
+        audit::record_simple(&self.conn, &sys, "user", user_id, "password_reset", None)?;
+        Ok(())
+    }
+
+    /// Checks the signed-in user's own password (before sensitive changes).
+    pub fn verify_own_password(&self, s: &Session, password: &str) -> Result<()> {
+        let id = s.user_id.as_deref().ok_or_else(|| CoreError::forbidden("user"))?;
+        let hash: String = self.conn.query_row("SELECT password_hash FROM users WHERE id=?1", [id], |r| r.get(0))?;
+        if !verify_password(password, &hash) {
+            return Err(CoreError::new("invalid_credentials", "current password is wrong"));
+        }
+        Ok(())
+    }
+
     pub fn unlock_user(&self, s: &Session, user_id: &str) -> Result<()> {
         s.require(Permission::ManageUsers)?;
         self.conn.execute("UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=?1", [user_id])?;

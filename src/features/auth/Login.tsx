@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../app/context";
-import { shell } from "../../lib/api";
+import { ApiError, isMfa, shell } from "../../lib/api";
+import type { AppStatus, MfaChallenge } from "../../lib/types";
 import { Alert, Button, ErrorAlert, TextField } from "../../components/ui";
 
 function Frame({ children }: { children: React.ReactNode }) {
@@ -37,50 +38,215 @@ function PlotPattern() {
   );
 }
 
-export function Login() {
-  const [mode, setMode] = useState<"login" | "register">(() => (window.location.hash === "#regisztracio" ? "register" : "login"));
-  return mode === "login" ? <LoginForm onRegister={() => setMode("register")} /> : <RegisterForm onLogin={() => setMode("login")} />;
+type Mode = "login" | "mfa" | "register" | "forgot" | "reset" | "invite";
+
+/** Token from links in e-mails: #jelszo=… (new password), #meghivas=… (invitation). */
+function linkToken(prefix: string): string | null {
+  const h = window.location.hash;
+  return h.startsWith(`#${prefix}=`) ? h.slice(prefix.length + 2) : null;
 }
 
-function LoginForm({ onRegister }: { onRegister: () => void }) {
-  const { t } = useTranslation();
-  const { setStatus, sessionExpired, setSessionExpired } = useApp();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function clearHash() {
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+}
+
+export function Login() {
+  const { setStatus } = useApp();
+  const [mode, setMode] = useState<Mode>(() =>
+    linkToken("jelszo") ? "reset" : linkToken("meghivas") ? "invite" : window.location.hash === "#regisztracio" ? "register" : "login",
+  );
+  const [challenge, setChallenge] = useState("");
+  const [token, setToken] = useState(() => linkToken("jelszo") ?? linkToken("meghivas") ?? "");
+  // links opened in a tab that already shows the login page only change the hash
+  useEffect(() => {
+    const onHash = () => {
+      const reset = linkToken("jelszo");
+      const invite = linkToken("meghivas");
+      if (reset || invite) {
+        setToken((reset ?? invite)!);
+        setMode(reset ? "reset" : "invite");
+      }
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const [notice, setNotice] = useState<string | null>(null);
+  /** Login, reset and invitation answers: either signed in, or the second factor is needed. */
+  const done = (r: AppStatus | MfaChallenge) => {
+    clearHash();
+    if (isMfa(r)) {
+      setChallenge(r.challenge);
+      setMode("mfa");
+    } else {
+      setStatus(r);
+    }
+  };
+  const go = (m: Mode) => {
+    clearHash();
+    setNotice(null);
+    setMode(m);
+  };
+  switch (mode) {
+    case "mfa":
+      return <MfaForm challenge={challenge} onChallenge={setChallenge} onBack={() => go("login")} />;
+    case "register":
+      return <RegisterForm onLogin={() => go("login")} />;
+    case "forgot":
+      return (
+        <ForgotForm
+          onSent={() => {
+            setNotice("sent");
+            setMode("login");
+          }}
+          onBack={() => go("login")}
+        />
+      );
+    case "reset":
+      return <NewPasswordForm token={token} invite={false} onDone={done} onBack={() => go("login")} />;
+    case "invite":
+      return <NewPasswordForm token={token} invite onDone={done} onBack={() => go("login")} />;
+    default:
+      return <LoginForm notice={notice} onDone={done} onRegister={() => go("register")} onForgot={() => go("forgot")} />;
+  }
+}
+
+function SwitchLink({ text, action, onClick }: { text: string; action: string; onClick: () => void }) {
+  return (
+    <p className="mt-6 border-t border-seam pt-5 text-granite">
+      {text}{" "}
+      <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={onClick}>
+        {action}
+      </button>
+    </p>
+  );
+}
+
+function useSubmit(fn: () => Promise<void>) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      setStatus(await shell.login(email, password));
-      setSessionExpired(false);
+      await fn();
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   };
+  return { busy, error, setError, submit };
+}
+
+function LoginForm({ notice, onDone, onRegister, onForgot }: { notice: string | null; onDone: (r: AppStatus | MfaChallenge) => void; onRegister: () => void; onForgot: () => void }) {
+  const { t } = useTranslation();
+  const { sessionExpired, setSessionExpired } = useApp();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { busy, error, submit } = useSubmit(async () => {
+    onDone(await shell.login(email, password));
+    setSessionExpired(false);
+  });
   return (
     <Frame>
       <h1 className="text-2xl">{t("login.title")}</h1>
       <p className="mt-1 mb-5 text-granite">{t("login.intro")}</p>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {sessionExpired && <Alert tone="warn">{t("errors.session_expired")}</Alert>}
+        {notice === "sent" && <Alert tone="ok">{t("login.resetSent")}</Alert>}
         <TextField label={t("login.email")} type="email" value={email} onChange={setEmail} inputProps={{ autoFocus: true, autoComplete: "username", name: "email" }} />
         <TextField label={t("login.password")} type="password" value={password} onChange={setPassword} inputProps={{ autoComplete: "current-password", name: "password" }} />
         <ErrorAlert error={error} />
         <Button type="submit" variant="primary" size="lg" busy={busy}>
           {t("login.submit")}
         </Button>
-      </form>
-      <p className="mt-6 border-t border-seam pt-5 text-granite">
-        {t("login.noAccount")}{" "}
-        <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={onRegister}>
-          {t("login.toRegister")}
+        <button type="button" className="self-start text-moss underline underline-offset-3" onClick={onForgot}>
+          {t("login.forgot")}
         </button>
-      </p>
+      </form>
+      <SwitchLink text={t("login.noAccount")} action={t("login.toRegister")} onClick={onRegister} />
+    </Frame>
+  );
+}
+
+function MfaForm({ challenge, onChallenge, onBack }: { challenge: string; onChallenge: (c: string) => void; onBack: () => void }) {
+  const { t } = useTranslation();
+  const { setStatus } = useApp();
+  const [code, setCode] = useState("");
+  const { busy, error, submit } = useSubmit(async () => {
+    try {
+      setStatus(await shell.loginMfa(challenge, code));
+    } catch (e) {
+      // the server issues a fresh challenge for the next try
+      if (e instanceof ApiError && e.params.challenge) onChallenge(e.params.challenge);
+      setCode("");
+      throw e;
+    }
+  });
+  return (
+    <Frame>
+      <h1 className="text-2xl">{t("login.mfaTitle")}</h1>
+      <p className="mt-1 mb-5 text-granite">{t("login.mfaIntro")}</p>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <TextField label={t("login.mfaCode")} value={code} onChange={setCode} hint={t("login.mfaHint")} inputProps={{ autoFocus: true, autoComplete: "one-time-code", inputMode: "numeric", name: "code" }} />
+        <ErrorAlert error={error} />
+        <Button type="submit" variant="primary" size="lg" busy={busy} disabled={code.trim().length < 6}>
+          {t("login.submit")}
+        </Button>
+      </form>
+      <SwitchLink text="" action={t("common.previous")} onClick={onBack} />
+    </Frame>
+  );
+}
+
+function ForgotForm({ onSent, onBack }: { onSent: () => void; onBack: () => void }) {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState("");
+  const { busy, error, submit } = useSubmit(async () => {
+    await shell.forgotPassword(email);
+    onSent();
+  });
+  return (
+    <Frame>
+      <h1 className="text-2xl">{t("login.forgotTitle")}</h1>
+      <p className="mt-1 mb-5 text-granite">{t("login.forgotIntro")}</p>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <TextField label={t("login.email")} type="email" value={email} onChange={setEmail} inputProps={{ autoFocus: true, autoComplete: "email", name: "email" }} />
+        <ErrorAlert error={error} />
+        <Button type="submit" variant="primary" size="lg" busy={busy} disabled={!email.includes("@")}>
+          {t("login.sendLink")}
+        </Button>
+      </form>
+      <SwitchLink text="" action={t("login.toLogin")} onClick={onBack} />
+    </Frame>
+  );
+}
+
+function NewPasswordForm({ token, invite, onDone, onBack }: { token: string; invite: boolean; onDone: (r: AppStatus | MfaChallenge) => void; onBack: () => void }) {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const mismatch = p2.length > 0 && p1 !== p2;
+  const { busy, error, submit } = useSubmit(async () => {
+    if (p1 !== p2) return;
+    onDone(invite ? await shell.acceptInvite(token, name, p1) : await shell.resetPassword(token, p1));
+  });
+  return (
+    <Frame>
+      <h1 className="text-2xl">{invite ? t("login.inviteTitle") : t("login.resetTitle")}</h1>
+      <p className="mt-1 mb-5 text-granite">{invite ? t("login.inviteIntro") : t("login.resetIntro")}</p>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        {invite && <TextField label={t("login.name")} value={name} onChange={setName} hint={t("login.inviteNameHint")} inputProps={{ autoComplete: "name", name: "name" }} />}
+        <TextField label={t("login.newPassword")} type="password" value={p1} onChange={setP1} required hint={t("login.passwordHint")} inputProps={{ autoFocus: !invite, autoComplete: "new-password", name: "password" }} />
+        <TextField label={t("login.passwordAgain")} type="password" value={p2} onChange={setP2} required error={mismatch ? t("login.passwordMismatch") : null} inputProps={{ autoComplete: "new-password", name: "password2" }} />
+        <ErrorAlert error={error} />
+        <Button type="submit" variant="primary" size="lg" busy={busy} disabled={p1.length < 8 || p1 !== p2}>
+          {invite ? t("login.inviteSubmit") : t("login.resetSubmit")}
+        </Button>
+      </form>
+      <SwitchLink text="" action={t("login.toLogin")} onClick={onBack} />
     </Frame>
   );
 }
@@ -125,12 +291,7 @@ function RegisterForm({ onLogin }: { onLogin: () => void }) {
           {t("login.createAccount")}
         </Button>
       </form>
-      <p className="mt-6 border-t border-seam pt-5 text-granite">
-        {t("login.haveAccount")}{" "}
-        <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={onLogin}>
-          {t("login.toLogin")}
-        </button>
-      </p>
+      <SwitchLink text={t("login.haveAccount")} action={t("login.toLogin")} onClick={onLogin} />
     </Frame>
   );
 }

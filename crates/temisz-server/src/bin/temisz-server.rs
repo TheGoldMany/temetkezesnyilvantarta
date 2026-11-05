@@ -1,7 +1,7 @@
 //! Standalone TEMISZ server (development, E2E tests, a self-hosted VPS).
 //!
 //! Usage: temisz-server [--port 1430] [--bind 127.0.0.1] [--static DIST] [--workers 4]
-//!                      [--sample-account | --reset-sample-account] [--insecure-cookies]
+//!                      [--sample-account | --reset-sample-account] [--insecure-cookies] [--dev]
 //! Database: DATABASE_URL (default postgres://postgres@127.0.0.1:5433/postgres).
 
 use std::sync::Arc;
@@ -28,7 +28,7 @@ fn main() {
     let port: u16 = arg("--port").and_then(|p| p.parse().ok()).unwrap_or(1430);
     let bind = arg("--bind").unwrap_or_else(|| "127.0.0.1".into());
     let workers: usize = arg("--workers").and_then(|w| w.parse().ok()).unwrap_or(4);
-    let cfg = Arc::new(Config { secure_cookies: !flag("--insecure-cookies"), static_dir: arg("--static").map(Into::into) });
+    let cfg = Arc::new(Config { secure_cookies: !flag("--insecure-cookies"), static_dir: arg("--static").map(Into::into), dev_mode: flag("--dev") });
 
     let setup = connect();
     migrate_platform(&setup.conn).expect("platform migration");

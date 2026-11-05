@@ -21,6 +21,7 @@ import { api, shell } from "../lib/api";
 import type { SearchHit } from "../lib/types";
 import { cx, Plaque } from "../components/ui";
 import { useCurrentCemetery } from "../lib/queries";
+import { AccountBanners } from "../features/account/Security";
 
 const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "dashboard", key: "nav.dashboard", icon: Home },
@@ -142,6 +143,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
       </header>
+      <AccountBanners />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-10">
         <div className="mx-auto max-w-[1320px]">{children}</div>
       </main>

@@ -107,7 +107,13 @@
     "email_invalid": "Adjon meg érvényes e-mail-címet.",
     "account_closed": "Ez a fiók megszűnt.",
     "not_available": "Ez a funkció a webes változatban nem érhető el.",
-    "required": "Kötelező mező."
+    "required": "Kötelező mező.",
+    "token_invalid": "A hivatkozás érvénytelen vagy lejárt. Kérjen újat.",
+    "rate_limited": "Túl sok próbálkozás. Próbálja újra {{minutes}} perc múlva.",
+    "totp_invalid": "A kód nem helyes. Nézze meg újra az alkalmazásban, és figyeljen, hogy 30 másodpercenként változik.",
+    "totp_required": "Rendszergazdaként először kapcsolja be a kétlépcsős azonosítást.",
+    "totp_not_setup": "Először indítsa el a beállítást.",
+    "totp_already_enabled": "A kétlépcsős azonosítás már be van kapcsolva."
   },
   "fields": {
     "familyName": "Családi név",
@@ -268,7 +274,24 @@
     "createAccount": "Fiók létrehozása",
     "terms": "A fiók létrehozásával elfogadja az Általános Szerződési Feltételeket és az adatfeldolgozói szerződést.",
     "haveAccount": "Már van fiókja?",
-    "toLogin": "Belépés"
+    "toLogin": "Belépés",
+    "forgot": "Elfelejtette a jelszavát?",
+    "forgotTitle": "Új jelszó kérése",
+    "forgotIntro": "Adja meg a fiókja e-mail-címét. Küldünk egy hivatkozást, amellyel új jelszót állíthat be.",
+    "sendLink": "Hivatkozás küldése",
+    "resetSent": "Ha van fiók ezzel a címmel, elküldtük rá a hivatkozást. Nézze meg a postafiókját, a levélszemét mappát is.",
+    "resetTitle": "Új jelszó beállítása",
+    "resetIntro": "Adja meg az új jelszót. Beállítás után a többi eszközön kijelentkezteti a rendszer.",
+    "resetSubmit": "Jelszó mentése és belépés",
+    "newPassword": "Új jelszó",
+    "inviteTitle": "Meghívó elfogadása",
+    "inviteIntro": "Állítsa be a jelszavát, és már dolgozhat is a TEMISZ-ben.",
+    "inviteNameHint": "Így jelenik meg a nyomtatványokon és a változásnaplóban.",
+    "inviteSubmit": "Fiók aktiválása",
+    "mfaTitle": "Kétlépcsős azonosítás",
+    "mfaIntro": "Írja be a hitelesítő alkalmazásban látható hatjegyű kódot.",
+    "mfaCode": "Kód",
+    "mfaHint": "Ha nincs kéznél a telefonja, egy helyreállító kódot is beírhat."
   },
   "onboarding": {
     "title": "Első lépések",
@@ -557,7 +580,8 @@
       "backup": "Mentés és visszaállítás",
       "audit": "Változásnapló",
       "appearance": "Megjelenés",
-      "about": "Névjegy és frissítés"
+      "about": "Névjegy és frissítés",
+      "account": "Fiókom"
     },
     "operatorName": "Üzemeltető neve",
     "operatorAddress": "Címe",
@@ -623,7 +647,7 @@
     "feeHint": "A régi díjtételek nem módosulnak, így a korábbi megváltások díja visszakereshető marad. Az új tétel a korábbit a kezdő napja előtti nappal lezárja.",
     "anyType": "Minden helytípus",
     "users": "Felhasználók",
-    "newUser": "Új felhasználó",
+    "newUser": "Kolléga meghívása",
     "active": "Aktív",
     "locked": "Zárolva",
     "unlock": "Feloldás",
@@ -641,7 +665,11 @@
     "updateFailed": "A frissítés nem sikerült: {{message}}",
     "updateEndpoint": "Frissítési szerver címe",
     "updateEndpointHint": "Üresen hagyva a telepítőbe épített cím érvényes. Csak https:// kezdetű cím adható meg; a csomagok aláírását a program mindig ellenőrzi.",
-    "webAbout": "A TEMISZ böngészőből működik, mindig a legfrissebb változat fut. Telepíteni és frissíteni nem kell."
+    "webAbout": "A TEMISZ böngészőből működik, mindig a legfrissebb változat fut. Telepíteni és frissíteni nem kell.",
+    "sendInvite": "Meghívó küldése",
+    "inviteIntro": "A kolléga e-mailben kap egy meghívót, abban állítja be a saját jelszavát.",
+    "sendLink": "Jelszóbeállító levél küldése",
+    "linkSent": "Elküldtük."
   },
   "backup": {
     "dir": "Mentési mappa",
@@ -844,5 +872,33 @@
     "leaseExpiry": "Megváltás lejárata",
     "leaseFee": "Megváltási díj",
     "notes": "Megjegyzés"
+  },
+  "security": {
+    "title": "Kétlépcsős azonosítás",
+    "on": "Bekapcsolva: belépéskor a jelszó mellett a telefonján lévő hitelesítő alkalmazás kódja is kell.",
+    "off": "Kikapcsolva. Javasoljuk bekapcsolni, rendszergazdáknak kötelező.",
+    "turnOn": "Bekapcsolás",
+    "turnOff": "Kikapcsolás",
+    "passwordToDisable": "Jelszó a kikapcsoláshoz",
+    "step1": "Telepítsen a telefonjára egy hitelesítő alkalmazást, például a Google Authenticatort vagy a Microsoft Authenticatort.",
+    "step2": "Az alkalmazásban olvassa be ezt a QR-kódot, vagy írja be kézzel a kulcsot.",
+    "step3": "Írja be az alkalmazásban megjelenő hatjegyű kódot.",
+    "qr": "QR-kód a hitelesítő alkalmazáshoz",
+    "manualKey": "Kulcs kézi beíráshoz",
+    "enable": "Bekapcsolás",
+    "enabled": "A kétlépcsős azonosítás be van kapcsolva.",
+    "recoveryIntro": "Ezekkel a helyreállító kódokkal akkor is be tud lépni, ha elveszíti a telefonját. Mindegyik egyszer használható. Nyomtassa ki, és tegye biztonságos helyre.",
+    "printCodes": "Kódok nyomtatása",
+    "codesSaved": "Elmentettem a kódokat",
+    "requiredTitle": "Kapcsolja be a kétlépcsős azonosítást",
+    "requiredIntro": "A rendszergazdai fiók a teljes nyilvántartáshoz hozzáfér, ezért a jelszó mellé egy telefonos kód is kell. A beállítás két perc."
+  },
+  "account": {
+    "verifyNotice": "Erősítse meg az e-mail-címét ({{email}}): a levélben kapott hivatkozásra kattintson.",
+    "verifySent": "Elküldtük újra.",
+    "resend": "Levél újraküldése",
+    "verified": "Az e-mail-cím megerősítve.",
+    "trialLeft_one": "Próbaidő: még {{count}} nap ({{date}}-ig).",
+    "trialLeft_other": "Próbaidő: még {{count}} nap ({{date}}-ig)."
   }
 }

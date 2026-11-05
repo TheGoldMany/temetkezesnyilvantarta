@@ -20,7 +20,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 950 } } }],
   webServer: {
-    command: `cargo run -q -p temisz-server -- --port ${PORT} --static dist --insecure-cookies --reset-sample-account`,
+    command: `cargo run -q -p temisz-server -- --port ${PORT} --static dist --insecure-cookies --dev --reset-sample-account`,
     url: `http://127.0.0.1:${PORT}/`,
     timeout: 300_000,
     reuseExistingServer: false,

@@ -1,7 +1,7 @@
 // Transport to the TEMISZ server: JSON over POST /rpc. The session is an
 // HttpOnly cookie set by the server, so no token is handled here.
 
-import type { AppStatus, CoreError } from "./types";
+import type { AppStatus, CoreError, MfaChallenge } from "./types";
 
 export class ApiError extends Error {
   code: string;
@@ -44,10 +44,24 @@ export const shell = {
   status: () => command<AppStatus>("app_status"),
   register: (organization: string, name: string, email: string, password: string) =>
     command<AppStatus>("register", { organization, name, email, password }),
-  login: (email: string, password: string) => command<AppStatus>("login", { username: email, password }),
+  login: (email: string, password: string) => command<AppStatus | MfaChallenge>("login", { username: email, password }),
+  loginMfa: (challenge: string, code: string) => command<AppStatus>("login_mfa", { challenge, code }),
   logout: () => command<AppStatus>("logout"),
   touch: () => command<void>("touch"),
+  verifyEmail: (token: string) => command<AppStatus>("verify_email", { token }),
+  resendVerification: () => command<void>("resend_verification"),
+  forgotPassword: (email: string) => command<void>("forgot_password", { email }),
+  resetPassword: (token: string, password: string) => command<AppStatus | MfaChallenge>("reset_password", { token, password }),
+  acceptInvite: (token: string, name: string, password: string) => command<AppStatus | MfaChallenge>("accept_invite", { token, name, password }),
+  totpSetup: () => command<{ secret: string; uri: string; qrSvg: string }>("totp_setup"),
+  totpEnable: (code: string) => command<{ recoveryCodes: string[] }>("totp_enable", { code }),
+  totpDisable: (password: string) => command<void>("totp_disable", { password }),
+  userSendLink: (id: string) => command<void>("user_send_link", { id }),
 };
+
+export function isMfa(x: AppStatus | MfaChallenge): x is MfaChallenge {
+  return (x as MfaChallenge).mfa === true;
+}
 
 /** Calls a core API method (see crates/lunda-core/src/api.rs). */
 export function api<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {

@@ -1,7 +1,12 @@
 import { useApp } from "./app/context";
 import { Shell } from "./app/Shell";
 import { Spinner } from "./components/ui";
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Login } from "./features/auth/Login";
+import { TotpRequired } from "./features/account/Security";
+import { shell } from "./lib/api";
+import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { BurialsList } from "./features/burials/BurialsList";
@@ -18,10 +23,38 @@ import { Reports } from "./features/reports/Reports";
 import { ImportExport } from "./features/io/ImportExport";
 import { QuickEntry } from "./features/io/QuickEntry";
 
+/** #megerosites=… links from the verification e-mail work signed in or out. */
+function useEmailVerificationLink() {
+  const { setStatus } = useApp();
+  const toast = useToast();
+  const { t } = useTranslation();
+  useEffect(() => {
+    const check = () => {
+      const h = window.location.hash;
+      if (!h.startsWith("#megerosites=")) return;
+      const token = h.slice("#megerosites=".length);
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      shell.verifyEmail(token).then(
+        (s) => {
+          setStatus(s);
+          toast(t("account.verified"));
+        },
+        () => toast(t("errors.token_invalid"), "error"),
+      );
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
 export function App() {
   const { status, nav } = useApp();
+  useEmailVerificationLink();
   if (!status) return <Spinner />;
   if (!status.session) return <Login />;
+  if (status.account?.totpRequired) return <TotpRequired />;
   if (status.settings["onboarding.completed"] !== "true") return <Onboarding />;
   const r = nav.route;
   return (

@@ -6,6 +6,10 @@
 //!   `platform.sessions`;
 //! * every signed-in request runs inside the customer's own schema.
 
+pub mod accounts;
+pub mod mail;
+pub mod totp;
+
 use std::path::{Path, PathBuf};
 
 use base64::Engine;
@@ -20,7 +24,7 @@ pub const COOKIE: &str = "temisz_session";
 pub const SESSION_HOURS: i64 = 12;
 pub const TRIAL_DAYS: i64 = 30;
 
-const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/0001_platform.sql"))];
+const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/0001_platform.sql")), (2, include_str!("../migrations/0002_accounts.sql"))];
 
 // ---------------------------------------------------------------- HTTP types
 
@@ -71,6 +75,8 @@ pub struct Config {
     pub secure_cookies: bool,
     /// Serve the built UI from this directory (standalone server only).
     pub static_dir: Option<PathBuf>,
+    /// Development and E2E only: exposes the outgoing e-mail log at /dev/outbox.
+    pub dev_mode: bool,
 }
 
 /// Creates/updates the platform schema. Safe to run at every start.
@@ -98,6 +104,19 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
+        ("GET", "/dev/outbox") if cfg.dev_mode => {
+            let to = req.path.split("to=").nth(1).unwrap_or("").replace("%40", "@");
+            let rows = store.conn.query_row(
+                "SELECT coalesce(json_agg(json_build_object('subject', subject, 'body', body, 'kind', kind) ORDER BY created_at DESC)::text, '[]')
+                 FROM platform.emails WHERE lower(to_address) = lower(?1)",
+                params![to],
+                |r| r.get::<_, String>(0),
+            );
+            match rows {
+                Ok(j) => Response { status: 200, headers: vec![("Content-Type".into(), "application/json".into())], body: j.into_bytes() },
+                Err(e) => Response::text(500, &e.to_string()),
+            }
+        }
         ("GET", _) => match &cfg.static_dir {
             Some(dir) => serve_static(dir, path),
             None => Response::text(404, "not found"),
@@ -122,22 +141,74 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
         let cmd = body["cmd"].as_str().unwrap_or("");
         let args = &body["args"];
         let s = |k: &str| args[k].as_str().unwrap_or("").to_string();
+        // signed in: status with the account part (verification, 2FA, trial)
+        let signed_in = |c: &Current| -> Result<Value> {
+            let mut v = serde_json::to_value(app::status(Some(store), Some(c.session.clone())))?;
+            let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+            v["account"] = accounts::account_status(store, &acc, c.mfa_setup)?;
+            v["web"] = json!(true);
+            Ok(v)
+        };
+        let start = |token: &str, set_cookie: &mut Option<String>| -> Result<Value> {
+            *set_cookie = Some(cookie_value(cfg, token, SESSION_HOURS * 3600));
+            let c = current_by_token(store, token)?.ok_or_else(|| CoreError::new("session_expired", "session not found"))?;
+            signed_in(&c)
+        };
         match cmd {
             "app_status" => match current(store, req)? {
-                Some(c) => Ok(serde_json::to_value(app::status(Some(store), Some(c.session)))?),
+                Some(c) => signed_in(&c),
                 None => Ok(logged_out_status()),
             },
             "register" => {
+                accounts::rate_limit(&store.conn, &format!("register:{}", req.ip), 10, 60)?;
                 let token = register(store, &s("organization"), &s("name"), &s("email"), &s("password"), req)?;
-                set_cookie = Some(cookie_value(cfg, &token, SESSION_HOURS * 3600));
-                let c = current_by_token(store, &token)?.ok_or_else(|| CoreError::new("session_expired", "session not found"))?;
-                Ok(serde_json::to_value(app::status(Some(store), Some(c.session)))?)
+                start(&token, &mut set_cookie)
             }
             "login" => {
-                let token = login(store, &s("username"), &s("password"), req)?;
-                set_cookie = Some(cookie_value(cfg, &token, SESSION_HOURS * 3600));
-                let c = current_by_token(store, &token)?.ok_or_else(|| CoreError::new("session_expired", "session not found"))?;
-                Ok(serde_json::to_value(app::status(Some(store), Some(c.session)))?)
+                accounts::rate_limit(&store.conn, &format!("login:{}", req.ip), 30, 15)?;
+                accounts::rate_limit(&store.conn, &format!("login:{}", s("username").trim().to_lowercase()), 10, 15)?;
+                match login(store, &s("username"), &s("password"), req)? {
+                    LoginStep::Session(token) => start(&token, &mut set_cookie),
+                    LoginStep::SecondFactor(challenge) => Ok(json!({ "mfa": true, "challenge": challenge })),
+                }
+            }
+            "login_mfa" => {
+                accounts::rate_limit(&store.conn, &format!("mfa:{}", req.ip), 20, 15)?;
+                let t = db::tx(&store.conn)?;
+                let acc_id = accounts::use_token(&t, &s("challenge"), "mfa")?;
+                let acc = accounts::account_by_id(&t, &acc_id)?;
+                if let Err(e) = accounts::check_second_factor(&t, &acc, &s("code")) {
+                    // keep the challenge usable for another try
+                    drop(t);
+                    let again = accounts::create_token(&store.conn, &acc_id, "mfa", accounts::MFA_MINUTES)?;
+                    return Err(e.with("challenge", again));
+                }
+                t.commit()?;
+                let token = new_session(store, &acc_id, req)?;
+                start(&token, &mut set_cookie)
+            }
+            "verify_email" => {
+                accounts::verify_email(&store.conn, &s("token"))?;
+                match current(store, req)? {
+                    Some(c) => signed_in(&c),
+                    None => Ok(logged_out_status()),
+                }
+            }
+            "forgot_password" => {
+                accounts::forgot_password(&store.conn, &s("email"), req)?;
+                Ok(Value::Null)
+            }
+            "reset_password" | "accept_invite" => {
+                let kind = if cmd == "reset_password" { "reset" } else { "invite" };
+                let name = args["name"].as_str();
+                let acc_id = accounts::set_password_with_token(store, &s("token"), kind, &s("password"), name)?;
+                let acc = accounts::account_by_id(&store.conn, &acc_id)?;
+                if acc.totp_enabled {
+                    // the password link does not replace the second factor
+                    return Ok(json!({ "mfa": true, "challenge": accounts::create_token(&store.conn, &acc_id, "mfa", accounts::MFA_MINUTES)? }));
+                }
+                let token = new_session(store, &acc_id, req)?;
+                start(&token, &mut set_cookie)
             }
             "logout" => {
                 if let Some(c) = current(store, req)? {
@@ -153,12 +224,57 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 require(store, req)?;
                 Ok(Value::Null)
             }
+            "resend_verification" => {
+                let c = require(store, req)?;
+                accounts::rate_limit(&store.conn, &format!("verify:{}", c.account_id), 3, 60)?;
+                let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                accounts::send_verification(&store.conn, &acc.id, &acc.email, req)?;
+                Ok(Value::Null)
+            }
+            "totp_setup" => {
+                let c = require(store, req)?;
+                accounts::totp_setup(store, &accounts::account_by_id(&store.conn, &c.account_id)?)
+            }
+            "totp_enable" => {
+                let c = require(store, req)?;
+                accounts::totp_enable(store, &accounts::account_by_id(&store.conn, &c.account_id)?, &c.session, &s("code"))
+            }
+            "totp_disable" => {
+                let c = require(store, req)?;
+                accounts::totp_disable(store, &accounts::account_by_id(&store.conn, &c.account_id)?, &c.session, &s("password"))?;
+                Ok(Value::Null)
+            }
+            "user_send_link" => {
+                let c = require(store, req)?;
+                accounts::send_access_link(store, &c.session, &c.tenant_id, &s("id"), req)?;
+                Ok(Value::Null)
+            }
             "api" => {
                 let c = require(store, req)?;
                 let method = s("method");
                 let empty = json!({});
                 let a = args.get("args").unwrap_or(&empty);
-                call_api(store, &c.session, &method, a)
+                // an admin who must turn on two-factor sign-in can only do that
+                if c.mfa_setup {
+                    return Err(CoreError::new("totp_required", "turn on two-factor sign-in first"));
+                }
+                match method.as_str() {
+                    "users.create" => accounts::invite(store, &c.session, &c.tenant_id, a, req),
+                    "users.update" => {
+                        let v = call_api(store, &c.session, &method, a)?;
+                        if a["active"].as_bool() == Some(false) {
+                            store.conn.execute(
+                                "DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1 AND user_id = ?2)",
+                                params![c.tenant_id, a["id"].as_str().unwrap_or("")],
+                            )?;
+                        }
+                        Ok(v)
+                    }
+                    "users.changePassword" if a["id"].as_str() != c.session.user_id.as_deref() => {
+                        Err(CoreError::new("not_available", "send a password link instead"))
+                    }
+                    _ => call_api(store, &c.session, &method, a),
+                }
             }
             _ => Err(CoreError::new("not_available", format!("{cmd} is not available in the web version"))),
         }
@@ -218,6 +334,8 @@ pub struct Current {
     pub session: Session,
     pub tenant_id: String,
     pub account_id: String,
+    /// The admin must turn on two-factor sign-in before anything else.
+    pub mfa_setup: bool,
 }
 
 fn require(store: &Store, req: &Request) -> Result<Current> {
@@ -235,20 +353,20 @@ fn current(store: &Store, req: &Request) -> Result<Option<Current>> {
 /// the connection to the tenant schema and returns the user's session.
 fn current_by_token(store: &Store, token: &str) -> Result<Option<Current>> {
     let hash = sha256_hex(token.as_bytes());
-    let row: Option<(String, String, String, String, i64)> = store
+    let row: Option<(String, String, String, String, i64, bool)> = store
         .conn
         .query_row(
             "SELECT a.id, a.tenant_id, a.user_id, t.schema_name,
-                    CAST(EXTRACT(EPOCH FROM (now() - s.last_seen_at)) AS BIGINT)
+                    CAST(EXTRACT(EPOCH FROM (now() - s.last_seen_at)) AS BIGINT), s.mfa_setup_required
              FROM platform.sessions s
              JOIN platform.accounts a ON a.id = s.account_id
              JOIN platform.tenants t ON t.id = a.tenant_id
              WHERE s.token_hash = ?1 AND s.expires_at > now() AND t.status <> 'closed'",
             params![hash],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .optional()?;
-    let Some((account_id, tenant_id, user_id, schema, idle_secs)) = row else { return Ok(None) };
+    let Some((account_id, tenant_id, user_id, schema, idle_secs, mfa_setup)) = row else { return Ok(None) };
     store.conn.use_schema(&schema)?;
     let idle_min = settings::get_i64(&store.conn, "security.idle_logout_minutes", None, 15)?;
     if idle_min > 0 && idle_secs > idle_min * 60 {
@@ -260,7 +378,7 @@ fn current_by_token(store: &Store, token: &str) -> Result<Option<Current>> {
         Ok(s) => s,
         Err(_) => return Ok(None), // user deactivated
     };
-    Ok(Some(Current { session, tenant_id, account_id }))
+    Ok(Some(Current { session, tenant_id, account_id, mfa_setup }))
 }
 
 fn new_session(store: &Store, account_id: &str, req: &Request) -> Result<String> {
@@ -268,15 +386,19 @@ fn new_session(store: &Store, account_id: &str, req: &Request) -> Result<String>
     let mut b = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut b);
     let token = hex::encode(b);
+    let acc = accounts::account_by_id(&store.conn, account_id)?;
+    store.conn.use_schema(&acc.schema)?;
+    let mfa_setup = accounts::mfa_required(store, &acc, &store.session_for(&acc.user_id)?)?;
     store.conn.execute(
-        "INSERT INTO platform.sessions (token_hash, account_id, expires_at, ip, user_agent)
-         VALUES (?1, ?2, now() + make_interval(hours => ?3), ?4, ?5)",
+        "INSERT INTO platform.sessions (token_hash, account_id, expires_at, ip, user_agent, mfa_setup_required)
+         VALUES (?1, ?2, now() + make_interval(hours => ?3), ?4, ?5, ?6)",
         params![
             sha256_hex(token.as_bytes()),
             account_id,
             SESSION_HOURS as i32,
             req.ip,
-            req.header("user-agent").unwrap_or("").chars().take(300).collect::<String>()
+            req.header("user-agent").unwrap_or("").chars().take(300).collect::<String>(),
+            mfa_setup
         ],
     )?;
     Ok(token)
@@ -284,7 +406,7 @@ fn new_session(store: &Store, account_id: &str, req: &Request) -> Result<String>
 
 // ---------------------------------------------------------------- accounts
 
-fn valid_email(e: &str) -> bool {
+pub fn valid_email(e: &str) -> bool {
     let e = e.trim();
     let Some((local, domain)) = e.split_once('@') else { return false };
     !local.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.') && !e.contains(char::is_whitespace) && e.len() <= 254
@@ -320,31 +442,35 @@ pub fn register(store: &Store, organization: &str, name: &str, email: &str, pass
     let user = store.create_initial_admin(&email, name, password)?;
     settings::set_many(&store.conn, &Session::system(), None, &[("operator.name".to_string(), organization.to_string())].into_iter().collect())?;
     t.execute("INSERT INTO platform.accounts (id, email, tenant_id, user_id) VALUES (?1, ?2, ?3, ?4)", params![account_id, email, tenant_id, user.id])?;
+    accounts::send_verification(&t, &account_id, &email, req)?;
     t.commit()?;
     new_session(store, &account_id, req)
 }
 
-pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Result<String> {
+pub enum LoginStep {
+    Session(String),
+    /// Password was right; a code from the authenticator app is needed (challenge token).
+    SecondFactor(String),
+}
+
+pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Result<LoginStep> {
     let email = email.trim().to_lowercase();
-    let row: Option<(String, String, String)> = store
-        .conn
-        .query_row(
-            "SELECT a.id, t.schema_name, t.status FROM platform.accounts a JOIN platform.tenants t ON t.id = a.tenant_id WHERE lower(a.email) = ?1",
-            params![email],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )
-        .optional()?;
-    let Some((account_id, schema, status)) = row else {
+    let acc = accounts::account_by_email(&store.conn, &email)?;
+    let Some(acc) = acc else {
         // same work as a wrong password, so the response time does not reveal accounts
         let _ = lunda_core::auth::verify_password(password, "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$1JqfI3pVQSrr7CFZQZD8Ewn5vYkM0+DtB4eMZ5yYO3w");
         return Err(CoreError::new("invalid_credentials", "invalid e-mail address or password"));
     };
+    let status: String = store.conn.query_row("SELECT status FROM platform.tenants WHERE id = ?1", params![acc.tenant_id], |r| r.get(0))?;
     if status == "closed" {
         return Err(CoreError::new("account_closed", "this account has been closed"));
     }
-    store.conn.use_schema(&schema)?;
-    store.login(&email, password)?; // checks the password, lockout and audit-logs the login
-    new_session(store, &account_id, req)
+    store.conn.use_schema(&acc.schema)?;
+    store.login(&email, password)?; // checks the password and lockout, audit-logs the login
+    if acc.totp_enabled {
+        return Ok(LoginStep::SecondFactor(accounts::create_token(&store.conn, &acc.id, "mfa", accounts::MFA_MINUTES)?));
+    }
+    Ok(LoginStep::Session(new_session(store, &acc.id, req)?))
 }
 
 // ---------------------------------------------------------------- static files
@@ -405,6 +531,7 @@ pub fn drop_sample_account(store: &Store) -> Result<()> {
     for (id, schema) in tenants {
         let t = db::tx(&store.conn)?;
         t.execute("DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![id])?;
+        t.execute("DELETE FROM platform.tokens WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![id])?;
         t.execute("DELETE FROM platform.accounts WHERE tenant_id = ?1", params![id])?;
         t.execute("DELETE FROM platform.tenants WHERE id = ?1", params![id])?;
         t.execute_batch(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))?;

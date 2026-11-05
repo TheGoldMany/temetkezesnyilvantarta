@@ -73,6 +73,25 @@ export interface AppStatus {
   dataDir: string;
   settings: Record<string, string>;
   backupWarning: boolean;
+  /** signed-in web account: verification, two-factor, trial */
+  account?: AccountInfo;
+}
+
+export interface AccountInfo {
+  email: string;
+  organization: string;
+  emailVerified: boolean;
+  totpEnabled: boolean;
+  totpRequired: boolean;
+  tenantStatus: "trial" | "active" | "read_only" | "closed";
+  trialEndsAt: string;
+  trialDaysLeft: number;
+}
+
+/** First sign-in step answer when an authenticator code is needed. */
+export interface MfaChallenge {
+  mfa: true;
+  challenge: string;
 }
 
 export interface Cemetery {
