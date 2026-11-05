@@ -145,7 +145,12 @@
     "displayName": "Teljes név",
     "role": "Szerepkör"
   },
-  "sex": { "": "–", "male": "férfi", "female": "nő", "unknown": "ismeretlen" },
+  "sex": {
+    "": "–",
+    "male": "férfi",
+    "female": "nő",
+    "unknown": "ismeretlen"
+  },
   "status": {
     "free": "Szabad",
     "reserved": "Lefoglalt",
@@ -167,12 +172,40 @@
     "relocation": "Áthelyezés",
     "common_grave": "Közös sírba helyezés"
   },
-  "container": { "coffin": "koporsó", "urn": "urna", "none": "–" },
-  "leaseKind": { "purchase": "Megváltás", "prepurchase": "Előre megváltás", "renewal": "Újraváltás" },
-  "leaseStatus": { "active": "érvényes", "superseded": "meghosszabbítva", "cancelled": "lemondva" },
-  "noticeKind": { "letter": "Levél", "email": "E-mail", "label": "Címke a síron", "board": "Hirdetőtábla" },
-  "category": { "grave": "Sírhely", "crypt": "Sírbolt", "urn": "Urnás hely", "scatter": "Szóróparcella", "common": "Közös sír" },
-  "role": { "admin": "Rendszergazda", "clerk": "Ügyintéző", "finance": "Pénzügyes", "reader": "Olvasó" },
+  "container": {
+    "coffin": "koporsó",
+    "urn": "urna",
+    "none": "–"
+  },
+  "leaseKind": {
+    "purchase": "Megváltás",
+    "prepurchase": "Előre megváltás",
+    "renewal": "Újraváltás"
+  },
+  "leaseStatus": {
+    "active": "érvényes",
+    "superseded": "meghosszabbítva",
+    "cancelled": "lemondva"
+  },
+  "noticeKind": {
+    "letter": "Levél",
+    "email": "E-mail",
+    "label": "Címke a síron",
+    "board": "Hirdetőtábla"
+  },
+  "category": {
+    "grave": "Sírhely",
+    "crypt": "Sírbolt",
+    "urn": "Urnás hely",
+    "scatter": "Szóróparcella",
+    "common": "Közös sír"
+  },
+  "role": {
+    "admin": "Rendszergazda",
+    "clerk": "Ügyintéző",
+    "finance": "Pénzügyes",
+    "reader": "Olvasó"
+  },
   "permission": {
     "manage_users": "Felhasználók kezelése",
     "manage_settings": "Beállítások",
@@ -406,7 +439,10 @@
     "changeDate": "Változás napja",
     "submit": "Jogosultváltás rögzítése",
     "contactTitle": "Kapcsolattartó felvétele",
-    "role": { "primary": "Fő jogosult", "contact": "Kapcsolattartó" }
+    "role": {
+      "primary": "Fő jogosult",
+      "contact": "Kapcsolattartó"
+    }
   },
   "removal": {
     "titleRelease": "Urnakiadás",
@@ -546,7 +582,13 @@
     "urns": "Urna",
     "newType": "Új helytípus",
     "feeKind": "Díjtípus",
-    "feeKinds": { "purchase": "Megváltás", "renewal": "Újraváltás", "opening": "Sírnyitás", "chapel": "Ravatalozó-használat", "maintenance": "Fenntartási hozzájárulás" },
+    "feeKinds": {
+      "purchase": "Megváltás",
+      "renewal": "Újraváltás",
+      "opening": "Sírnyitás",
+      "chapel": "Ravatalozó-használat",
+      "maintenance": "Fenntartási hozzájárulás"
+    },
     "amount": "Összeg (Ft)",
     "validFrom": "Érvényes ettől",
     "validTo": "Érvényes eddig",
@@ -592,7 +634,14 @@
     "local": "helyi",
     "log": "Mentési napló",
     "checksum": "SHA-256",
-    "kind": { "auto": "napi", "exit": "kilépéskor", "manual": "kézi", "pre-migration": "frissítés előtti", "pre-restore": "visszaállítás előtti", "pre-update": "frissítés előtti" }
+    "kind": {
+      "auto": "napi",
+      "exit": "kilépéskor",
+      "manual": "kézi",
+      "pre-migration": "frissítés előtti",
+      "pre-restore": "visszaállítás előtti",
+      "pre-update": "frissítés előtti"
+    }
   },
   "audit": {
     "title": "Változásnapló",
@@ -604,5 +653,30 @@
     "what": "Művelet",
     "entity": "Tárgy",
     "loadMore": "Korábbiak"
+  },
+  "map": {
+    "title": "Térkép",
+    "legend": "Jelmagyarázat",
+    "zoomIn": "Nagyítás",
+    "zoomOut": "Kicsinyítés",
+    "fit": "Teljes temető",
+    "jump": "Ugrás helyre",
+    "jumpHint": "pl. A/3/12",
+    "notFound": "Nincs ilyen hely: {{q}}",
+    "edit": "Szerkesztés",
+    "editOn": "Szerkesztő mód: húzza a helyeket vagy parcellákat. A változás a „Mentés” gombbal kerül az adatbázisba.",
+    "rotate": "Forgatás 15°-kal",
+    "merge": "Egyesítés (kettős sír)",
+    "mergeHint": "Válasszon ki két szomszédos helyet (Shift + kattintás), az első marad meg.",
+    "save": "Térkép mentése",
+    "discard": "Elvetés",
+    "changes": "{{count}} módosított elem",
+    "selected": "Kijelölt hely",
+    "overview": "Áttekintő nézet: nagyítson a helyek megjelenítéséhez.",
+    "visible": "{{count}} hely látható",
+    "export": "Térkép PDF-be",
+    "keyboardHelp": "Nyilak: mozgatás · + és −: nagyítás · 0: teljes nézet",
+    "section": "{{code}} parcella",
+    "jumpButton": "Ugrás"
   }
 }

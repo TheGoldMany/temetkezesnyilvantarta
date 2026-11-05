@@ -639,10 +639,15 @@ impl Store {
                WHERE h.plot_id=p.id AND h.role='primary' AND h.end_date IS NULL AND h.voided_at IS NULL LIMIT 1)"
         };
         let sql = format!(
-            "WITH occ AS (
+            "WITH removed AS (
+                SELECT DISTINCT source_event_id AS id FROM interment_events
+                WHERE source_event_id IS NOT NULL AND voided_at IS NULL),
+             occ AS (
                 SELECT e.plot_id, count(*) AS n, {names_sql}
                 FROM interment_events e {names_join}
-                WHERE {ACTIVE_PLACEMENT_SQL}
+                LEFT JOIN removed rm ON rm.id = e.id
+                WHERE e.voided_at IS NULL AND e.plot_id IS NOT NULL AND rm.id IS NULL
+                  AND e.event_type IN ('coffin_burial','urn_placement','reburial','common_grave','relocation','ash_scattering')
                 GROUP BY e.plot_id),
              nt AS (SELECT plot_id, max(notice_date) AS d FROM notices WHERE voided_at IS NULL GROUP BY plot_id)
              SELECT p.id, p.identifier, p.cemetery_id, p.section_id, p.row_id, t.code, t.name, p.protected, p.protection_kind,

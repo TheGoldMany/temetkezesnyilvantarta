@@ -101,6 +101,7 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
 
         // ---- search & reports
         "search.quick" => ok(store.quick_search(s, &arg::<String>(a, "query")?, opt(a, "limit")?.unwrap_or(30))?),
+        "map.data" => ok(store.map_data(&arg::<String>(a, "cemeteryId")?)?),
         "dashboard" => ok(store.dashboard(opt::<String>(a, "cemeteryId")?.as_deref())?),
         "reports.utilization" => ok(store.utilization(opt::<String>(a, "cemeteryId")?.as_deref())?),
         "reports.yearly" => ok(store.yearly_stats(opt::<String>(a, "cemeteryId")?.as_deref())?),

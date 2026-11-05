@@ -97,12 +97,12 @@ pub fn load_sample(store: &Store, s: &Session) -> Result<SampleSummary> {
     let t = |code: &str| store.get_plot_type(code).map(|t| t.id);
     let layout: &[(&str, &str, &str, i32, i32, f64, f64)] = &[
         ("A", "Régi temetőrész", "single", 6, 16, 0.0, 0.0),
-        ("B", "Kettős sírok", "double", 4, 10, 200.0, 0.0),
-        ("C", "Új temetőrész", "single", 5, 14, 0.0, 190.0),
-        ("U", "Urnafal", "urn_niche", 3, 12, 200.0, 140.0),
-        ("K", "Sírboltok", "crypt", 1, 5, 200.0, 240.0),
-        ("S", "Szóróparcella", "scatter", 1, 1, 380.0, 240.0),
-        ("KS", "Közös sír", "common", 1, 1, 420.0, 240.0),
+        ("B", "Kettős sírok", "double", 4, 10, 300.0, 0.0),
+        ("C", "Új temetőrész", "single", 5, 14, 0.0, 230.0),
+        ("U", "Urnafal", "urn_niche", 3, 12, 300.0, 175.0),
+        ("K", "Sírboltok", "crypt", 1, 5, 300.0, 265.0),
+        ("S", "Szóróparcella", "scatter", 1, 1, 480.0, 265.0),
+        ("KS", "Közös sír", "common", 1, 1, 520.0, 265.0),
     ];
     let mut plots = 0;
     for (code, name, ty, rows, per, x, y) in layout {

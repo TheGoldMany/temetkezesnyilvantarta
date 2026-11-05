@@ -2,7 +2,7 @@
 //! on http://127.0.0.1:<port>/rpc so the UI can run in a normal browser
 //! (Vite dev server, Playwright). Binds to localhost only; never shipped.
 //!
-//! Usage: lunda-devserver [--port 1421] [--data DIR] [--static DIST] [--reset] [--sample]
+//! Usage: lunda-devserver [--port 1421] [--data DIR] [--static DIST] [--reset] [--sample] [--large]
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -78,6 +78,13 @@ fn main() {
             a.call("settings.set", &json!({"values": {"onboarding.completed": "true", "operator.name": "Mintavölgy Község Önkormányzata"}})).expect("settings");
             a.logout();
         }
+    }
+    if flag("--large") {
+        // performance check: 50 000 plots / 100 000 deceased in a separate cemetery
+        let a = app.lock().unwrap();
+        let t = std::time::Instant::now();
+        lunda_core::sample::generate_large(a.store.as_ref().unwrap(), 50_000, 100_000).expect("large");
+        eprintln!("large data set generated in {:?}", t.elapsed());
     }
     let server = Server::http(("127.0.0.1", port)).expect("bind");
     eprintln!("lunda-devserver on http://127.0.0.1:{port} (data: {})", dir.display());

@@ -25,7 +25,44 @@ pub struct YearStatRow {
     pub total: i64,
 }
 
+/// Compact map payload (FR-TER-03, NFR-TEL-02): one small array per plot
+/// instead of an object – 50 000 plots stay a few megabytes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MapData {
+    pub sections: Vec<crate::model::Section>,
+    /// status names in index order
+    pub statuses: Vec<String>,
+    /// [identifier, sectionIndex, statusIndex, protected(0/1), x, y, w, h, rot]
+    pub plots: Vec<(String, u32, u8, u8, f32, f32, f32, f32, f32)>,
+}
+
 impl Store {
+    pub fn map_data(&self, cemetery_id: &str) -> Result<MapData> {
+        let sections = self.list_sections(cemetery_id)?;
+        let idx: std::collections::HashMap<&str, u32> = sections.iter().enumerate().map(|(i, s)| (s.id.as_str(), i as u32)).collect();
+        let page = self.plot_summaries(&PlotFilter { cemetery_id: Some(cemetery_id.to_string()), light: true, ..Default::default() })?;
+        let r = |v: f64| ((v * 10.0).round() / 10.0) as f32;
+        let plots = page
+            .items
+            .iter()
+            .map(|p| {
+                (
+                    p.identifier.clone(),
+                    *idx.get(p.section_id.as_str()).unwrap_or(&0),
+                    PlotStatus::ALL.iter().position(|s| *s == p.status).unwrap_or(0) as u8,
+                    p.protected as u8,
+                    r(p.x),
+                    r(p.y),
+                    r(p.w),
+                    r(p.h),
+                    r(p.rot),
+                )
+            })
+            .collect();
+        Ok(MapData { sections, statuses: PlotStatus::ALL.iter().map(|s| s.as_str().to_string()).collect(), plots })
+    }
+
     pub fn dashboard(&self, cemetery_id: Option<&str>) -> Result<DashboardStats> {
         let plots = self.plot_summaries(&PlotFilter { cemetery_id: cemetery_id.map(String::from), ..Default::default() })?;
         let mut counts: BTreeMap<String, i64> = BTreeMap::new();
