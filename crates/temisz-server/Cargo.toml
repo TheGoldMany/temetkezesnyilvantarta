@@ -21,6 +21,16 @@ qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 serde = { version = "1.0.229", features = ["derive"] }
 chrono = "0.4"
 
+temisz-desktop-import = { path = "../temisz-desktop-import", optional = true }
+
+[features]
+default = ["desktop-import"]
+# loading backups of the retired desktop app (builds SQLCipher with OpenSSL)
+desktop-import = ["dep:temisz-desktop-import"]
+
 [[bin]]
 name = "temisz-server"
 path = "src/bin/temisz-server.rs"
+
+[dev-dependencies]
+rusqlite = { version = "0.41", features = ["bundled-sqlcipher-vendored-openssl", "collation"] }

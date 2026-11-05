@@ -30,6 +30,9 @@ fn main() {
     let workers: usize = arg("--workers").and_then(|w| w.parse().ok()).unwrap_or(4);
     let cfg = Arc::new(Config { secure_cookies: !flag("--insecure-cookies"), static_dir: arg("--static").map(Into::into), dev_mode: flag("--dev") });
 
+    if cfg.dev_mode {
+        temisz_server::accounts::RATE_LIMITS.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
     let setup = connect();
     migrate_platform(&setup.conn).expect("platform migration");
     if flag("--reset-sample-account") {

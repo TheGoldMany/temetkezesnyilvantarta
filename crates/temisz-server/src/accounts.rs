@@ -52,8 +52,14 @@ pub fn use_token(conn: &Connection, token: &str, kind: &str) -> Result<String> {
 
 // ---------------------------------------------------------------- rate limits
 
+/// Off only in the local development/E2E server (all requests come from 127.0.0.1).
+pub static RATE_LIMITS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
 /// Allows at most `max` events per `minutes` for a key (IP, e-mail).
 pub fn rate_limit(conn: &Connection, key: &str, max: i64, minutes: i32) -> Result<()> {
+    if !RATE_LIMITS.load(std::sync::atomic::Ordering::Relaxed) {
+        return Ok(());
+    }
     let n: i64 =
         conn.query_row("SELECT count(*) FROM platform.rate_events WHERE key = ?1 AND ts > now() - make_interval(mins => ?2)", params![key, minutes], |r| {
             r.get(0)

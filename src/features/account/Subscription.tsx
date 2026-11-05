@@ -219,7 +219,58 @@ export function SubscriptionTab() {
           </table>
         )}
       </Panel>
+      <CloseAccount />
     </div>
+  );
+}
+
+/** Closing the account: sign-in stops now, data are deleted after 30 days. */
+function CloseAccount() {
+  const { t } = useTranslation();
+  const { setStatus } = useApp();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  return (
+    <Panel title={t("billing.closeTitle")}>
+      <div className="flex max-w-2xl flex-col gap-4">
+        <p className="text-granite">{t("billing.closeIntro")}</p>
+        {!open ? (
+          <div>
+            <Button variant="danger" onClick={() => setOpen(true)}>
+              {t("billing.closeStart")}
+            </Button>
+          </div>
+        ) : (
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setError(null);
+              try {
+                setStatus(await command("close_account", { password }));
+              } catch (err) {
+                setError(err);
+              }
+            }}
+          >
+            <label className="flex items-start gap-3">
+              <input type="checkbox" className="mt-1 size-5 accent-[var(--c-alert)]" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
+              <span>{t("billing.closeConfirm")}</span>
+            </label>
+            <TextField className="max-w-sm" label={t("billing.closePassword")} type="password" value={password} onChange={setPassword} inputProps={{ name: "closePassword" }} />
+            <ErrorAlert error={error} />
+            <div className="flex gap-3">
+              <Button onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
+              <Button type="submit" variant="danger" disabled={!confirm || !password}>
+                {t("billing.closeFinal")}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </Panel>
   );
 }
 

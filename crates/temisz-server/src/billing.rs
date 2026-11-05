@@ -129,7 +129,7 @@ pub fn effective_status(conn: &Connection, tenant_id: &str) -> Result<String> {
     let (status, trial_over): (String, bool) =
         conn.query_row("SELECT status, trial_ends_at <= now() FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     if status == "trial" && trial_over {
-        conn.execute("UPDATE platform.tenants SET status = 'read_only' WHERE id = ?1 AND status = 'trial'", params![tenant_id])?;
+        conn.execute("UPDATE platform.tenants SET status = 'read_only', read_only_since = now() WHERE id = ?1 AND status = 'trial'", params![tenant_id])?;
         return Ok("read_only".into());
     }
     Ok(status)
@@ -388,7 +388,10 @@ pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method
     )?;
     issue(&t, tenant_id, true, "TEMISZ előfizetés", count, unit_net(plan), (start, period_end(start, plan)), "transfer", None)?;
     // working continues while the proforma is open (a read-only account opens up again)
-    t.execute("UPDATE platform.tenants SET status = 'active' WHERE id = ?1 AND status IN ('trial', 'read_only') AND NOT ?2", params![tenant_id, in_trial])?;
+    t.execute(
+        "UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status IN ('trial', 'read_only') AND NOT ?2",
+        params![tenant_id, in_trial],
+    )?;
     t.commit()?;
     let _ = lunda_core::audit::record_simple(&store.conn, s, "subscription", tenant_id, "subscribe", Some(&format!("{plan}, transfer, {count}")));
     Ok(json!({ "ok": true }))
@@ -420,7 +423,7 @@ pub fn mark_paid(conn: &Connection, invoice_id: &str) -> Result<()> {
          WHERE tenant_id = ?1",
         params![tenant, ymd(ps), ymd(pe)],
     )?;
-    t.execute("UPDATE platform.tenants SET status = 'active' WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
+    t.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
     t.commit()?;
     Ok(())
 }
@@ -577,7 +580,7 @@ pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
         .query_map(params![OVERDUE_GRACE_DAYS as i32, ymd(today())], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     for tenant in &overdue {
-        conn.execute("UPDATE platform.tenants SET status = 'read_only' WHERE id = ?1", params![tenant])?;
+        conn.execute("UPDATE platform.tenants SET status = 'read_only', read_only_since = now() WHERE id = ?1", params![tenant])?;
         conn.execute("UPDATE platform.subscriptions SET status = 'past_due' WHERE tenant_id = ?1", params![tenant])?;
         let (to, org) = tenant_email(conn, tenant)?;
         mail::send(
@@ -591,7 +594,7 @@ pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
     done.insert("overdue".into(), json!(overdue.len()));
     // card subscriptions cancelled and their period over
     let n = conn.execute(
-        "UPDATE platform.tenants t SET status = 'read_only' FROM platform.subscriptions s
+        "UPDATE platform.tenants t SET status = 'read_only', read_only_since = now() FROM platform.subscriptions s
          WHERE s.tenant_id = t.id AND s.status = 'canceled' AND s.current_period_end <= CAST(?1 AS DATE) AND t.status = 'active'",
         params![ymd(today())],
     )?;
@@ -629,7 +632,7 @@ pub fn stripe_event(store: &Store, ev: &Value) -> Result<()> {
                     sub_id
                 ],
             )?;
-            conn.execute("UPDATE platform.tenants SET status = 'active' WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
+            conn.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
         }
         "invoice.paid" => {
             let sub_id = obj["subscription"].as_str().or(obj["parent"]["subscription_details"]["subscription"].as_str()).unwrap_or("");
@@ -648,7 +651,7 @@ pub fn stripe_event(store: &Store, ev: &Value) -> Result<()> {
                 "UPDATE platform.subscriptions SET status = 'active', current_period_start = CAST(?2 AS DATE), current_period_end = GREATEST(current_period_end, CAST(?3 AS DATE)), updated_at = now() WHERE tenant_id = ?1",
                 params![tenant, ymd(ps), ymd(pe)],
             )?;
-            conn.execute("UPDATE platform.tenants SET status = 'active' WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
+            conn.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
         }
         "invoice.payment_failed" => {
             let sub_id = obj["subscription"].as_str().unwrap_or("");

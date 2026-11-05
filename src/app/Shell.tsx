@@ -73,7 +73,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col">
       {/* Top bar, as in the website's program window: identity, search, user; then the section tabs. */}
       <header className="no-print shrink-0 border-b border-seam bg-slab">
-        <div className="flex h-16 items-center gap-5 px-6">
+        <div className="flex h-16 items-center gap-3 px-4 sm:gap-5 sm:px-6">
           <p className="flex shrink-0 items-baseline gap-3">
             <span className="wordmark text-[1.375rem] text-moss">{t("app.name")}</span>
             {list.length > 1 ? (
@@ -145,7 +145,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
       </header>
       <AccountBanners />
-      <main className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-10">
+      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
         <div className="mx-auto max-w-[1320px]">{children}</div>
       </main>
     </div>

@@ -90,9 +90,9 @@
     "merge_not_empty": "Csak üres, megváltás nélküli hely vonható össze.",
     "db_key_missing": "Az adatbázis kulcsa nem található ezen a gépen. Állítsa vissza az adatokat egy mentésből a helyreállító kulccsal.",
     "db_key_invalid": "Az adatbázis nem nyitható meg ezzel a kulccsal.",
-    "wrong_recovery_key": "A mentés ezzel a helyreállító kulccsal nem nyitható meg.",
-    "recovery_key_invalid": "A helyreállító kulcs 64 karakterből áll (8 csoport, kötőjellel elválasztva).",
-    "backup_corrupt": "A mentés sérült, nem állítható vissza.",
+    "wrong_recovery_key": "A mentés ezzel a helyreállító kulccsal nem nyitható meg. Ellenőrizze a kinyomtatott kulcsot.",
+    "recovery_key_invalid": "A helyreállító kulcs 64 karakterből áll (0–9 és A–F).",
+    "backup_corrupt": "A mentésfájl sérült vagy nem TEMISZ-mentés.",
     "transport": "Nem sikerült kapcsolódni a programmaghoz.",
     "date_in_future": "Az esemény dátuma túl messze van a jövőben.",
     "holder_required": "A helynek nincs rendelkezési jogosultja – adjon meg egyet.",
@@ -123,7 +123,9 @@
     "invoicing_failed": "A számla kiállítása nem sikerült. Próbálja újra néhány perc múlva.",
     "pdf_unavailable": "Ehhez a bizonylathoz nincs PDF. A Számlázz.hu e-mailben küldte el.",
     "tax_number_invalid": "Az adószám formátuma: 12345678-1-23.",
-    "invoice_not_open": "Ez a díjbekérő már nem nyitott."
+    "invoice_not_open": "Ez a díjbekérő már nem nyitott.",
+    "import_not_empty": "A régi mentés csak üres fiókba tölthető be. Ebben a fiókban már van temető.",
+    "backup_version": "Ez a mentés egy újabb programváltozatból származik. Kérjen segítséget az ügyfélszolgálattól."
   },
   "fields": {
     "familyName": "Családi név",
@@ -717,7 +719,14 @@
     "webTitle": "Mentés és adatletöltés",
     "webIntro": "Az adatokat a TEMISZ szervere folyamatosan menti, titkosítva, két külön helyre. A mentéseket 30 napig őrizzük, ezek bármelyikére vissza tudjuk állítani a fiókot.",
     "webExport": "A teljes nyilvántartást bármikor letöltheti egy Excel-fájlban, például saját archívumhoz vagy egy másik rendszerbe költözéshez.",
-    "downloadAll": "Minden adat letöltése"
+    "downloadAll": "Minden adat letöltése",
+    "desktopTitle": "Átállás a régi asztali TEMISZ-ről",
+    "desktopIntro": "Ha korábban az asztali TEMISZ programot használta, a mentését (.ltbak fájl) és a kinyomtatott helyreállító kulcsot megadva a teljes nyilvántartás átkerül ide: folyószámok, változásnapló, minden adat. Csak üres fiókba tölthető be, a mostani felhasználók megmaradnak.",
+    "pickDesktop": "Mentésfájl kiválasztása",
+    "recoveryKeyHint": "64 karakter, a kinyomtatott lapon nyolc csoportban.",
+    "loadDesktop": "Mentés betöltése",
+    "desktopDone": "A régi nyilvántartás betöltve.",
+    "desktopCounts": "{{plots}} sírhely, {{deceased}} elhunyt, {{events}} bejegyzés került át."
   },
   "audit": {
     "title": "Változásnapló",
@@ -984,7 +993,13 @@
     "cemeteries_other": "{{count}} temető",
     "newCemeteryTitle": "Hatás az előfizetésre",
     "newCemeteryTrial": "A próbaidő alatt a temetők száma nem számít. Utána a díj temetőnként havi {{monthly}} vagy évi {{yearly}} + ÁFA.",
-    "newCemeteryPaid": "Az új temetőért most {{now}} (bruttó) díjbekérőt vagy terhelést kap a jelenlegi időszak végéig ({{date}}). Utána a díj temetőnként {{unit}} + ÁFA {{per}}."
+    "newCemeteryPaid": "Az új temetőért most {{now}} (bruttó) díjbekérőt vagy terhelést kap a jelenlegi időszak végéig ({{date}}). Utána a díj temetőnként {{unit}} + ÁFA {{per}}.",
+    "closeTitle": "Fiók megszüntetése",
+    "closeIntro": "A megszüntetés után senki sem tud belépni. A nyilvántartás adatait 30 nap múlva véglegesen töröljük, addig kérésre visszaállítjuk. Előtte töltse le az adatokat a Mentés és adatletöltés oldalon. A számlákat a számviteli törvény szerint megőrizzük.",
+    "closeStart": "Fiók megszüntetése…",
+    "closeConfirm": "Értem, hogy a fiók megszűnik, és az adatok 30 nap múlva törlődnek. Az adatokat letöltöttem, vagy nincs rájuk szükségem.",
+    "closeFinal": "Fiók végleges megszüntetése",
+    "closePassword": "Jelszó a megerősítéshez"
   },
   "platform": {
     "title": "Ügyfelek",

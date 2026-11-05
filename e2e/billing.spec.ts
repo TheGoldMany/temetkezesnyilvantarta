@@ -77,3 +77,23 @@ test("lejárt próbaidő: csak olvasható, olvasni lehet", async ({ page }) => {
   const trialEnded = await page.request.get("/api/cron/daily");
   expect(trialEnded.ok()).toBeTruthy();
 });
+
+test("fiók megszüntetése: belépés tiltva, adatletöltés előtte", async ({ page }) => {
+  const email = `megszunik-${Date.now()}@pelda.hu`;
+  await registerAndStart(page, email, "Megszűnőfalva");
+  await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
+  await page.getByRole("tab", { name: "Mentés és visszaállítás" }).click();
+  await expect(page.getByRole("button", { name: "Minden adat letöltése" })).toBeVisible();
+  await expect(page.getByText("Átállás a régi asztali TEMISZ-ről")).toBeVisible();
+  await page.getByRole("tab", { name: "Előfizetés" }).click();
+  await page.getByRole("button", { name: "Fiók megszüntetése…" }).click();
+  await page.getByRole("checkbox").last().check();
+  await page.locator("input[name=closePassword]").fill("nagyon-titkos-1");
+  await page.getByRole("button", { name: "Fiók végleges megszüntetése" }).click();
+  await expect(page.locator("input[name=email]")).toBeVisible();
+  expect((await lastMail(page, email, "closed")).body).toContain("30 nap");
+  await page.locator("input[name=email]").fill(email);
+  await page.locator("input[name=password]").fill("nagyon-titkos-1");
+  await page.getByRole("button", { name: "Belépés" }).click();
+  await expect(page.getByText("Ez a fiók megszűnt.")).toBeVisible();
+});

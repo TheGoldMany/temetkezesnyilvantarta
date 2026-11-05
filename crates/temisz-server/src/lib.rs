@@ -8,9 +8,11 @@
 
 pub mod accounts;
 pub mod billing;
+pub mod lifecycle;
 pub mod mail;
 pub mod stripe;
 pub mod szamlazz;
+pub mod tenant_data;
 pub mod totp;
 
 use std::path::{Path, PathBuf};
@@ -31,6 +33,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("../migrations/0001_platform.sql")),
     (2, include_str!("../migrations/0002_accounts.sql")),
     (3, include_str!("../migrations/0003_billing.sql")),
+    (4, include_str!("../migrations/0004_lifecycle.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -89,16 +92,18 @@ pub struct Config {
 /// Creates/updates the platform schema. Safe to run at every start.
 pub fn migrate_platform(conn: &Connection) -> Result<()> {
     conn.execute_batch("CREATE SCHEMA IF NOT EXISTS platform; CREATE TABLE IF NOT EXISTS platform.schema_version (version BIGINT NOT NULL)")?;
-    let current: i64 = conn.query_row("SELECT coalesce(max(version), 0) FROM platform.schema_version", [], |r| r.get(0))?;
+    // several server instances may start at once: one migrates, the others wait
+    let t = db::tx(conn)?;
+    t.execute_batch("SELECT pg_advisory_xact_lock(7381001)")?;
+    let current: i64 = t.query_row("SELECT coalesce(max(version), 0) FROM platform.schema_version", [], |r| r.get(0))?;
     for (v, sql) in PLATFORM_MIGRATIONS {
         if *v <= current {
             continue;
         }
-        let t = db::tx(conn)?;
         t.execute_batch(sql)?;
         t.execute("INSERT INTO platform.schema_version (version) VALUES (?1)", params![v])?;
-        t.commit()?;
     }
+    t.commit()?;
     Ok(())
 }
 
@@ -118,7 +123,8 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             if !ok {
                 return Response::text(401, "unauthorized");
             }
-            match billing::daily(store, &accounts::base_url(req)) {
+            let res = billing::daily(store, &accounts::base_url(req)).and_then(|b| Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)? })));
+            match res {
                 Ok(v) => Response::json(&v),
                 Err(e) => Response::text(500, &e.to_string()),
             }
@@ -345,6 +351,20 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "billing_quote_cemetery" => {
                 let c = require(store, req)?;
                 billing::quote_new_cemetery(store, &c.tenant_id)
+            }
+            "close_account" => {
+                let c = require(store, req)?;
+                lifecycle::close(store, &c.session, &c.tenant_id, &s("password"))?;
+                set_cookie = Some(cookie_value(cfg, "", 0));
+                Ok(logged_out_status())
+            }
+            "import_desktop_backup" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                if billing::effective_status(&store.conn, &c.tenant_id)? == "read_only" {
+                    return Err(CoreError::new("read_only", "the account is read-only"));
+                }
+                import_desktop(store, &c, &s("content"), &s("recoveryKey"))
             }
             "billing_invoice_pdf" => {
                 let c = require(store, req)?;
@@ -691,4 +711,19 @@ fn stripe_webhook(store: &Store, req: &Request) -> Response {
         Ok(()) => Response::text(200, "ok"),
         Err(e) => Response::text(500, &e.to_string()),
     }
+}
+
+#[cfg(feature = "desktop-import")]
+fn import_desktop(store: &Store, c: &Current, content_b64: &str, recovery_key: &str) -> Result<Value> {
+    let bytes = base64::engine::general_purpose::STANDARD.decode(content_b64.trim()).map_err(|_| CoreError::new("bad_request", "file content"))?;
+    let path = std::env::temp_dir().join(format!("temisz-import-{}.ltbak", new_id()));
+    std::fs::write(&path, bytes)?;
+    let tables = temisz_desktop_import::read_backup(&path, recovery_key);
+    let _ = std::fs::remove_file(&path);
+    tenant_data::import_desktop(store, &c.session, &c.tenant_id, tables?)
+}
+
+#[cfg(not(feature = "desktop-import"))]
+fn import_desktop(_: &Store, _: &Current, _: &str, _: &str) -> Result<Value> {
+    Err(CoreError::new("not_available", "desktop backups are loaded by TEMISZ support"))
 }

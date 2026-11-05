@@ -79,18 +79,24 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current > latest_version() {
         return Err(CoreError::new("db_too_new", "database was created by a newer version").with("version", current));
     }
+    if current == latest_version() {
+        return Ok(());
+    }
+    // two requests may open a new tenant at once: serialise per schema
+    let t = tx(conn)?;
+    t.execute_batch("SELECT pg_advisory_xact_lock(7381002, hashtext(current_schema()))")?;
+    let current = user_version(&t)?;
     for (version, sql) in MIGRATIONS {
         if *version <= current {
             continue;
         }
-        let t = tx(conn)?;
         t.execute_batch(sql)?;
         if *version == 1 {
             seed_initial(&t)?;
         }
         t.execute("INSERT INTO schema_version (version) VALUES (?1)", params![version])?;
-        t.commit()?;
     }
+    t.commit()?;
     Ok(())
 }
 

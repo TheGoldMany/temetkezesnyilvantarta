@@ -84,6 +84,16 @@ pub fn set_quantity(subscription_id: &str, quantity: i64) -> Result<()> {
     Ok(())
 }
 
+/// Cancels at once (account closed by the customer).
+pub fn cancel(subscription_id: &str) -> Result<()> {
+    let auth = format!("Bearer {}", key()?);
+    ureq::delete(&format!("https://api.stripe.com/v1/subscriptions/{subscription_id}"))
+        .header("Authorization", &auth)
+        .call()
+        .map_err(|e| CoreError::new("payment_failed", e.to_string()))?;
+    Ok(())
+}
+
 pub fn subscription(subscription_id: &str) -> Result<Value> {
     call("GET", &format!("subscriptions/{subscription_id}"), &[])
 }
