@@ -507,7 +507,11 @@
     "openFile": "Megnyitás",
     "paper": "Papírméret",
     "forms": "Egyedi nyomtatványok",
-    "formsHint": "Igazolásokat, értesítőket és elismervényeket a hely vagy a temetés adatlapjáról nyomtathat."
+    "formsHint": "Igazolásokat, értesítőket és elismervényeket a hely vagy a temetés adatlapjáról nyomtathat.",
+    "volume": "Kötet azonosító: {{id}}",
+    "digest": "Tartalmi kivonat: {{hash}}",
+    "pages": "{{count}} oldal",
+    "lastPrints": "A hiteles nyomtatások naplózva vannak (kötet azonosító, oldalszám, tartalmi kivonat)."
   },
   "reports": {
     "title": "Riportok",

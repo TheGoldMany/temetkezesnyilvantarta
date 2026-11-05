@@ -13,6 +13,7 @@ pub mod auth;
 pub mod db;
 pub mod error;
 pub mod model;
+pub mod pdf;
 pub mod rules;
 pub mod sample;
 pub mod settings;

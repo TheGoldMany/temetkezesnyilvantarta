@@ -143,6 +143,12 @@ impl App {
                 }
                 Ok(serde_json::to_value(v)?)
             }
+            "print.document" => {
+                let doc = str_arg("doc")?;
+                let empty = Value::Object(Default::default());
+                let a = args.get("args").unwrap_or(&empty);
+                Ok(serde_json::to_value(crate::pdf::generate(store, &s, &doc, a, &self.data_dir.join("exports"))?)?)
+            }
             "backup.log" => Ok(serde_json::to_value(backup::log(&store.conn, 50)?)?),
             "backup.verify" => {
                 s.require(Permission::Backup)?;

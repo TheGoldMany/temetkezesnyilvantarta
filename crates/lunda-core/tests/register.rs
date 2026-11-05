@@ -611,3 +611,56 @@ fn dashboard_and_reports() {
     assert_eq!(u[0].total, 30);
     assert_eq!(u[0].by_status["occupied"], 2);
 }
+
+#[test]
+fn all_documents_render_from_sample_data() {
+    let store = lunda_core::Store::in_memory().unwrap();
+    let s = lunda_core::auth::Session::system();
+    let sum = lunda_core::sample::load_sample(&store, &s).unwrap();
+    let dir = std::env::temp_dir().join(format!("lunda-pdf-{}", lunda_core::util::new_id()));
+    let cem = sum.cemetery_id.clone();
+    let any_lease: String = store.conn.query_row("SELECT id FROM leases WHERE status='active' LIMIT 1", [], |r| r.get(0)).unwrap();
+    let deceased: String = store.conn.query_row("SELECT deceased_id FROM interment_events WHERE plot_id IS NOT NULL LIMIT 1", [], |r| r.get(0)).unwrap();
+    let plots: Vec<String> = store
+        .expiries(&s, &ExpiryFilter { cemetery_id: Some(cem.clone()), within_days: 0, include_expired: true, ..Default::default() })
+        .unwrap()
+        .into_iter()
+        .take(3)
+        .map(|e| e.plot_id)
+        .collect();
+    assert!(!plots.is_empty());
+    let docs = vec![
+        ("register", serde_json::json!({"cemeteryId": cem})),
+        ("crypt_book", serde_json::json!({"cemeteryId": cem})),
+        ("inspection", serde_json::json!({"cemeteryId": cem, "dateFrom": "2000-01-01", "dateTo": "2026-12-31"})),
+        ("index", serde_json::json!({"cemeteryId": cem})),
+        ("information", serde_json::json!({"deceasedId": deceased})),
+        ("lease_certificate", serde_json::json!({"leaseId": any_lease})),
+        ("fee_request", serde_json::json!({"leaseId": any_lease})),
+        ("expiry_notice", serde_json::json!({"plotIds": plots})),
+        ("grave_labels", serde_json::json!({"plotIds": plots})),
+        ("notice_board", serde_json::json!({"plotIds": plots})),
+        ("map", serde_json::json!({"cemeteryId": cem, "paper": "A0"})),
+        ("report_utilization", serde_json::json!({})),
+        ("report_yearly", serde_json::json!({})),
+    ];
+    for (doc, args) in docs {
+        let f = lunda_core::pdf::generate(&store, &s, doc, &args, &dir).unwrap_or_else(|e| panic!("{doc}: {e}"));
+        let bytes = std::fs::read(&f.path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-"), "{doc}");
+        assert!(f.pages >= 1, "{doc}");
+    }
+    // the register is paged, authenticated and logged
+    let f = lunda_core::pdf::generate(&store, &s, "register", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap();
+    assert!(f.pages > 2);
+    assert!(f.volume_id.is_some() && f.content_hash.as_ref().unwrap().len() == 64);
+    let logged: i64 = store.conn.query_row("SELECT count(*) FROM print_log WHERE document='register'", [], |r| r.get(0)).unwrap();
+    assert_eq!(logged, 2);
+    // same data -> same content digest (reproducible authentication)
+    let g = lunda_core::pdf::generate(&store, &s, "register", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap();
+    assert_eq!(f.content_hash, g.content_hash);
+    // reader may print, but nothing without print permission
+    let none = lunda_core::auth::Session { permissions: vec![], ..lunda_core::auth::Session::system() };
+    assert_eq!(lunda_core::pdf::generate(&store, &none, "index", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap_err().code, "forbidden");
+    std::fs::remove_dir_all(dir).ok();
+}

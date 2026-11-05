@@ -62,9 +62,27 @@ fn handle(app: &Mutex<App>, dir: &Path, body: &str) -> Result<Value, CoreError> 
     })
 }
 
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(if b[i] == b'+' { b' ' } else { b[i] });
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 fn main() {
     let port: u16 = arg("--port").and_then(|p| p.parse().ok()).unwrap_or(1421);
-    let dir = PathBuf::from(arg("--data").unwrap_or_else(|| "./.devdata".into()));
+    let dir = std::path::absolute(PathBuf::from(arg("--data").unwrap_or_else(|| "./.devdata".into()))).expect("data dir");
     if flag("--reset") {
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -98,6 +116,21 @@ fn main() {
                 Err(e) => (200, json!({ "err": e })),
             };
             let _ = req.respond(Response::from_string(out.to_string()).with_status_code(code).with_header(json_h.clone()));
+            continue;
+        }
+        // generated files (PDF/XLSX) – only inside the data directory
+        if *req.method() == Method::Get && req.url().starts_with("/file?path=") {
+            let raw = req.url()["/file?path=".len()..].to_string();
+            let path = PathBuf::from(percent_decode(&raw));
+            let ok = path.canonicalize().ok().zip(dir.canonicalize().ok()).map(|(p, d)| p.starts_with(d)).unwrap_or(false);
+            let resp = match (ok, std::fs::read(&path)) {
+                (true, Ok(b)) => {
+                    let ct = if raw.ends_with(".pdf") { "application/pdf" } else { "application/octet-stream" };
+                    Response::from_data(b).with_header(Header::from_bytes("Content-Type", ct).unwrap())
+                }
+                _ => Response::from_data(b"forbidden".to_vec()).with_status_code(403),
+            };
+            let _ = req.respond(resp);
             continue;
         }
         if let Some(sd) = &static_dir {

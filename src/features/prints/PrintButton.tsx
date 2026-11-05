@@ -11,6 +11,8 @@ export interface GeneratedFile {
   fileName: string;
   pages: number;
   sha256: string;
+  contentHash?: string | null;
+  volumeId?: string | null;
 }
 
 /** Opens a generated file (PDF, XLSX…) with the system viewer, or in a browser tab during development. */

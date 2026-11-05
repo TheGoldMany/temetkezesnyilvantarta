@@ -10,6 +10,7 @@ mod structure;
 mod users;
 
 pub use reports::*;
+pub use structure::natural_key;
 
 use rusqlite::{Connection, Row};
 
@@ -147,6 +148,11 @@ pub(crate) fn map_deceased(r: &Row) -> rusqlite::Result<Deceased> {
         notes: r.get("notes")?,
         voided_at: r.get("voided_at")?,
     })
+}
+
+/// Public alias used by document generators.
+pub fn map_person_pub(r: &Row) -> rusqlite::Result<Person> {
+    map_person(r)
 }
 
 pub(crate) fn map_person(r: &Row) -> rusqlite::Result<Person> {
