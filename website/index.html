@@ -23,35 +23,45 @@
     </header>
 
     <main id="tartalom">
-      <!-- Hero: the cemetery map is the one memorable element of the page. -->
+      <!-- Hero: headline row, then the program window with a live cemetery map.
+           The window is the one memorable element of the page. -->
       <section class="hero">
         <div class="hero-copy">
           <h1>Az egész temető nyilvántartása egy programban</h1>
-          <p class="lead">
-            Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti, és hitelesen nyomtatja.
-          </p>
-          <div class="hero-actions">
-            <a class="btn btn-solid" href="#letoltes">Program letöltése</a>
-            <a class="btn btn-quiet" href="#rogzites">Így működik</a>
+          <div class="hero-side">
+            <p class="lead">
+              Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-solid" href="#letoltes">Program letöltése</a>
+              <a class="btn btn-quiet" href="#rogzites">Így működik</a>
+            </div>
+            <p class="hero-note">Windows és macOS, internet nélkül is. Mintatemetővel kipróbálható.</p>
           </div>
-          <p class="hero-note">Ingyenesen kipróbálható mintatemetővel. Windows és macOS, internet nélkül is.</p>
         </div>
 
-        <figure class="map" aria-labelledby="map-cap">
-          <svg id="plotmap" viewBox="0 0 640 520" role="img" aria-label="Egy temető helyszínrajza parcellákkal; a sírhelyek színe az állapotukat mutatja."></svg>
-          <div class="plotcard" id="plotcard" aria-live="polite">
-            <p class="pc-where" id="pc-where">B parcella, 3. sor, 6. sír</p>
-            <p class="pc-name" id="pc-name">Varga Gábor</p>
-            <p class="pc-years" id="pc-years">1938–2006</p>
-            <p class="pc-state" id="pc-state"><span class="dot dot-due"></span>Lejár: 2027. április 12.</p>
+        <figure class="window" aria-label="A TEMISZ temetőtérképe. Válasszon sírhelyet a térképen, és az adatai a jobb oldalon jelennek meg.">
+          <div class="win-bar" aria-hidden="true">
+            <span class="win-mark">TEMISZ</span>
+            <span class="win-nav"><span>Kezdőlap</span><span class="on">Temetőtérkép</span><span>Nyilvántartó könyv</span><span>Lejáratok</span></span>
+            <span class="win-search">Keresés név, sír vagy év szerint</span>
           </div>
-          <figcaption id="map-cap">
-            <span><i class="sw sw-free"></i>Szabad</span>
-            <span><i class="sw sw-taken"></i>Megváltott</span>
-            <span><i class="sw sw-due"></i>Egy éven belül lejár</span>
-            <span><i class="sw sw-vault"></i>Sírbolt</span>
-            <span class="hint">Mutasson egy sírhelyre a térképen.</span>
-          </figcaption>
+          <div class="win-body">
+            <div class="win-map">
+              <svg id="plotmap" viewBox="0 0 880 430" tabindex="0" role="application" aria-label="Temetőtérkép. A nyilakkal léphet a sírhelyek között."></svg>
+              <div class="legend" id="legend"></div>
+            </div>
+            <aside class="sheet" aria-live="polite">
+              <p class="sh-where" id="pc-where">B parcella, 3. sor, 6. sír</p>
+              <p class="chip" id="pc-chip"><span class="dot dot-due"></span><span id="pc-state">Egy éven belül lejár</span></p>
+              <dl>
+                <div><dt id="pc-label">Nyugvó</dt><dd><b id="pc-name">Varga Gábor</b><span id="pc-years">1938–2006</span></dd></div>
+                <div><dt>Megváltás</dt><dd id="pc-until">2027. április 12-ig</dd></div>
+                <div><dt>Jogosult</dt><dd id="pc-holder">Varga Péter</dd></div>
+              </dl>
+              <p class="sh-action" aria-hidden="true">Adatlap megnyitása</p>
+            </aside>
+          </div>
         </figure>
       </section>
 
