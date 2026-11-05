@@ -12,13 +12,46 @@
   </head>
   <body>
     <a class="skip" href="#tartalom">Ugrás a tartalomra</a>
-    <header class="bar">
+    <header class="bar" id="bar">
       <a class="wordmark" href="./" aria-label="TEMISZ kezdőlap">TEMISZ</a>
-      <nav aria-label="Oldal">
-        <a href="#rogzites">Hogyan működik</a>
-        <a href="#funkciok">Funkciók</a>
-        <a href="#biztonsag">Biztonság</a>
-        <a href="#letoltes">Letöltés</a>
+
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="l1" d="M4 7h16" /><path class="l2" d="M4 12h16" /><path class="l3" d="M4 17h16" /></svg>
+        <span>Menü</span>
+      </button>
+
+      <nav class="nav" id="nav" aria-label="Fő menü">
+        <ul class="nav-list">
+          <li class="has-menu">
+            <button class="nav-top" type="button" aria-expanded="false" aria-controls="mega">
+              Funkciók
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+            </button>
+            <div class="mega" id="mega">
+              <div class="mega-inner">
+                <ul class="mega-features">
+                  <li><a href="#tartalom"><b>Temetőtérkép</b><span>Sírhelyek állapota színekkel, adatlap egy kattintással.</span></a></li>
+                  <li><a href="#tab-check"><b>Rátemetés ellenőrzése</b><span>Férőhely, nyugvási idő és tilalom, indoklással.</span></a></li>
+                  <li><a href="#tab-expiry"><b>Lejáratfigyelő</b><span>Lejáró megváltások és értesítő levelek.</span></a></li>
+                  <li><a href="#tab-book"><b>Nyilvántartó és sírbolt könyv</b><span>Kihagyás nélküli folyószám, hiteles nyomtatás.</span></a></li>
+                  <li><a href="#tab-search"><b>Keresés</b><span>Név, évszám vagy sírhely szerint, ékezet nélkül is.</span></a></li>
+                  <li><a href="#tab-import"><b>Átállás régi rendszerből</b><span>Excel- és CSV-import próbafuttatással.</span></a></li>
+                </ul>
+                <div class="mega-side">
+                  <p class="mega-title">Kipróbálná?</p>
+                  <p>Telepítés után egy kitalált mintatemető tölthető be, így adatbevitel nélkül is körülnézhet.</p>
+                  <a class="btn btn-solid btn-sm" href="#letoltes">Letöltés</a>
+                  <a class="mega-link" href="#telepites">Telepítési útmutató</a>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li><a class="nav-top" href="#rogzites">Hogyan működik</a></li>
+          <li><a class="nav-top" href="#biztonsag">Adatbiztonság</a></li>
+          <li><a class="nav-top" href="#telepites">Telepítés</a></li>
+          <li><a class="nav-top" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Kiadások</a></li>
+        </ul>
+        <a class="btn btn-solid btn-sm nav-cta" href="#letoltes">Letöltés</a>
       </nav>
     </header>
 
@@ -212,7 +245,7 @@
           <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
         </p>
 
-        <div class="install">
+        <div class="install" id="telepites">
           <div>
             <h3>Windows 10 és 11</h3>
             <p>Futtassa a letöltött <span class="file">-setup.exe</span> fájlt. Ha a „A Windows megvédte a számítógépet” ablak megjelenik, kattintson a „További információ”, majd a „Futtatás mindenképp” gombra.</p>
@@ -241,6 +274,7 @@
     </footer>
 
     <script src="map.js" defer></script>
+    <script src="nav.js" defer></script>
     <script src="tour.js" defer></script>
     <script src="download.js" defer></script>
   </body>

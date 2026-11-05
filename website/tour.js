@@ -29,4 +29,12 @@
       }
     });
   });
+
+  // Links such as #tab-book (from the menu) open that feature.
+  function fromHash() {
+    const t = tabs.find((x) => "#" + x.id === location.hash);
+    if (t) select(t, false);
+  }
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
 })();
