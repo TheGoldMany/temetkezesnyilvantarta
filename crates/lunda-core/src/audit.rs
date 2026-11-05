@@ -5,7 +5,7 @@
 //! reordering of entries breaks the chain and is detected by [`verify_chain`].
 //! UPDATE/DELETE on the table are additionally blocked by triggers.
 
-use rusqlite::{params, Connection, OptionalExtension};
+use crate::sql::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::Session;
@@ -191,7 +191,7 @@ mod tests {
         let c = open_in_memory().unwrap();
         seed(&c, 5);
         // simulate an attacker who bypasses the triggers
-        c.execute_batch("DROP TRIGGER audit_log_no_update; UPDATE audit_log SET new_value='{\"i\":99}' WHERE seq=3;").unwrap();
+        c.execute_batch("DROP TRIGGER audit_log_no_update ON audit_log; UPDATE audit_log SET new_value='{\"i\":99}' WHERE seq=3;").unwrap();
         let r = verify_chain(&c).unwrap();
         assert!(!r.ok);
         assert_eq!(r.broken_at, Some(3));
@@ -201,7 +201,7 @@ mod tests {
     fn deletion_is_detected() {
         let c = open_in_memory().unwrap();
         seed(&c, 5);
-        c.execute_batch("DROP TRIGGER audit_log_no_delete; DELETE FROM audit_log WHERE seq=2;").unwrap();
+        c.execute_batch("DROP TRIGGER audit_log_no_delete ON audit_log; DELETE FROM audit_log WHERE seq=2;").unwrap();
         let r = verify_chain(&c).unwrap();
         assert!(!r.ok);
         assert_eq!(r.broken_at, Some(3));

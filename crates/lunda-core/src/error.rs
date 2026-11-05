@@ -43,8 +43,8 @@ impl CoreError {
     }
 }
 
-impl From<rusqlite::Error> for CoreError {
-    fn from(e: rusqlite::Error) -> Self {
+impl From<crate::sql::Error> for CoreError {
+    fn from(e: crate::sql::Error) -> Self {
         let msg = e.to_string();
         if msg.contains("physical delete forbidden") {
             return CoreError::new("delete_forbidden", msg);
@@ -52,11 +52,8 @@ impl From<rusqlite::Error> for CoreError {
         if msg.contains("append-only") || msg.contains("immutable") || msg.contains("voided record is final") {
             return CoreError::new("immutable", msg);
         }
-        if msg.contains("UNIQUE constraint failed") {
+        if e.sqlstate() == Some("23505") {
             return CoreError::new("duplicate", msg);
-        }
-        if msg.contains("file is not a database") {
-            return CoreError::new("db_key_invalid", msg);
         }
         CoreError::new("database", msg)
     }

@@ -1,8 +1,8 @@
 //! Cemeteries, sections, rows, plots, plot types, restrictions, monuments,
 //! crypt slots and computed plot status (FR-TEM, FR-SIR, FR-EML-01..03).
 
+use crate::sql::{params, params_from_iter, OptionalExtension, Value};
 use chrono::NaiveDate;
-use rusqlite::{params, params_from_iter, types::Value, OptionalExtension};
 
 use super::*;
 use crate::audit;
@@ -19,7 +19,7 @@ impl Store {
     // ---------------------------------------------------------------- cemeteries
 
     pub fn list_cemeteries(&self, include_voided: bool) -> Result<Vec<Cemetery>> {
-        let mut stmt = self.conn.prepare("SELECT * FROM cemeteries WHERE (?1 OR voided_at IS NULL) ORDER BY name COLLATE HU")?;
+        let mut stmt = self.conn.prepare("SELECT * FROM cemeteries WHERE (?1 OR voided_at IS NULL) ORDER BY name COLLATE \"hu-x-icu\"")?;
         let rows = stmt.query_map([include_voided], map_cemetery)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
@@ -65,14 +65,14 @@ impl Store {
         self.get_cemetery(&id)
     }
 
-    fn get_cemetery_tx(&self, tx: &rusqlite::Connection, id: &str) -> Result<Cemetery> {
+    fn get_cemetery_tx(&self, tx: &crate::sql::Connection, id: &str) -> Result<Cemetery> {
         tx.query_row("SELECT * FROM cemeteries WHERE id=?1", [id], map_cemetery).optional()?.ok_or_else(|| CoreError::not_found("cemetery", id))
     }
 
     // ---------------------------------------------------------------- plot types
 
     pub fn list_plot_types(&self) -> Result<Vec<PlotType>> {
-        let mut stmt = self.conn.prepare("SELECT * FROM plot_types WHERE voided_at IS NULL ORDER BY sort_order, name COLLATE HU")?;
+        let mut stmt = self.conn.prepare("SELECT * FROM plot_types WHERE voided_at IS NULL ORDER BY sort_order, name COLLATE \"hu-x-icu\"")?;
         let rows = stmt.query_map([], map_plot_type)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
@@ -125,7 +125,7 @@ impl Store {
         let mut stmt = self.conn.prepare(
             "SELECT s.*, (SELECT count(*) FROM plot_rows r WHERE r.section_id=s.id AND r.voided_at IS NULL) AS row_count,
                     (SELECT count(*) FROM plots p WHERE p.section_id=s.id AND p.voided_at IS NULL) AS plot_count
-             FROM sections s WHERE s.cemetery_id=?1 AND s.voided_at IS NULL ORDER BY s.code COLLATE HU",
+             FROM sections s WHERE s.cemetery_id=?1 AND s.voided_at IS NULL ORDER BY s.code COLLATE \"hu-x-icu\"",
         )?;
         let rows = stmt.query_map([cemetery_id], |r| {
             Ok(Section {
@@ -148,7 +148,7 @@ impl Store {
     pub fn list_rows(&self, section_id: &str) -> Result<Vec<PlotRow>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, section_id, number, direction FROM plot_rows WHERE section_id=?1 AND voided_at IS NULL
-             ORDER BY CAST(number AS INTEGER), number COLLATE HU",
+             ORDER BY CAST(number AS INTEGER), number COLLATE \"hu-x-icu\"",
         )?;
         let rows = stmt.query_map([section_id], |r| Ok(PlotRow { id: r.get(0)?, section_id: r.get(1)?, number: r.get(2)?, direction: r.get(3)? }))?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -336,7 +336,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT * FROM plots WHERE cemetery_id=?1 AND identifier=?2 COLLATE NOCASE AND voided_at IS NULL",
+                "SELECT * FROM plots WHERE cemetery_id=?1 AND lower(identifier)=lower(?2) AND voided_at IS NULL",
                 params![cemetery_id, identifier.trim()],
                 map_plot,
             )
@@ -625,7 +625,7 @@ impl Store {
             where_.push(push("p.plot_type_id = ?", Value::Text(v.clone()), &mut args));
         }
         if let Some(v) = f.identifier_prefix.as_ref().filter(|v| !v.trim().is_empty()) {
-            where_.push(push("p.identifier LIKE ? ESCAPE '\\'", Value::Text(format!("{}%", like_escape(v.trim()))), &mut args));
+            where_.push(push("p.identifier ILIKE ? ESCAPE '\\'", Value::Text(format!("{}%", like_escape(v.trim()))), &mut args));
         }
         if let Some(v) = &f.expiry_from {
             where_.push(push("l.expiry_date >= ?", Value::Text(v.clone()), &mut args));
@@ -648,8 +648,7 @@ impl Store {
         }
         // Aggregates are computed once per query (grouped CTEs) instead of
         // per plot – keeps the 50 000-plot map under a second (NFR-TEL-02).
-        let names_sql =
-            if f.light { "NULL AS names".to_string() } else { "group_concat(trim(d.family_name || ' ' || d.given_name), ', ') AS names".to_string() };
+        let names_sql = if f.light { "NULL AS names".to_string() } else { "string_agg(trim(d.family_name || ' ' || d.given_name), ', ') AS names".to_string() };
         let names_join = if f.light { "" } else { "JOIN deceased d ON d.id = e.deceased_id" };
         let holder_sql = if f.light {
             "NULL"
@@ -901,14 +900,14 @@ impl Store {
     }
 }
 
-fn create_slots(tx: &rusqlite::Connection, s: &Session, plot_id: &str, n: i32) -> Result<()> {
+fn create_slots(tx: &crate::sql::Connection, s: &Session, plot_id: &str, n: i32) -> Result<()> {
     for i in 1..=n {
         insert_slot(tx, s, plot_id, i)?;
     }
     Ok(())
 }
 
-fn insert_slot(tx: &rusqlite::Connection, s: &Session, plot_id: &str, no: i32) -> Result<()> {
+fn insert_slot(tx: &crate::sql::Connection, s: &Session, plot_id: &str, no: i32) -> Result<()> {
     let ts = now_ts();
     tx.execute(
         "INSERT INTO crypt_slots (id, plot_id, slot_no, label, created_at, created_by, updated_at, updated_by) VALUES (?1,?2,?3,'',?4,?5,?4,?5)",
@@ -917,7 +916,7 @@ fn insert_slot(tx: &rusqlite::Connection, s: &Session, plot_id: &str, no: i32) -
     Ok(())
 }
 
-fn update_section_bounds(tx: &rusqlite::Connection, section_id: &str) -> Result<()> {
+fn update_section_bounds(tx: &crate::sql::Connection, section_id: &str) -> Result<()> {
     let (x0, y0, x1, y1): (Option<f64>, Option<f64>, Option<f64>, Option<f64>) = tx.query_row(
         "SELECT min(map_x), min(map_y), max(map_x+map_w), max(map_y+map_h) FROM plots WHERE section_id=?1 AND voided_at IS NULL",
         [section_id],

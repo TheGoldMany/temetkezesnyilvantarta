@@ -1,6 +1,6 @@
 //! Deceased (FR-ELH-01, 05, 08), persons and plot holders (FR-UGY).
 
-use rusqlite::{params, OptionalExtension};
+use crate::sql::{params, OptionalExtension};
 
 use super::*;
 use crate::audit;
@@ -20,7 +20,7 @@ pub(crate) fn person_search_text(p: &Person) -> String {
     normalize(&format!("{} {} {}", p.family_name, p.given_name, p.name_prefix))
 }
 
-fn reindex(conn: &rusqlite::Connection, kind: &str, id: &str, text: &str) -> Result<()> {
+fn reindex(conn: &crate::sql::Connection, kind: &str, id: &str, text: &str) -> Result<()> {
     conn.execute("DELETE FROM search_index WHERE kind=?1 AND ref_id=?2", params![kind, id])?;
     conn.execute("INSERT INTO search_index (kind, ref_id, text) VALUES (?1,?2,?3)", params![kind, id, text])?;
     Ok(())
@@ -64,7 +64,7 @@ impl Store {
         self.conn.query_row("SELECT * FROM deceased WHERE id=?1", [id], map_deceased).optional()?.ok_or_else(|| CoreError::not_found("deceased", id))
     }
 
-    pub(crate) fn insert_deceased(&self, tx: &rusqlite::Connection, s: &Session, d: &Deceased, validate: bool) -> Result<Deceased> {
+    pub(crate) fn insert_deceased(&self, tx: &crate::sql::Connection, s: &Session, d: &Deceased, validate: bool) -> Result<Deceased> {
         if validate {
             validate_deceased(d)?;
         }
@@ -92,7 +92,7 @@ impl Store {
 
     /// Import path: inserts without the mandatory-column validation (the gaps
     /// are reported as warnings by the importer).
-    pub(crate) fn insert_deceased_unchecked(&self, tx: &rusqlite::Connection, s: &Session, d: &Deceased) -> Result<String> {
+    pub(crate) fn insert_deceased_unchecked(&self, tx: &crate::sql::Connection, s: &Session, d: &Deceased) -> Result<String> {
         Ok(self.insert_deceased(tx, s, d, false)?.id)
     }
 
@@ -197,7 +197,7 @@ impl Store {
         Ok(self.mask(s, p))
     }
 
-    pub(crate) fn insert_person(&self, tx: &rusqlite::Connection, s: &Session, p: &Person) -> Result<Person> {
+    pub(crate) fn insert_person(&self, tx: &crate::sql::Connection, s: &Session, p: &Person) -> Result<Person> {
         non_empty("familyName", &p.family_name)?;
         let id = new_id();
         let ts = now_ts();
@@ -244,7 +244,7 @@ impl Store {
         Ok(self.mask(s, out))
     }
 
-    pub(crate) fn resolve_person(&self, tx: &rusqlite::Connection, s: &Session, r: &PersonRef) -> Result<String> {
+    pub(crate) fn resolve_person(&self, tx: &crate::sql::Connection, s: &Session, r: &PersonRef) -> Result<String> {
         match r {
             PersonRef::Existing { id } => {
                 let ok: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM persons WHERE id=?1 AND voided_at IS NULL)", [id], |r| r.get(0))?;
@@ -291,7 +291,7 @@ impl Store {
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
-    pub(crate) fn primary_holder_id(&self, conn: &rusqlite::Connection, plot_id: &str) -> Result<Option<String>> {
+    pub(crate) fn primary_holder_id(&self, conn: &crate::sql::Connection, plot_id: &str) -> Result<Option<String>> {
         Ok(conn
             .query_row("SELECT person_id FROM plot_holders WHERE plot_id=?1 AND role='primary' AND end_date IS NULL AND voided_at IS NULL", [plot_id], |r| {
                 r.get(0)
@@ -301,7 +301,7 @@ impl Store {
 
     pub(crate) fn insert_holder(
         &self,
-        tx: &rusqlite::Connection,
+        tx: &crate::sql::Connection,
         s: &Session,
         plot_id: &str,
         person_id: &str,
@@ -386,7 +386,7 @@ impl Store {
     }
 }
 
-pub(crate) fn map_holder(r: &rusqlite::Row) -> rusqlite::Result<Holder> {
+pub(crate) fn map_holder(r: &crate::sql::Row) -> crate::sql::Result<Holder> {
     Ok(Holder {
         id: r.get("id")?,
         plot_id: r.get("plot_id")?,

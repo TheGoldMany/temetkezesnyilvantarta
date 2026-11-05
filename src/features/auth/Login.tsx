@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../app/context";
 import { shell } from "../../lib/api";
 import { Alert, Button, ErrorAlert, TextField } from "../../components/ui";
-import { RestoreForm } from "../settings/BackupTab";
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -39,9 +38,14 @@ function PlotPattern() {
 }
 
 export function Login() {
+  const [mode, setMode] = useState<"login" | "register">(() => (window.location.hash === "#regisztracio" ? "register" : "login"));
+  return mode === "login" ? <LoginForm onRegister={() => setMode("register")} /> : <RegisterForm onLogin={() => setMode("login")} />;
+}
+
+function LoginForm({ onRegister }: { onRegister: () => void }) {
   const { t } = useTranslation();
   const { setStatus, sessionExpired, setSessionExpired } = useApp();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -50,7 +54,7 @@ export function Login() {
     setBusy(true);
     setError(null);
     try {
-      setStatus(await shell.login(username, password));
+      setStatus(await shell.login(email, password));
       setSessionExpired(false);
     } catch (err) {
       setError(err);
@@ -64,27 +68,33 @@ export function Login() {
       <p className="mt-1 mb-5 text-granite">{t("login.intro")}</p>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {sessionExpired && <Alert tone="warn">{t("errors.session_expired")}</Alert>}
-        <TextField label={t("fields.username")} value={username} onChange={setUsername} inputProps={{ autoFocus: true, autoComplete: "username", name: "username" }} />
-        <TextField label={t("fields.password")} type="password" value={password} onChange={setPassword} inputProps={{ autoComplete: "current-password", name: "password" }} />
+        <TextField label={t("login.email")} type="email" value={email} onChange={setEmail} inputProps={{ autoFocus: true, autoComplete: "username", name: "email" }} />
+        <TextField label={t("login.password")} type="password" value={password} onChange={setPassword} inputProps={{ autoComplete: "current-password", name: "password" }} />
         <ErrorAlert error={error} />
         <Button type="submit" variant="primary" size="lg" busy={busy}>
           {t("login.submit")}
         </Button>
       </form>
+      <p className="mt-6 border-t border-seam pt-5 text-granite">
+        {t("login.noAccount")}{" "}
+        <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={onRegister}>
+          {t("login.toRegister")}
+        </button>
+      </p>
     </Frame>
   );
 }
 
-export function FirstRun() {
+function RegisterForm({ onLogin }: { onLogin: () => void }) {
   const { t } = useTranslation();
   const { setStatus } = useApp();
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [restore, setRestore] = useState(false);
   const mismatch = p2.length > 0 && p1 !== p2;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -92,52 +102,35 @@ export function FirstRun() {
     setBusy(true);
     setError(null);
     try {
-      setStatus(await shell.setupAdmin(username, displayName, p1));
+      setStatus(await shell.register(organization, name, email, p1));
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   };
-  if (restore) {
-    return (
-      <Frame>
-        <RestoreForm fresh onDone={(s) => s && setStatus(s)} onCancel={() => setRestore(false)} />
-      </Frame>
-    );
-  }
   return (
     <Frame>
-      <h1 className="text-2xl">{t("login.firstRunTitle")}</h1>
-      <p className="mt-1 mb-5 text-granite">{t("login.firstRunIntro")}</p>
+      <h1 className="text-2xl">{t("login.registerTitle")}</h1>
+      <p className="mt-1 mb-5 text-granite">{t("login.registerIntro")}</p>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <TextField label={t("fields.displayName")} value={displayName} onChange={setDisplayName} required inputProps={{ autoFocus: true }} />
-        <TextField label={t("fields.username")} value={username} onChange={setUsername} required inputProps={{ autoComplete: "username" }} />
-        <TextField label={t("fields.password")} type="password" value={p1} onChange={setP1} required hint={t("errors.password_too_short")} inputProps={{ autoComplete: "new-password" }} />
-        <TextField label={t("login.passwordAgain")} type="password" value={p2} onChange={setP2} required error={mismatch ? t("login.passwordMismatch") : null} inputProps={{ autoComplete: "new-password" }} />
+        <TextField label={t("login.organization")} hint={t("login.organizationHint")} value={organization} onChange={setOrganization} required inputProps={{ autoFocus: true, autoComplete: "organization", name: "organization" }} />
+        <TextField label={t("login.name")} value={name} onChange={setName} required inputProps={{ autoComplete: "name", name: "name" }} />
+        <TextField label={t("login.email")} type="email" value={email} onChange={setEmail} required inputProps={{ autoComplete: "email", name: "email" }} />
+        <TextField label={t("login.password")} type="password" value={p1} onChange={setP1} required hint={t("login.passwordHint")} inputProps={{ autoComplete: "new-password", name: "password" }} />
+        <TextField label={t("login.passwordAgain")} type="password" value={p2} onChange={setP2} required error={mismatch ? t("login.passwordMismatch") : null} inputProps={{ autoComplete: "new-password", name: "password2" }} />
         <ErrorAlert error={error} />
-        <Button type="submit" variant="primary" size="lg" busy={busy} disabled={!username || !displayName || p1.length < 8 || p1 !== p2}>
-          {t("login.createAdmin")}
-        </Button>
-        <Button variant="quiet" onClick={() => setRestore(true)}>
-          {t("login.restoreInstead")}
+        <p className="text-sm text-granite">{t("login.terms")}</p>
+        <Button type="submit" variant="primary" size="lg" busy={busy} disabled={!organization || !name || !email || p1.length < 8 || p1 !== p2}>
+          {t("login.createAccount")}
         </Button>
       </form>
-    </Frame>
-  );
-}
-
-export function DbProblem() {
-  const { t } = useTranslation();
-  const { status, setStatus } = useApp();
-  const text = status?.dbError ? t(`errors.${status.dbError.code}`, { defaultValue: status.dbError.message }) : "";
-  return (
-    <Frame>
-      <h1 className="text-2xl">{t("login.dbProblem")}</h1>
-      <div className="mt-4 mb-6">
-        <Alert tone="error">{text}</Alert>
-      </div>
-      <RestoreForm fresh onDone={(s) => s && setStatus(s)} />
+      <p className="mt-6 border-t border-seam pt-5 text-granite">
+        {t("login.haveAccount")}{" "}
+        <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={onLogin}>
+          {t("login.toLogin")}
+        </button>
+      </p>
     </Frame>
   );
 }

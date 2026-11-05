@@ -1,9 +1,7 @@
-// Transport to the Rust core: Tauri IPC in the desktop app, HTTP bridge
-// (lunda-devserver) in a plain browser during development and E2E tests.
+// Transport to the TEMISZ server: JSON over POST /rpc. The session is an
+// HttpOnly cookie set by the server, so no token is handled here.
 
 import type { AppStatus, CoreError } from "./types";
-
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export class ApiError extends Error {
   code: string;
@@ -22,15 +20,13 @@ export function setSessionExpiredHandler(fn: () => void) {
 
 async function command<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
-    if (isTauri) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      return await invoke<T>(cmd, args);
-    }
     const res = await fetch("/rpc", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cmd, args }),
     });
+    if (!res.ok) throw { code: res.status === 403 ? "forbidden" : "transport", message: `HTTP ${res.status}` };
     const body = await res.json();
     if (body.err) throw body.err;
     return body.ok as T;
@@ -46,14 +42,11 @@ async function command<T>(cmd: string, args: Record<string, unknown> = {}): Prom
 
 export const shell = {
   status: () => command<AppStatus>("app_status"),
-  setupAdmin: (username: string, displayName: string, password: string) =>
-    command<AppStatus>("setup_admin", { username, displayName, password }),
-  login: (username: string, password: string) => command<AppStatus>("login", { username, password }),
+  register: (organization: string, name: string, email: string, password: string) =>
+    command<AppStatus>("register", { organization, name, email, password }),
+  login: (email: string, password: string) => command<AppStatus>("login", { username: email, password }),
   logout: () => command<AppStatus>("logout"),
   touch: () => command<void>("touch"),
-  restoreFresh: (path: string, recoveryKey: string) => command<AppStatus>("restore_fresh", { path, recoveryKey }),
-  backupBeforeUpdate: () => command<void>("backup_before_update"),
-  isTauri,
 };
 
 /** Calls a core API method (see crates/lunda-core/src/api.rs). */

@@ -1,7 +1,7 @@
 //! Fee rates (FR-DIJ-01 minimal), leases (FR-MEG-01..05, 07, 08), notices.
 
+use crate::sql::{params, OptionalExtension};
 use chrono::NaiveDate;
-use rusqlite::{params, OptionalExtension};
 
 use super::*;
 use crate::audit;
@@ -113,7 +113,7 @@ impl Store {
 
     pub(crate) fn insert_lease_pub(
         &self,
-        tx: &rusqlite::Connection,
+        tx: &crate::sql::Connection,
         s: &Session,
         plot_id: &str,
         person_id: Option<&str>,
@@ -134,7 +134,7 @@ impl Store {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn insert_lease(
         &self,
-        tx: &rusqlite::Connection,
+        tx: &crate::sql::Connection,
         s: &Session,
         plot_id: &str,
         person_id: Option<&str>,
@@ -349,7 +349,7 @@ impl Store {
     }
 
     /// Voids a lease; if it was the active one, the latest superseded lease becomes active again.
-    pub(crate) fn void_lease_tx(&self, tx: &rusqlite::Connection, s: &Session, lease_id: &str, reason: &str) -> Result<()> {
+    pub(crate) fn void_lease_tx(&self, tx: &crate::sql::Connection, s: &Session, lease_id: &str, reason: &str) -> Result<()> {
         let l = tx
             .query_row("SELECT l.*, NULL AS person_name FROM leases l WHERE l.id=?1", [lease_id], map_lease)
             .optional()?
@@ -379,7 +379,7 @@ impl Store {
         let mut st = self.conn.prepare(&format!(
             "SELECT p.id, p.identifier, p.cemetery_id, c.name, sec.code, ty.name, l.id, l.start_date, l.expiry_date,
                     h.person_id, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name), pe.address,
-                    (SELECT group_concat(trim(d.family_name||' '||d.given_name), ', ') FROM interment_events e JOIN deceased d ON d.id=e.deceased_id
+                    (SELECT string_agg(trim(d.family_name||' '||d.given_name), ', ') FROM interment_events e JOIN deceased d ON d.id=e.deceased_id
                        WHERE e.plot_id=p.id AND {ACTIVE_PLACEMENT_SQL}) AS occ_names,
                     (SELECT count(*) FROM interment_events e WHERE e.plot_id=p.id AND {ACTIVE_PLACEMENT_SQL}) AS occ,
                     (SELECT max(notice_date) FROM notices n WHERE n.plot_id=p.id AND n.voided_at IS NULL) AS last_notice,

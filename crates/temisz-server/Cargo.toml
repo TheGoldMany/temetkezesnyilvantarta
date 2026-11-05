@@ -1,0 +1,19 @@
+[package]
+name = "temisz-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "TEMISZ web server: sessions, tenants and the core API over HTTP"
+publish = false
+
+[dependencies]
+lunda-core = { path = "../lunda-core" }
+serde_json = "1"
+base64 = "0.22"
+rand = "0.8"
+hex = "0.4"
+tiny_http = "0.12"
+
+[[bin]]
+name = "temisz-server"
+path = "src/bin/temisz-server.rs"

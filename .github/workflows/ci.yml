@@ -1,5 +1,5 @@
-# Continuous integration: core tests on all three OS (SQLCipher with vendored
-# OpenSSL must build everywhere), frontend checks, E2E flows, performance test.
+# Continuous integration: core and server tests against Postgres, frontend
+# checks, end-to-end flows in a real browser, performance test.
 name: CI
 
 on:
@@ -13,33 +13,39 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
 
 jobs:
-  core:
-    name: Rust core (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  rust:
+    name: Rust core and server
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: Format
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo fmt --all -- --check
-      - name: Clippy (core)
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo clippy -p lunda-core -p lunda-devserver --all-targets -- -D warnings
-      - name: Unit and integration tests
-        run: cargo test -p lunda-core
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
 
   performance:
     name: Performance (100 000 deceased / 50 000 plots)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -64,8 +70,15 @@ jobs:
       - run: pnpm build
 
   e2e:
-    name: End-to-end (UC-01, UC-02, UC-03, UC-05)
+    name: End-to-end (browser + server + Postgres)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -79,7 +92,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: cargo build -p lunda-devserver
+      - run: cargo build -p temisz-server
       - run: pnpm e2e
         env:
           CI: "true"
@@ -90,15 +103,3 @@ jobs:
           path: |
             playwright-report
             test-results
-
-  desktop-shell:
-    name: Desktop shell compiles (Linux)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: WebKitGTK and friends
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - run: mkdir -p dist && echo '<!doctype html>' > dist/index.html
-      - run: cargo clippy -p lunda-temeto -- -D warnings

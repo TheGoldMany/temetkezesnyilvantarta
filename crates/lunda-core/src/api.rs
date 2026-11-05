@@ -162,7 +162,9 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         "audit.verify" => ok(audit::verify_chain(&store.conn)?),
         "sample.load" => {
             s.require(Permission::ManageSettings)?;
-            ok(crate::sample::load_sample(store, s)?)
+            let r = crate::sample::load_sample(store, s)?;
+            crate::db::analyze(&store.conn)?;
+            ok(r)
         }
         "session.permissions" => ok(json!({ "role": s.role, "permissions": s.permissions })),
         _ => Err(CoreError::new("unknown_method", format!("unknown method {method}")).with("method", method)),

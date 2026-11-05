@@ -2,10 +2,10 @@
 //! data sets for performance tests (NFR-TEL-02). Names are random
 //! combinations of common Hungarian names – no real persons.
 
+use crate::sql::params;
 use chrono::{Datelike, Duration, NaiveDate};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use rusqlite::params;
 use serde::Serialize;
 
 use crate::auth::Session;
@@ -415,8 +415,8 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
              VALUES (?1,?2,'all',?3,'coffin_burial','coffin',?4,?5,?6,?7,?7)",
         )?;
         let mut ins_l = tx.prepare(
-            "INSERT OR IGNORE INTO leases (id, plot_id, kind, start_date, duration_years, expiry_date, status, created_at, updated_at)
-             VALUES (?1,?2,'purchase',?3,25,?4,'active',?5,?5)",
+            "INSERT INTO leases (id, plot_id, kind, start_date, duration_years, expiry_date, status, created_at, updated_at)
+             VALUES (?1,?2,'purchase',?3,25,?4,'active',?5,?5) ON CONFLICT DO NOTHING",
         )?;
         for i in 0..deceased {
             let did = new_id();
@@ -435,6 +435,7 @@ pub fn generate_large(store: &Store, plots: usize, deceased: usize) -> Result<St
         tx.execute("INSERT INTO register_sequences (cemetery_id, scope_key, next_value) VALUES (?1, 'all', ?2)", params![cem, deceased as i64 + 1])?;
     }
     tx.commit()?;
+    crate::db::analyze(&store.conn)?;
     Ok(cem)
 }
 

@@ -1,7 +1,7 @@
 //! Quick search (FR-KER-01): accent/case-insensitive, partial matches on
 //! deceased and holder names, birth/death years and plot identifiers.
 
-use rusqlite::{params_from_iter, types::Value, OptionalExtension};
+use crate::sql::{params_from_iter, OptionalExtension, Value};
 
 use super::structure::like_escape;
 use super::*;
@@ -21,9 +21,9 @@ impl Store {
         if raw.contains('/') {
             let mut st = self.conn.prepare_cached(
                 "SELECT p.id, p.identifier, c.name, t.name FROM plots p JOIN cemeteries c ON c.id=p.cemetery_id JOIN plot_types t ON t.id=p.plot_type_id
-                 WHERE p.voided_at IS NULL AND p.identifier LIKE ?1 ESCAPE '\\' COLLATE NOCASE ORDER BY length(p.identifier), p.identifier LIMIT ?2",
+                 WHERE p.voided_at IS NULL AND p.identifier ILIKE ?1 ESCAPE '\\' ORDER BY length(p.identifier), p.identifier LIMIT ?2",
             )?;
-            let rows = st.query_map(rusqlite::params![format!("{}%", like_escape(raw)), limit], |r| {
+            let rows = st.query_map(crate::params![format!("{}%", like_escape(raw)), limit], |r| {
                 Ok(SearchHit {
                     kind: "plot".into(),
                     id: r.get(0)?,
@@ -56,6 +56,9 @@ impl Store {
 
         // ---- deceased: trigram index narrows the candidates, the binary
         // sort key (Hungarian order) avoids a callback collation
+        // The trigram index finds the candidates first (MATERIALIZED keeps the
+        // planner from walking the whole name order and probing each row).
+        let mut cand = String::new();
         let mut conds = vec!["d.voided_at IS NULL".to_string()];
         let mut args: Vec<Value> = vec![];
         if !words.is_empty() {
@@ -64,7 +67,8 @@ impl Store {
                 args.push(Value::Text(format!("%{}%", like_escape(w))));
                 sub.push(format!("si.text LIKE ?{} ESCAPE '\\'", args.len()));
             }
-            conds.push(format!("d.id IN (SELECT si.ref_id FROM search_index si WHERE {})", sub.join(" AND ")));
+            cand = format!("WITH cand AS MATERIALIZED (SELECT si.ref_id FROM search_index si WHERE {}) ", sub.join(" AND "));
+            conds.push("d.id IN (SELECT ref_id FROM cand)".to_string());
         }
         for y in &years {
             args.push(Value::Text(y.to_string()));
@@ -73,7 +77,7 @@ impl Store {
         }
         args.push(Value::Integer(limit));
         let sql = format!(
-            "SELECT d.id, trim(d.name_prefix||' '||d.family_name||' '||d.given_name), d.birth_name, d.birth_date, d.death_date
+            "{cand}SELECT d.id, trim(d.name_prefix||' '||d.family_name||' '||d.given_name), d.birth_name, d.birth_date, d.death_date
              FROM deceased d WHERE {} ORDER BY d.sort_key, d.death_date LIMIT ?{}",
             conds.join(" AND "),
             args.len()
@@ -125,9 +129,10 @@ impl Store {
             }
             args.push(Value::Integer(limit));
             let sql = format!(
-                "SELECT pe.id, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name),
+                "WITH cand AS MATERIALIZED (SELECT si.ref_id FROM search_index si WHERE {})
+                 SELECT pe.id, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name),
                         (SELECT count(*) FROM plot_holders h WHERE h.person_id=pe.id AND h.end_date IS NULL AND h.voided_at IS NULL)
-                 FROM persons pe WHERE pe.id IN (SELECT si.ref_id FROM search_index si WHERE {}) AND pe.voided_at IS NULL
+                 FROM persons pe WHERE pe.id IN (SELECT ref_id FROM cand) AND pe.voided_at IS NULL
                  ORDER BY pe.sort_key LIMIT ?{}",
                 sub.join(" AND "),
                 args.len()

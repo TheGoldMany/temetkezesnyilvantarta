@@ -1,6 +1,6 @@
 //! Key/value settings (FR-BEA-01), global or per cemetery.
 
-use rusqlite::{params, Connection, OptionalExtension};
+use crate::sql::{params, Connection, OptionalExtension};
 use std::collections::BTreeMap;
 
 use crate::audit;

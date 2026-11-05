@@ -102,7 +102,12 @@
     "date_before_placement": "A dátum nem lehet korábbi az elhelyezésnél.",
     "not_an_urn": "Csak urna adható ki vagy emelhető ki.",
     "lease_not_active": "A megváltás nem érvényes.",
-    "already_voided": "Ez a bejegyzés már érvénytelenítve van."
+    "already_voided": "Ez a bejegyzés már érvénytelenítve van.",
+    "email_taken": "Ezzel az e-mail-címmel már van fiók. Lépjen be, vagy kérjen új jelszót.",
+    "email_invalid": "Adjon meg érvényes e-mail-címet.",
+    "account_closed": "Ez a fiók megszűnt.",
+    "not_available": "Ez a funkció a webes változatban nem érhető el.",
+    "required": "Kötelező mező."
   },
   "fields": {
     "familyName": "Családi név",
@@ -143,7 +148,9 @@
     "username": "Felhasználónév",
     "password": "Jelszó",
     "displayName": "Teljes név",
-    "role": "Szerepkör"
+    "role": "Szerepkör",
+    "organization": "Szervezet neve",
+    "name": "Név"
   },
   "sex": {
     "": "–",
@@ -244,15 +251,24 @@
   },
   "login": {
     "title": "Belépés",
-    "intro": "Lépjen be a saját felhasználónevével.",
+    "intro": "Lépjen be a TEMISZ-fiókja e-mail-címével.",
+    "email": "E-mail-cím",
     "submit": "Belépés",
-    "firstRunTitle": "A TEMISZ első indítása",
-    "firstRunIntro": "Hozza létre a rendszergazda fiókot. Ezzel tud később további munkatársakat felvenni.",
-    "createAdmin": "Fiók létrehozása",
+    "noAccount": "Még nincs fiókja?",
+    "toRegister": "Kipróbálom 30 napig ingyen",
+    "registerTitle": "Próbaidő indítása",
+    "registerIntro": "30 napig minden funkció ingyen használható, bankkártya nélkül. A próbaidő végén eldöntheti, előfizet-e.",
+    "organization": "Szervezet neve",
+    "organizationHint": "Önkormányzat, egyházközség vagy üzemeltető cég",
+    "name": "Az Ön neve",
+    "password": "Jelszó",
+    "passwordHint": "Legalább 8 karakter.",
     "passwordAgain": "Jelszó még egyszer",
     "passwordMismatch": "A két jelszó nem egyezik.",
-    "dbProblem": "Az adatbázis nem nyitható meg",
-    "restoreInstead": "Visszaállítás mentésből"
+    "createAccount": "Fiók létrehozása",
+    "terms": "A fiók létrehozásával elfogadja az Általános Szerződési Feltételeket és az adatfeldolgozói szerződést.",
+    "haveAccount": "Már van fiókja?",
+    "toLogin": "Belépés"
   },
   "onboarding": {
     "title": "Első lépések",
@@ -624,7 +640,8 @@
     "installUpdate": "Telepítés (előtte automatikus mentés)",
     "updateFailed": "A frissítés nem sikerült: {{message}}",
     "updateEndpoint": "Frissítési szerver címe",
-    "updateEndpointHint": "Üresen hagyva a telepítőbe épített cím érvényes. Csak https:// kezdetű cím adható meg; a csomagok aláírását a program mindig ellenőrzi."
+    "updateEndpointHint": "Üresen hagyva a telepítőbe épített cím érvényes. Csak https:// kezdetű cím adható meg; a csomagok aláírását a program mindig ellenőrzi.",
+    "webAbout": "A TEMISZ böngészőből működik, mindig a legfrissebb változat fut. Telepíteni és frissíteni nem kell."
   },
   "backup": {
     "dir": "Mentési mappa",
@@ -654,7 +671,11 @@
       "pre-migration": "frissítés előtti",
       "pre-restore": "visszaállítás előtti",
       "pre-update": "frissítés előtti"
-    }
+    },
+    "webTitle": "Mentés és adatletöltés",
+    "webIntro": "Az adatokat a TEMISZ szervere folyamatosan menti, titkosítva, két külön helyre. A mentéseket 30 napig őrizzük, ezek bármelyikére vissza tudjuk állítani a fiókot.",
+    "webExport": "A teljes nyilvántartást bármikor letöltheti egy Excel-fájlban, például saját archívumhoz vagy egy másik rendszerbe költözéshez.",
+    "downloadAll": "Minden adat letöltése"
   },
   "audit": {
     "title": "Változásnapló",

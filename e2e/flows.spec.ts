@@ -77,7 +77,7 @@ test("UC-03: lejáratkezelés – értesítés rögzítése és levelek nyomtat�
   await expect(page.getByTestId("bulk-bar")).toContainText("2 kijelölve");
   // értesítő levelek PDF
   const [popup] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "Értesítő levelek" }).click()]);
-  await expect.poll(() => popup.url()).toContain("/file?path=");
+  await expect.poll(() => popup.url()).toContain("blob:");
   await popup.close();
   await page.getByRole("button", { name: "Értesítés rögzítése" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Értesítés rögzítése" }).click();
@@ -130,6 +130,6 @@ test("Hiteles nyilvántartó könyv nyomtatása", async ({ page }) => {
   await nav(page, "Nyomtatványok");
   await page.getByLabel("ettől").fill("1950.01.01");
   const [popup] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "PDF készítése" }).first().click()]);
-  await expect.poll(() => popup.url()).toContain(".pdf");
+  await expect.poll(() => popup.url()).toContain("blob:");
   await expect(page.getByText(/Kötet azonosító/)).toBeVisible();
 });

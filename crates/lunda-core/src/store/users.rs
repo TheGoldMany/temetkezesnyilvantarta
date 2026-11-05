@@ -1,14 +1,14 @@
 //! Users, login with lockout (FR-JOG-01..02, NFR-BIZ-02).
 
+use crate::sql::{params, OptionalExtension};
 use chrono::{DateTime, Duration, Utc};
-use rusqlite::{params, OptionalExtension};
 
 use super::*;
 use crate::audit;
 use crate::auth::{hash_password, verify_password, Permission, Role, Session, LOCKOUT_MINUTES, MAX_FAILED_ATTEMPTS};
 use crate::util::{new_id, now_ts};
 
-fn map_user(r: &rusqlite::Row) -> rusqlite::Result<User> {
+fn map_user(r: &crate::sql::Row) -> crate::sql::Result<User> {
     let extra: String = r.get("extra_permissions")?;
     Ok(User {
         id: r.get("id")?,
@@ -34,7 +34,7 @@ impl Store {
 
     pub fn list_users(&self, s: &Session) -> Result<Vec<User>> {
         s.require(Permission::ManageUsers)?;
-        let mut st = self.conn.prepare("SELECT * FROM users ORDER BY display_name COLLATE HU")?;
+        let mut st = self.conn.prepare("SELECT * FROM users ORDER BY display_name COLLATE \"hu-x-icu\"")?;
         let rows = st.query_map([], map_user)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
@@ -105,7 +105,7 @@ impl Store {
         let row: Option<(String, String, String, String, String, bool, i64, Option<String>)> = self
             .conn
             .query_row(
-                "SELECT id, username, display_name, role, password_hash, active, failed_attempts, locked_until FROM users WHERE username=?1",
+                "SELECT id, username, display_name, role, password_hash, active, failed_attempts, locked_until FROM users WHERE lower(username)=lower(?1)",
                 [username.trim()],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?)),
             )

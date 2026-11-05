@@ -1,7 +1,7 @@
 import { useApp } from "./app/context";
 import { Shell } from "./app/Shell";
 import { Spinner } from "./components/ui";
-import { Login, FirstRun, DbProblem } from "./features/auth/Login";
+import { Login } from "./features/auth/Login";
 import { Onboarding } from "./features/auth/Onboarding";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { BurialsList } from "./features/burials/BurialsList";
@@ -21,8 +21,6 @@ import { QuickEntry } from "./features/io/QuickEntry";
 export function App() {
   const { status, nav } = useApp();
   if (!status) return <Spinner />;
-  if (!status.dbReady) return <DbProblem />;
-  if (!status.hasUsers) return <FirstRun />;
   if (!status.session) return <Login />;
   if (status.settings["onboarding.completed"] !== "true") return <Onboarding />;
   const r = nav.route;

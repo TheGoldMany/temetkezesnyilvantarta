@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::sql::params;
 use chrono::NaiveDate;
-use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -579,6 +579,7 @@ pub fn import_rows(store: &Store, s: &Session, table: &Table, o: &ImportOptions)
     if commit {
         audit::record_simple(&outer, s, "import", &o.cemetery_id, "import", Some(&format!("{} sor, {} hiba", rep.rows_ok, rep.rows_failed)))?;
         outer.commit()?;
+        crate::db::analyze(&store.conn)?;
         rep.committed = true;
     } // else: dropping `outer` rolls everything back (dry run)
     Ok(rep)
@@ -614,7 +615,7 @@ const EXPORT_TABLES: &[&str] = &[
 
 fn table_rows(store: &Store, table: &str) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     let mut st = store.conn.prepare(&format!("SELECT * FROM {table}"))?;
-    let cols: Vec<String> = st.column_names().map(String::from).collect();
+    let cols: Vec<String> = st.column_names()?;
     let skip: Vec<bool> = cols.iter().map(|c| c == "password_hash" || c == "search_text" || c == "sort_key").collect();
     let mut rows = vec![];
     let mut q = st.query([])?;
@@ -624,13 +625,13 @@ fn table_rows(store: &Store, table: &str) -> Result<(Vec<String>, Vec<Vec<Value>
             if skip[i] {
                 continue;
             }
-            let v: rusqlite::types::Value = r.get(i)?;
+            let v: crate::sql::Value = r.get(i)?;
             row.push(match v {
-                rusqlite::types::Value::Null => Value::Null,
-                rusqlite::types::Value::Integer(n) => json!(n),
-                rusqlite::types::Value::Real(f) => json!(f),
-                rusqlite::types::Value::Text(t) => json!(t),
-                rusqlite::types::Value::Blob(b) => json!(format!("<{} bájt>", b.len())),
+                crate::sql::Value::Null => Value::Null,
+                crate::sql::Value::Integer(n) => json!(n),
+                crate::sql::Value::Real(f) => json!(f),
+                crate::sql::Value::Text(t) => json!(t),
+                crate::sql::Value::Blob(b) => json!(format!("<{} bájt>", b.len())),
             });
         }
         if table == "settings" && row.first().and_then(|v| v.as_str()).map(|k| k.starts_with("internal.")).unwrap_or(false) {

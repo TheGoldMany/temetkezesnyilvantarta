@@ -12,7 +12,7 @@ mod users;
 pub use reports::*;
 pub use structure::natural_key;
 
-use rusqlite::{Connection, Row};
+use crate::sql::{Connection, Row};
 
 use crate::error::{CoreError, Result};
 use crate::model::*;
@@ -54,7 +54,7 @@ pub(crate) fn opt_s(v: &Option<String>) -> Option<String> {
 // Row mappers
 // ---------------------------------------------------------------------------
 
-pub(crate) fn map_cemetery(r: &Row) -> rusqlite::Result<Cemetery> {
+pub(crate) fn map_cemetery(r: &Row) -> crate::sql::Result<Cemetery> {
     Ok(Cemetery {
         id: r.get("id")?,
         name: r.get("name")?,
@@ -70,7 +70,7 @@ pub(crate) fn map_cemetery(r: &Row) -> rusqlite::Result<Cemetery> {
     })
 }
 
-pub(crate) fn map_plot_type(r: &Row) -> rusqlite::Result<PlotType> {
+pub(crate) fn map_plot_type(r: &Row) -> crate::sql::Result<PlotType> {
     Ok(PlotType {
         id: r.get("id")?,
         code: r.get("code")?,
@@ -88,7 +88,7 @@ pub(crate) fn map_plot_type(r: &Row) -> rusqlite::Result<PlotType> {
     })
 }
 
-pub(crate) fn map_plot(r: &Row) -> rusqlite::Result<Plot> {
+pub(crate) fn map_plot(r: &Row) -> crate::sql::Result<Plot> {
     Ok(Plot {
         id: r.get("id")?,
         cemetery_id: r.get("cemetery_id")?,
@@ -127,7 +127,7 @@ pub(crate) fn map_plot(r: &Row) -> rusqlite::Result<Plot> {
     })
 }
 
-pub(crate) fn map_deceased(r: &Row) -> rusqlite::Result<Deceased> {
+pub(crate) fn map_deceased(r: &Row) -> crate::sql::Result<Deceased> {
     Ok(Deceased {
         id: r.get("id")?,
         name_prefix: r.get("name_prefix")?,
@@ -151,11 +151,11 @@ pub(crate) fn map_deceased(r: &Row) -> rusqlite::Result<Deceased> {
 }
 
 /// Public alias used by document generators.
-pub fn map_person_pub(r: &Row) -> rusqlite::Result<Person> {
+pub fn map_person_pub(r: &Row) -> crate::sql::Result<Person> {
     map_person(r)
 }
 
-pub(crate) fn map_person(r: &Row) -> rusqlite::Result<Person> {
+pub(crate) fn map_person(r: &Row) -> crate::sql::Result<Person> {
     Ok(Person {
         id: r.get("id")?,
         name_prefix: r.get("name_prefix")?,
@@ -171,7 +171,7 @@ pub(crate) fn map_person(r: &Row) -> rusqlite::Result<Person> {
     })
 }
 
-pub(crate) fn map_event(r: &Row) -> rusqlite::Result<InterEvent> {
+pub(crate) fn map_event(r: &Row) -> crate::sql::Result<InterEvent> {
     Ok(InterEvent {
         id: r.get("id")?,
         cemetery_id: r.get("cemetery_id")?,
@@ -196,7 +196,7 @@ pub(crate) fn map_event(r: &Row) -> rusqlite::Result<InterEvent> {
     })
 }
 
-pub(crate) fn map_lease(r: &Row) -> rusqlite::Result<Lease> {
+pub(crate) fn map_lease(r: &Row) -> crate::sql::Result<Lease> {
     Ok(Lease {
         id: r.get("id")?,
         plot_id: r.get("plot_id")?,
@@ -236,7 +236,7 @@ pub(crate) const EVENT_ROW_SQL: &str = "
     LEFT JOIN crypt_slots s ON s.id = e.crypt_slot_id
     LEFT JOIN persons a ON a.id = e.arranger_id";
 
-pub(crate) fn map_event_row(r: &Row) -> rusqlite::Result<EventRow> {
+pub(crate) fn map_event_row(r: &Row) -> crate::sql::Result<EventRow> {
     Ok(EventRow {
         id: r.get("id")?,
         cemetery_id: r.get("cemetery_id")?,

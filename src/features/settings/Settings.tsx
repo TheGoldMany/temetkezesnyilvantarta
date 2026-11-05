@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
-import { api, shell } from "../../lib/api";
+import { api } from "../../lib/api";
 import { PERMISSIONS, type Cemetery, type FeeRate, type PlotType, type User } from "../../lib/types";
 import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, Tabs, TextField, useErrorText } from "../../components/ui";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
@@ -702,81 +702,14 @@ function AppearanceTab() {
 
 function AboutTab() {
   const { t } = useTranslation();
-  const { status, can, refresh } = useApp();
-  const [state, setState] = useState<string | null>(null);
-  const [update, setUpdate] = useState<{ version: string; notes?: string | null } | null>(null);
-  const [endpoint, setEndpoint] = useState(status?.settings["update.endpoint"] ?? "");
-  const [busy, setBusy] = useState(false);
-  const errText = useErrorText();
-  const check = async () => {
-    setState(null);
-    setUpdate(null);
-    if (!shell.isTauri) {
-      setState(t("settings.upToDate"));
-      return;
-    }
-    setBusy(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const u = await invoke<{ version: string; notes?: string | null } | null>("update_check");
-      if (u) setUpdate(u);
-      else setState(t("settings.upToDate"));
-    } catch (e) {
-      setState(t("settings.updateFailed", { message: (e as { message?: string }).message ?? String(e) }));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const install = async () => {
-    setBusy(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("update_install"); // backup → download → verify signature → install → restart
-    } catch (e) {
-      setState(t("settings.updateFailed", { message: (e as { message?: string }).message ?? String(e) }));
-      setBusy(false);
-    }
-  };
+  const { status } = useApp();
   return (
     <Panel>
-      <div className="flex max-w-2xl flex-col gap-4">
-        <p className="text-xl">{t("app.name")}</p>
-        <p>{t("settings.version", { version: status?.version })}</p>
-        <p className="text-granite">{t("settings.dataDir", { dir: status?.dataDir })}</p>
-        {can("manage_settings") && (
-          <div className="flex items-end gap-3">
-            <TextField className="flex-1" label={t("settings.updateEndpoint")} value={endpoint} onChange={setEndpoint} hint={t("settings.updateEndpointHint")} />
-            <Button
-              onClick={async () => {
-                try {
-                  await api("settings.set", { values: { "update.endpoint": endpoint.trim() } });
-                  await refresh();
-                  setState(t("common.savedToast"));
-                } catch (e) {
-                  setState(errText(e));
-                }
-              }}
-            >
-              {t("common.save")}
-            </Button>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-3">
-          <Button busy={busy && !update} onClick={check}>
-            {t("settings.checkUpdates")}
-          </Button>
-          {update && (
-            <Button variant="primary" busy={busy} onClick={install}>
-              {t("settings.installUpdate")} ({update.version})
-            </Button>
-          )}
-        </div>
-        {update && (
-          <Alert tone="info" title={t("settings.updateAvailable", { version: update.version })}>
-            {update.notes}
-          </Alert>
-        )}
-        {state && <Alert>{state}</Alert>}
+      <div className="flex max-w-2xl flex-col gap-3">
+        <p className="wordmark text-2xl text-moss">{t("app.name")}</p>
+        <p>{t("app.tagline")}</p>
+        <p className="text-granite">{t("settings.version", { version: status?.version })}</p>
+        <p className="text-granite">{t("settings.webAbout")}</p>
       </div>
     </Panel>
   );
