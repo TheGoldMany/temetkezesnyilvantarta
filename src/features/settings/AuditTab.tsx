@@ -52,9 +52,9 @@ export function AuditTab() {
                     <td className="py-2 pr-3 text-granite">{r.seq}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">{fmtDateTime(r.ts)}</td>
                     <td className="py-2 pr-3">{r.userName}</td>
-                    <td className="py-2 pr-3">{r.action}</td>
+                    <td className="py-2 pr-3">{t(`audit.actions.${r.action}`, { defaultValue: r.action })}</td>
                     <td className="py-2 pr-3">
-                      {r.entity}
+                      {t(`audit.entities.${r.entity}`, { defaultValue: r.entity })}
                       <details>
                         <summary className="cursor-pointer text-granite">{t("common.details")}</summary>
                         {r.oldValue && <pre className="max-w-xl overflow-x-auto whitespace-pre-wrap text-xs">− {r.oldValue}</pre>}

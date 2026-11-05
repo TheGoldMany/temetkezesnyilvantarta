@@ -117,7 +117,7 @@ export function BackupTab() {
         {key && (
           <div className="mb-4">
             <Alert tone="warn" title={t("backup.recoveryKey")}>
-              <span className="font-mono text-lg break-all">{key}</span>
+              <span className="block font-mono text-lg break-all" data-testid="recovery-key">{key}</span>
             </Alert>
           </div>
         )}
