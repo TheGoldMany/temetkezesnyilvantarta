@@ -1,6 +1,15 @@
-# TEMISZ webes szolgáltatás – terv jóváhagyásra
+# TEMISZ webes szolgáltatás – terv
 
-**Döntés (2026. november 5.):** a TEMISZ böngészőből használható előfizetéses szolgáltatás lesz. Minden új ügyfél 30 napot kap ingyen, utána egységes havidíjat fizet. A letölthető program a 0.1.2-es verzióval lezárul. Aki már használja, át tudja hozni az adatait a webes változatba.
+**Döntések (2026. november 5.):**
+
+- **Ár:** létrehozott temetőnként havi 45 000 Ft + ÁFA, vagy éves 450 000 Ft + ÁFA temetőnként.
+- **Fizetés:** bankkártyával és átutalással (díjbekérő alapján) is.
+- **Számlázás:** Számlázz.hu.
+- **Domain:** temisz.hu.
+- **Tárhely:** Vercel, később esetleg Nethely.
+- **Funkciók:** a fenntartó és az üzemeltető minden ügye a programban intézhető, a temetkezési pénzügyekkel együtt (lásd [FRS-UZEMELTETES.md](FRS-UZEMELTETES.md)).
+
+**Alapdöntés:** a TEMISZ böngészőből használható előfizetéses szolgáltatás lesz. Minden új ügyfél 30 napot kap ingyen, utána egységes havidíjat fizet. A letölthető program a 0.1.2-es verzióval lezárul. Aki már használja, át tudja hozni az adatait a webes változatba.
 
 ## 1. Mi marad és mi változik
 
@@ -10,30 +19,43 @@ A mostani kód nagy része változatlanul átvihető.
 | --- | --- |
 | Felület (React, új dizájn) | Marad, kisebb kiegészítésekkel (regisztráció, előfizetés, telefonos nézet). |
 | Üzleti logika (`lunda-core`): folyószám, rátemetés-ellenőrzés, megváltás, napló, PDF, import/export | Marad, a szerveren fut. |
-| Adatbázis (titkosított SQLite) | Marad. Minden ügyfél külön adatbázisfájlt kap, külön kulccsal. |
-| JSON API (`api::dispatch`) | Marad, HTTPS-en érhető el. A fejlesztői szerver (`lunda-devserver`) már most is így működik. |
+| Adatbázis (titkosított SQLite) | Postgresre (Neon) kerül, mert a Vercel nem tárol fájlt. Az adatmodell és a szabályok (folyószám, napló, törlésvédelem) változatlanok. |
+| JSON API (`api::dispatch`) | Marad, HTTPS-en, Rust Vercel-függvényként. A fejlesztői szerver (`lunda-devserver`) már most is így működik. |
 | Bejelentkezés (Argon2id, zárolás, időkorlát) | Marad, kiegészül e-mail-megerősítéssel, jelszó-visszaállítással és kétlépcsős azonosítással a rendszergazdáknak. |
 | Asztali keret (Tauri), frissítő, helyi mentés, mentésre figyelmeztetés | Megszűnik. Helyette szerveroldali mentés és „Minden adat letöltése” gomb. |
 | Internet nélküli működés | Megszűnik. Ezt a weboldalon és az ÁSZF-ben is jelezni kell. |
 
-## 2. Felépítés
+## 2. Felépítés (Vercel)
 
-- **Szerver:** egy Rust alkalmazás (axum), amely kiszolgálja a felületet és az API-t, és ügyfelenként nyitja meg a megfelelő adatbázist.
-- **Ügyfél (bérlő):** egy önkormányzat, egyházközség vagy üzemeltető. Egy ügyfélnek több temetője és több felhasználója lehet. A mostani szerepkörök (rendszergazda, ügyintéző, pénzügyes, olvasó) maradnak.
-- **Adatelkülönítés:** ügyfelenként külön SQLCipher-adatbázis. Egy hiba sem tudja összekeverni két ügyfél adatait, és egy ügyfél adata egyben menthető, átadható vagy törölhető.
-- **Központi adatbázis:** fiókok, előfizetések, számlák, próbaidő. Nyilvántartási adat nincs benne.
-- **Tárhely:** EU-n belüli szerver (például Hetzner, Németország vagy Finnország, vagy magyar szolgáltató). Indulásnak egy gép elég, nagyjából 15–40 EUR havonta.
-- **Mentés:** folyamatos replikáció titkosítva, másik helyszínű objektumtárba (Litestream), és napi pillanatképek 30 napig. A visszaállítást havonta ki kell próbálni.
+A Vercel függvényei nem tárolnak fájlt, ezért a helyi SQLite-adatbázis ott nem használható. A felépítés:
+
+- **Felület:** a mostani React-alkalmazás statikus oldalként, a Vercel CDN-jéről.
+- **API:** Rust Vercel-függvény (`vercel_runtime`) a frankfurti régióban (`fra1`). Ugyanazt a `lunda-core` üzleti logikát és ugyanazt a JSON API-t futtatja, mint ma.
+- **Adatbázis:** Neon Postgres a Vercel Marketplace-ről, frankfurti régióban. A tárolóréteget (`store`) SQLite-ról Postgresre kell átírni:
+  - a triggerek PL/pgSQL-ben;
+  - a magyar rendezés ICU-kollációval (`hu-HU-x-icu`);
+  - a gyorskeresés `pg_trgm`-mel;
+  - a migrációk verziózott SQL-fájlokkal.
+
+  Ez a W1 legnagyobb része. Később bármelyik Postgres-szolgáltatóra, Nethelyre is, egyszerű mentés-visszatöltéssel átvihető.
+- **Ügyfelek elkülönítése:** minden táblában ügyfél-azonosító (`tenant_id`) és Postgres sorszintű biztonság (RLS). Egy lekérdezési hiba sem adhat ki más ügyfélhez tartozó adatot.
+- **Fájlok** (csatolt dokumentumok, fotók, importált táblázatok): Vercel Blob, privát tárolással.
+- **Időzített feladatok** (próbaidő-emlékeztetők, lejárati értesítők, napi export): Vercel Cron.
+- **E-mail:** tranzakciós e-mail-szolgáltató (például Resend a Marketplace-ről) a temisz.hu domainről küldve.
+- **Mentés:** a Neon időponthoz visszaállítható mentése (point-in-time restore), napi titkosított export Blobba, havi visszaállítási próba.
+- **Domain:** a temisz.hu-t magyar regisztrátornál kell megvenni (például Nethely), majd a DNS-t a Vercelre irányítani.
+
+Költség induláskor: Vercel Pro (20 USD/hó), Neon (0–19 USD/hó), Resend (0–20 USD/hó). Kezdetben ez havi 10–20 ezer forint körül marad.
 
 ## 3. Próbaidő és előfizetés
 
 1. **Regisztráció** a weboldalon: szervezet neve, adószám (nem kötelező), e-mail, jelszó. E-mail-megerősítés után a fiók azonnal használható. Bankkártya nem kell.
 2. **30 nap teljes hozzáférés.** A mintatemető egy kattintással betölthető. A 23. és a 28. napon e-mail-emlékeztető megy.
 3. **Lejárat után, ha nincs előfizetés:** a fiók csak olvasható lesz, az adatok letölthetők. 60 nap után előzetes értesítés, majd törlés.
-4. **Előfizetés:** egységes havidíj szervezetenként, felhasználószám-korlát nélkül. Két fizetési mód:
-   - bankkártyás havi vagy éves fizetés (Stripe vagy Barion);
-   - éves díj átutalással, díjbekérő alapján. Önkormányzatoknál és plébániáknál ez a szokásos.
-5. **Számla:** NAV-kompatibilis e-számla automatikusan (Billingo vagy Számlázz.hu API).
+4. **Előfizetés:** temetőnként havi 45 000 Ft + ÁFA, vagy éves 450 000 Ft + ÁFA. A díj a fiókban létrehozott, aktív temetők számától függ, a felhasználók száma nem számít. Új temető felvételekor a díj időarányosan nő. A program a temető létrehozása előtt megmutatja, mennyivel. Két fizetési mód:
+   - bankkártyás fizetés havonta vagy évente (Stripe, ismétlődő terheléssel);
+   - átutalás díjbekérő alapján, havi vagy éves díjjal. Önkormányzatoknál és plébániáknál ez a szokásos.
+5. **Számla:** a TEMISZ saját Számlázz.hu-fiókjából, a Számla Agent API-n át, automatikusan. Kártyás fizetésnél a sikeres terhelés után, átutalásnál a díjbekérő kifizetésekor.
 
 ## 4. Jogi és adatvédelmi teendők
 
@@ -77,14 +99,12 @@ A „Beállítások › Mentés” alatt készített mentés és a helyreállít
 | W4 | Mentés és replikáció, adatexport, régi mentés feltöltése, fiók törlése | 1 hét |
 | W5 | Telefonos nézet (térkép, keresés, adatlap a temetőben), weboldal átalakítása | 1 hét |
 | W6 | Üzembe helyezés, felügyelet, terheléses és biztonsági teszt, jogi szövegek helye | 1 hét |
+| W7–W12 | Fenntartói és üzemeltetői modulok az [FRS-UZEMELTETES.md](FRS-UZEMELTETES.md) szerint: pénzügy és pénztár, temetésszervezés és naptár, vállalkozók, engedélyek és ügyiratok, üzemeltetési feladatok, fenntartói jelentések | 5–7 hét |
 
-Összesen nagyjából 6–8 hét munka. Az első kipróbálható webes változat W1 után elkészül.
+A webes alap (W1–W6) nagyjából 6–8 hét, a teljes üzemeltetői kör további 5–7 hét. Az első kipróbálható webes változat W1 után elkészül. A pénzügyi modul (W7) a W3 után előrehozható, ha a piacra lépéshez az kell először.
 
-## 9. Döntések, amik Öntől kellenek
+## 9. Még nyitott kérdések
 
-1. **Havidíj összege,** és legyen-e kedvezményes éves díj.
-2. **Fizetési mód:** bankkártya (Stripe vagy Barion), átutalás díjbekérővel, vagy mindkettő.
-3. **Számlázó cég adatai** (név, adószám, bankszámla) és a számlázó szolgáltatás (Billingo vagy Számlázz.hu).
-4. **Domain,** például temisz.hu, és ki regisztrálja.
-5. **Tárhely:** külföldi (EU) vagy magyar szolgáltató.
-6. **Jogi szövegek:** ki készíti, illetve nézi át őket.
+1. **Fenntartói modulok:** teljes-e az [FRS-UZEMELTETES.md](FRS-UZEMELTETES.md) listája, és mi a sorrend?
+2. **Az ügyfelek saját számlázása:** az önkormányzatok többsége a gazdálkodást az Önkormányzati ASP-ben végzi, és onnan számláz. Ott a TEMISZ a díjat előkészíti és exportálja, a számlát az ASP állítja ki. Egyházközségek és cégek a saját Számlázz.hu-fiókjukkal számlázhatnak közvetlenül a TEMISZ-ből. Ez így megfelel?
+3. **Jogi szövegek:** ki készíti, illetve nézi át őket?
