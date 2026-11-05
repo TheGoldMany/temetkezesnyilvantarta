@@ -306,7 +306,11 @@
     "mfaTitle": "Kétlépcsős azonosítás",
     "mfaIntro": "Írja be a hitelesítő alkalmazásban látható hatjegyű kódot.",
     "mfaCode": "Kód",
-    "mfaHint": "Ha nincs kéznél a telefonja, egy helyreállító kódot is beírhat."
+    "mfaHint": "Ha nincs kéznél a telefonja, egy helyreállító kódot is beírhat.",
+    "termsBefore": "A fiók létrehozásával elfogadja az",
+    "termsLink": "Általános Szerződési Feltételeket",
+    "termsAnd": "és az",
+    "dpaLink": "adatfeldolgozói szerződést"
   },
   "onboarding": {
     "title": "Első lépések",
@@ -921,10 +925,11 @@
     "verifySent": "Elküldtük újra.",
     "resend": "Levél újraküldése",
     "verified": "Az e-mail-cím megerősítve.",
-    "trialLeft_one": "Próbaidő: még {{count}} nap ({{date}}-ig).",
-    "trialLeft_other": "Próbaidő: még {{count}} nap ({{date}}-ig).",
+    "trialLeft_one": "Próbaidő: még {{count}} nap.",
+    "trialLeft_other": "Próbaidő: még {{count}} nap.",
     "subscribe": "Előfizetés",
-    "readOnly": "A fiók csak olvasható: a próbaidő lejárt, vagy nem érkezett meg a díj. Az adatok megvannak, nézhetők és letölthetők."
+    "readOnly": "A fiók csak olvasható: a próbaidő lejárt, vagy nem érkezett meg a díj. Az adatok megvannak, nézhetők és letölthetők.",
+    "verifyShort": "Erősítse meg az e-mail-címét."
   },
   "billing": {
     "statusTitle": "Előfizetés",

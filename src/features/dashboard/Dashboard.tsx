@@ -71,10 +71,10 @@ export function Dashboard() {
             ) : (
               <ul className="overflow-hidden rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
                 {tasks.map((task) => (
-                  <li key={task.key} className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-seam px-5 py-3 last:border-0">
+                  <li key={task.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-seam px-4 py-3 last:border-0 sm:gap-x-5 sm:px-5">
                     <span className={cx("w-1.5 self-stretch rounded-full", task.urgent ? "bg-accent" : "bg-seam")} aria-hidden />
                     {task.count !== null && <span className="min-w-14 text-2xl font-extrabold tabular-nums">{fmtNum(task.count)}</span>}
-                    <span className="min-w-0 flex-1">{task.text}</span>
+                    <span className="min-w-[11rem] flex-1">{task.text}</span>
                     <Button onClick={task.go} icon={task.key === "backup" ? <HardDriveDownload className="size-5" aria-hidden /> : undefined}>
                       {task.action}
                       {task.key !== "backup" && <ChevronRight className="size-4" aria-hidden />}

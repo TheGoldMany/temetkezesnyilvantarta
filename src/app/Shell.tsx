@@ -227,9 +227,9 @@ function QuickSearch() {
             setOpen(false);
           }
         }}
-        className="min-h-11 w-full rounded-lg border border-transparent bg-limestone pr-20 pl-10 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
+        className="min-h-11 w-full rounded-lg border border-transparent bg-limestone pr-3 pl-10 sm:pr-20 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
       />
-      <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
+      <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border sm:block border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
       {open && debounced.length >= 2 && (
         <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-seam bg-slab py-2 shadow-[0_20px_40px_-20px_rgba(20,59,49,0.35)]">
           {flat.length === 0 && !isFetching && <p className="px-4 py-3 text-granite">{t("search.noResults", { q: debounced })}</p>}

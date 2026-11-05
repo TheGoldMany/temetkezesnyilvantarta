@@ -29,8 +29,10 @@ pub fn generate_key() -> String {
 }
 
 /// Default database for local development and tests.
+/// Neon's Vercel integration sets both; the direct (unpooled) connection is
+/// needed because each request switches the search_path to a tenant schema.
 pub fn database_url() -> String {
-    std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres@127.0.0.1:5433/postgres".into())
+    std::env::var("DATABASE_URL_UNPOOLED").or_else(|_| std::env::var("DATABASE_URL")).unwrap_or_else(|_| "postgres://postgres@127.0.0.1:5433/postgres".into())
 }
 
 /// Valid tenant schema name: `t_` + lowercase hex/underscore.

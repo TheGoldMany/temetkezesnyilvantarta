@@ -597,7 +597,9 @@ fn serve_static(dir: &Path, path: &str) -> Response {
     let rel = path.trim_start_matches('/');
     let mut p = dir.join(if rel.is_empty() { "index.html" } else { rel });
     if rel.contains("..") || !p.is_file() {
-        p = dir.join("index.html");
+        // single-page app: /app/… (assembled site) or the root (app only)
+        let app = dir.join("app/index.html");
+        p = if rel.starts_with("app/") && app.is_file() { app } else { dir.join("index.html") };
     }
     let ct = match p.extension().and_then(|e| e.to_str()) {
         Some("js") => "text/javascript",

@@ -4,6 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 
 // Development: the TEMISZ server (temisz-server) answers /rpc on 1430.
 export default defineConfig({
+  // production: the app lives under /app/ next to the website (scripts/assemble.mjs)
+  base: process.env.VITE_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   clearScreen: false,
   server: {

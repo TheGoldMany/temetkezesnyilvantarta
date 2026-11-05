@@ -165,8 +165,9 @@ export function AccountBanners() {
   return (
     <>
       {!acc.emailVerified && (
-        <div className="no-print flex flex-wrap items-center gap-3 border-b border-accent/40 bg-lichen px-6 py-2 text-sm" role="status">
-          <span>{t("account.verifyNotice", { email: acc.email })}</span>
+        <div className="no-print border-b border-accent/40 bg-lichen px-4 py-1.5 text-sm sm:px-6 sm:py-2" role="status">
+          <span className="sm:hidden">{t("account.verifyShort")} </span>
+          <span className="hidden sm:inline">{t("account.verifyNotice", { email: acc.email })} </span>
           {sent ? (
             <span className="font-semibold">{t("account.verifySent")}</span>
           ) : (
@@ -184,8 +185,8 @@ export function AccountBanners() {
         </div>
       )}
       {acc.tenantStatus === "trial" && (
-        <div className="no-print flex flex-wrap items-center gap-3 border-b border-seam bg-slab px-6 py-2 text-sm text-granite" role="status" data-testid="trial-banner">
-          <span>{t("account.trialLeft", { count: acc.trialDaysLeft, date: acc.trialEndsAt })}</span>
+        <div className="no-print border-b border-seam bg-slab px-4 py-1.5 text-sm text-granite sm:px-6 sm:py-2" role="status" data-testid="trial-banner">
+          <span>{t("account.trialLeft", { count: acc.trialDaysLeft, date: acc.trialEndsAt })} </span>
           {can("manage_settings") && (
             <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
               {t("account.subscribe")}
@@ -194,8 +195,8 @@ export function AccountBanners() {
         </div>
       )}
       {acc.tenantStatus === "read_only" && (
-        <div className="no-print flex flex-wrap items-center gap-3 border-b border-accent/40 bg-lichen px-6 py-2 text-sm font-semibold" role="alert" data-testid="readonly-banner">
-          <span>{t("account.readOnly")}</span>
+        <div className="no-print border-b border-accent/40 bg-lichen px-4 py-1.5 text-sm font-semibold sm:px-6 sm:py-2" role="alert" data-testid="readonly-banner">
+          <span>{t("account.readOnly")} </span>
           {can("manage_settings") && (
             <button type="button" className="text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
               {t("account.subscribe")}

@@ -34,12 +34,12 @@ test("regisztráció: saját, üres nyilvántartás, e-mail-megerősítés", asy
   expect((await rpc(page, "api", { method: "search.quick", args: { query: "kovacs", limit: 30 } })).ok).toEqual([]);
 
   await finishOnboarding(page);
-  await expect(page.getByText(/Erősítse meg az e-mail-címét/)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /Erősítse meg az e-mail-címét/ })).toBeVisible();
   await expect(page.getByTestId("trial-banner")).toContainText("még 30 nap");
   const mail = await lastMail(page, email, "verify");
   await page.goto(linkIn(mail.body));
   await expect(page.getByText("Az e-mail-cím megerősítve.")).toBeVisible();
-  await expect(page.getByText(/Erősítse meg az e-mail-címét/)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: /Erősítse meg az e-mail-címét/ })).toHaveCount(0);
 
   await rpc(page, "logout");
   expect((await rpc(page, "api", { method: "search.quick", args: { query: "a", limit: 1 } })).err.code).toBe("session_expired");

@@ -286,7 +286,17 @@ function RegisterForm({ onLogin }: { onLogin: () => void }) {
         <TextField label={t("login.password")} type="password" value={p1} onChange={setP1} required hint={t("login.passwordHint")} inputProps={{ autoComplete: "new-password", name: "password" }} />
         <TextField label={t("login.passwordAgain")} type="password" value={p2} onChange={setP2} required error={mismatch ? t("login.passwordMismatch") : null} inputProps={{ autoComplete: "new-password", name: "password2" }} />
         <ErrorAlert error={error} />
-        <p className="text-sm text-granite">{t("login.terms")}</p>
+        <p className="text-sm text-granite">
+          {t("login.termsBefore")}{" "}
+          <a className="text-moss underline underline-offset-3" href="/aszf.html" target="_blank" rel="noreferrer">
+            {t("login.termsLink")}
+          </a>{" "}
+          {t("login.termsAnd")}{" "}
+          <a className="text-moss underline underline-offset-3" href="/adatfeldolgozas.html" target="_blank" rel="noreferrer">
+            {t("login.dpaLink")}
+          </a>
+          .
+        </p>
         <Button type="submit" variant="primary" size="lg" busy={busy} disabled={!organization || !name || !email || p1.length < 8 || p1 !== p2}>
           {t("login.createAccount")}
         </Button>
