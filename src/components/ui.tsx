@@ -13,8 +13,8 @@ export function cx(...c: (string | false | null | undefined)[]) {
 type Variant = "primary" | "secondary" | "quiet" | "danger";
 const variants: Record<Variant, string> = {
   primary: "bg-moss text-moss-ink border-moss hover:bg-moss/90",
-  secondary: "bg-slab text-slate border-seam hover:border-granite",
-  quiet: "bg-transparent text-slate border-transparent hover:bg-lichen/60",
+  secondary: "bg-slab text-moss border-seam hover:border-moss",
+  quiet: "bg-transparent text-slate border-transparent hover:bg-limestone",
   danger: "bg-slab text-alert border-alert/50 hover:bg-alert-bg",
 };
 
@@ -25,7 +25,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
       type="button"
       disabled={disabled || busy}
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-[4px] border font-bold transition-[filter,background-color,border-color] disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 rounded-lg border font-semibold transition-[filter,background-color,border-color] disabled:opacity-50 disabled:cursor-not-allowed",
         size === "lg" ? "min-h-13 px-5 text-lg" : "min-h-11 px-4",
         variants[variant],
         className,
@@ -79,7 +79,7 @@ export function Field({ label, hint, error, required, children, className, htmlF
 }
 
 const inputCls =
-  "min-h-11 w-full rounded-[4px] border border-seam bg-slab px-3 py-2 text-slate placeholder:text-granite/80 focus:border-slate focus:outline-none focus-visible:outline-3 focus-visible:outline-accent aria-invalid:border-alert";
+  "min-h-11 w-full rounded-lg border border-seam bg-slab px-3 py-2 text-slate placeholder:text-granite/80 focus:border-moss focus:outline-none focus-visible:outline-3 focus-visible:outline-accent aria-invalid:border-alert";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...rest }, ref) => (
   <input ref={ref} className={cx(inputCls, className)} {...rest} />
@@ -163,7 +163,7 @@ export function Checkbox({ label, checked, onChange, hint, disabled }: { label: 
   const id = useId();
   return (
     <div className="flex items-start gap-3">
-      <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-[var(--c-slate)]" />
+      <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-[var(--c-moss)]" />
       <label htmlFor={id} className="cursor-pointer">
         <span className="font-semibold">{label}</span>
         {hint && <span className="block text-sm text-granite">{hint}</span>}
@@ -178,8 +178,8 @@ export function RadioGroup<T extends string>({ label, value, onChange, options }
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 font-semibold">{label}</legend>
       {options.map((o) => (
-        <label key={o.value} className={cx("flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2", value === o.value ? "border-slate bg-lichen/60" : "border-seam bg-slab")}>
-          <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="mt-1 size-5 accent-[var(--c-slate)]" />
+        <label key={o.value} className={cx("flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2", value === o.value ? "border-moss bg-moss/8" : "border-seam bg-slab")}>
+          <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="mt-1 size-5 accent-[var(--c-moss)]" />
           <span>
             <span className="font-semibold">{o.label}</span>
             {o.hint && <span className="block text-sm text-granite">{o.hint}</span>}
@@ -233,7 +233,7 @@ export function StatusBadge({ status, protectedPlot }: { status: PlotStatus; pro
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <StatusDot status={status} protectedPlot={protectedPlot} />
       <span>{t(`status.${status}`)}</span>
-      {protectedPlot && <span className="rounded-[3px] border border-[#b08d2f] px-1.5 text-xs font-bold text-accent-ink">{t("status.protected")}</span>}
+      {protectedPlot && <span className="rounded-md border border-[#b08d2f] px-1.5 text-xs font-bold text-accent-ink">{t("status.protected")}</span>}
     </span>
   );
 }
@@ -263,7 +263,7 @@ export function Panel({ title, actions, children, className }: { title?: ReactNo
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       )}
-      <div className="border-t-2 border-slate bg-slab px-5 py-4 shadow-[0_1px_0_var(--c-seam)]">{children}</div>
+      <div className="rounded-xl border border-seam bg-slab px-5 py-4 shadow-[0_1px_2px_rgba(20,59,49,0.05)]">{children}</div>
     </section>
   );
 }
@@ -277,7 +277,7 @@ export function Alert({ tone = "info", title, children }: { tone?: "info" | "war
   }[tone];
   const Icon = tone === "ok" ? CheckCircle2 : tone === "info" ? Info : AlertTriangle;
   return (
-    <div className={cx("flex gap-3 rounded-md border px-4 py-3", cls)} role={tone === "error" ? "alert" : "status"}>
+    <div className={cx("flex gap-3 rounded-lg border px-4 py-3", cls)} role={tone === "error" ? "alert" : "status"}>
       <Icon className="mt-0.5 size-5 shrink-0" aria-hidden />
       <div className="min-w-0">
         {title && <p className="font-semibold">{title}</p>}
@@ -289,7 +289,7 @@ export function Alert({ tone = "info", title, children }: { tone?: "info" | "war
 
 export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-3 border-l-4 border-seam bg-slab px-6 py-6 text-granite">
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-seam bg-slab px-6 py-6 text-granite">
       <p>{children}</p>
       {action}
     </div>
@@ -337,7 +337,7 @@ export function Dialog({ open, onClose, title, children, footer, wide }: { open:
         e.preventDefault();
         onClose();
       }}
-      className={cx("m-auto max-h-[90vh] w-[calc(100%-2rem)] rounded-[6px] border-t-4 border-t-accent bg-slab p-0 text-slate shadow-2xl backdrop:bg-[#0c1013]/55", wide ? "max-w-4xl" : "max-w-xl")}
+      className={cx("m-auto max-h-[90vh] w-[calc(100%-2rem)] rounded-xl border border-seam bg-slab p-0 text-slate shadow-2xl backdrop:bg-[#0b1411]/55", wide ? "max-w-4xl" : "max-w-xl")}
     >
       {open && (
         <div className="flex max-h-[90vh] flex-col">
@@ -391,7 +391,7 @@ export function Tabs<T extends string>({ value, onChange, items }: { value: T; o
           type="button"
           aria-selected={value === it.value}
           onClick={() => onChange(it.value)}
-          className={cx("-mb-px min-h-11 border-b-3 px-4 font-bold", value === it.value ? "border-accent text-slate" : "border-transparent text-granite hover:text-slate")}
+          className={cx("-mb-px min-h-11 border-b-3 px-4 font-semibold", value === it.value ? "border-moss text-slate" : "border-transparent text-granite hover:text-slate")}
         >
           {it.label}
         </button>

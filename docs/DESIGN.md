@@ -1,57 +1,56 @@
-# TEMISZ – felületi irány
+# TEMISZ – egységes felület (program és weboldal)
 
-**TEMISZ** = **Tem**etőmenedzsment és **I**nformatikai **Sz**oftver. Rövid, modern, jól csengő név.
+**TEMISZ** = Temetőmenedzsment és Informatikai Szoftver. A logó maga a „TEMISZ” felirat: Instrument Sans, félkövér, keskenyített vágás, ritkított betűközzel. Külön jel nincs.
 
-**Tárgy:** egy temetőiroda nyilvántartó programja. **Közönség:** 50–70 éves gondnokok és ügyintézők; nem informatikusok, sokszor szemüvegben, ügyféllel szemben ülve. **Fő feladat:** egy temetést hibátlanul rögzíteni, és egy sírt gyorsan megtalálni.
+**Tárgy:** egy temetőiroda nyilvántartó programja. **Közönség:** gondnokok és ügyintézők, nem informatikusok. **Fő feladat:** egy temetést hibátlanul rögzíteni, és egy sírt gyorsan megtalálni.
 
-## Irány: „gránit és mécses”
-A program napi, órákon át tartó munkaeszköz (szuverén testtartás), nem marketingoldal. Ezért:
+## Irány: „ciprus és körömvirág”
+A program és a weboldal ugyanazt a rendszert használja:
 
-- sűrű, főkönyvszerű táblák;
-- sötét grafit oldalsáv;
-- hideg gránitszürke munkafelület.
+- hűvös, zöldesszürke vászon;
+- fehér lapok 12 px-es lekerekítéssel, halvány kerettel;
+- egyetlen márkaszín, a ciprus zöld;
+- a körömvirág-sárga csak a lejárót, a sürgőset és a billentyűzetfókuszt jelöli.
 
-Egyetlen meleg szín van, a mécseslángszerű borostyán. Ez csak a kijelölést, a fókuszt, a sürgős teendőt és a márkajelet jelöli. A panelek nem keretes kártyák, hanem fehér lapok, felül vastag tintavonallal.
+A temetőtérkép parcelláinak motívuma a közös jelkép. Megjelenik a weboldal nyitóablakában, a program belépőképernyőjén és magában a térképnézetben is.
 
 Kerülendő:
 
-- talpas díszbetű;
-- krém háttér;
-- egyforma, lekerekített kártyák;
-- „·” elválasztós meta-sorok;
-- üdvözlő szöveg és dísz-statisztikák.
+- krém háttér és talpas díszbetű;
+- egyforma kártyarács, kapszula alakú gombok;
+- csupa nagybetűs feliratok, „·” elválasztós meta-sorok;
+- egyetlen kiemelt szó a címben, díszítő számozás.
+
+## Betű
+Instrument Sans (változtatható vastagság és szélesség), egyetlen család. Címek 650-es vastagsággal, 80–86% szélességgel. Szöveg 400, kiemelés 600–640. Számok táblázatos számjegyekkel.
+
+## Színek
 
 | Token | Világos | Sötét | Szerep |
 | --- | --- | --- | --- |
-| `limestone` (vászon) | #ECEFF1 | #11161A | háttér |
-| `slab` (lap) | #FFFFFF | #182026 | táblák, űrlapok |
-| `slate` (tinta) | #141B21 | #E7EBEE | szöveg, elsődleges gomb, lapok felső vonala |
-| `granite` | #56626B | #9BA8B1 | másodlagos szöveg |
-| `seam` | #D3D9DD | #2B353D | sorvonalak |
-| `rail` | #1A2228 | #0C1013 | oldalsáv, weboldal sávja |
-| `accent` (mécses) | #E3A21A | #F0B43C | kijelölés, fókusz, sürgős teendő, márkajel |
+| `limestone` (vászon) | #ECF0EC | #0F1A16 | háttér |
+| `slab` (lap) | #FFFFFF | #16241F | lapok, táblák, űrlapok |
+| `slate` (tinta) | #17251F | #E6EEE9 | szöveg |
+| `granite` | #4C5A53 | #9FB2A8 | másodlagos szöveg |
+| `seam` | #D9DFDA | #2A3B34 | keretek, sorvonalak |
+| `moss` (ciprus) | #1F5546 | #7FC2A6 | elsődleges gomb, aktív menüpont, helyazonosító |
+| `rail` (mély ciprus) | #143B31 | #0B1411 | belépőkép, értesítések, weboldal sötét sávjai |
+| `accent` (körömvirág) | #E2A32B | #F0B43C | lejáró, sürgős, fókusz |
 
 Helyállapotok (térkép, jelvények), mindig felirattal együtt:
 
 | Állapot | Szín |
 | --- | --- |
 | szabad | fehér, kerettel |
-| lefoglalt | #4F78B0 |
-| foglalt | #6B8574 |
-| lejárt | #E3A21A |
-| értesítve | #B4502A, csíkozva |
-| újraértékesíthető | #7A5CA8 |
-| felszámolt | #9AA3A8 |
-| nem használható | #2A3137, sraffozva |
+| lefoglalt | #4F6B8A |
+| foglalt | #7F9A8D |
+| lejárt | #E2A32B |
+| értesítve | #B5651D, csíkozva |
+| újraértékesíthető | #7D62A0 |
+| felszámolt | #9AA39E |
+| használhatatlan | #3D4447, sraffozva |
 
-## Betű
-Egyetlen család: **Atkinson Hyperlegible Next**, gyengénlátóknak tervezett betű. Jól megkülönböztethető alakjai (I/l/1, O/0) segítenek a folyószám és a dátum olvasásában. Címekhez 800-as, sorközi feszességgel. Alapméret 17 px. A PDF-nyomtatványok is ezt használják.
-
-## Az egyetlen emlékezetes elem
-A **szegmentált sírhely-címke**: az „A/3/12” azonosító három cellában jelenik meg (parcella | sor | hely), az első cella sötét, mint egy gravírozott címketábla. Ugyanez jelzi a weboldalon a verziót (v | 0 | 1 | 1).
-
-## Elvek
-- A kezdőlap munkafelület: teendők (lejárt, értesítésre váró, mentés), legutóbbi bejegyzések táblában, helyállapot-sáv.
-- A fő művelet mindig jobb felül; sötét tinta gomb, egyértelmű igével.
-- Hibaüzenet: mi a baj és mit tegyen.
-- Teljes billentyűzetes kezelés, 3 px borostyán fókuszgyűrű, `prefers-reduced-motion`, nagyítás 90–150 %.
+## Elrendezés
+- **Program:** felső sáv (felirat, temető, gyorskeresés Ctrl+K, felhasználó), alatta vízszintes menü a tíz résszel, aktív pont ciprus aláhúzással. A tartalom legfeljebb 1320 px széles.
+- **Weboldal:** ugyanez a sáv és ablak jelenik meg a nyitóképen. Teljes szélességű, eltérő tónusú szakaszok, 1320 px-es tartalomszélesség. Telefonon „Menü” gomb nyitja a teljes képernyős menüt.
+- **Helyazonosító:** szegmentált tábla (parcella | sor | hely). Az első szegmens ciprus alapon fehér.

@@ -67,9 +67,9 @@ export function Dashboard() {
               {t("dashboard.tasks")}
             </h2>
             {tasks.length === 0 ? (
-              <p className="border-t-2 border-slate bg-slab px-5 py-4 text-granite">{t("dashboard.noTasks")}</p>
+              <p className="rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-5 py-4 text-granite">{t("dashboard.noTasks")}</p>
             ) : (
-              <ul className="border-t-2 border-slate bg-slab">
+              <ul className="overflow-hidden rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
                 {tasks.map((task) => (
                   <li key={task.key} className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-seam px-5 py-3 last:border-0">
                     <span className={cx("w-1.5 self-stretch rounded-full", task.urgent ? "bg-accent" : "bg-seam")} aria-hidden />
@@ -146,7 +146,7 @@ export function Dashboard() {
                   ))}
                 </tbody>
               </table>
-              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1 border-t-2 border-slate pt-3">
+              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-seam pt-3">
                 <dt className="text-granite">{t("dashboard.plotsTotal")}</dt>
                 <dd className="m-0 text-right font-bold tabular-nums">{fmtNum(data.plotsTotal)}</dd>
                 <dt className="text-granite">{t("dashboard.eventsThisYear")}</dt>
@@ -168,7 +168,7 @@ function StatusBar({ counts, total }: { counts: Map<PlotStatus, number>; total: 
     .map((s) => `${t(`status.${s}`)}: ${counts.get(s)}`)
     .join(", ");
   return (
-    <div className="flex h-5 w-full overflow-hidden rounded-[3px] border border-slate/40" role="img" aria-label={label}>
+    <div className="flex h-5 w-full overflow-hidden rounded-md border border-slate/40" role="img" aria-label={label}>
       {PLOT_STATUSES.map((s) => {
         const n = counts.get(s) ?? 0;
         if (!n) return null;

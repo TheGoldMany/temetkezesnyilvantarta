@@ -57,7 +57,7 @@ export function Onboarding() {
             </li>
           ))}
         </ol>
-        <div className="flex flex-col gap-4 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-8 py-7">
+        <div className="flex flex-col gap-4 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-8 py-7">
           <h1 className="text-2xl">{steps[step]}</h1>
           {step === 0 && (
             <>

@@ -4,34 +4,37 @@ import { useApp } from "../../app/context";
 import { shell } from "../../lib/api";
 import { Alert, Button, ErrorAlert, TextField } from "../../components/ui";
 import { RestoreForm } from "../settings/BackupTab";
-import mark from "../../assets/mark.svg";
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   return (
     <div className="grid min-h-full lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <aside className="flex flex-col justify-between bg-rail px-10 py-10 text-rail-ink">
-        <p className="flex items-center gap-3">
-          <img src={mark} alt="" className="size-10" />
-          <span className="text-3xl font-extrabold tracking-[-0.03em]">{t("app.name")}</span>
-        </p>
-        <p className="mt-10 max-w-sm text-lg leading-snug text-rail-muted" aria-label={t("app.tagline")}>
-          <Acronym />
-        </p>
+      <aside className="relative flex flex-col overflow-hidden bg-rail px-10 py-10 text-rail-ink">
+        <p className="wordmark text-[2rem]">{t("app.name")}</p>
+        <p className="mt-4 max-w-sm text-lg text-rail-muted">{t("app.tagline")}</p>
+        <PlotPattern />
       </aside>
-      <div className="flex items-center px-6 py-10 lg:px-16">
-        <div className="w-full max-w-lg">{children}</div>
+      <div className="flex items-center bg-limestone px-6 py-10 lg:px-16">
+        <div className="w-full max-w-lg rounded-xl border border-seam bg-slab p-8 shadow-[0_20px_40px_-24px_rgba(20,59,49,0.35)]">{children}</div>
       </div>
     </div>
   );
 }
 
-/** "TEMetőmenedzsment és Informatikai SZoftver" with the letters of the name lit. */
-export function Acronym() {
+/** A quiet parcel of plots, the same motif as the website's map. */
+function PlotPattern() {
+  const fills = ["#ffffff", "#7f9a8d", "#7f9a8d", "#7f9a8d", "#e2a32b", "#7f9a8d", "#ffffff", "#7f9a8d"];
+  const cells = [];
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 9; c++) {
+      const f = fills[(r * 7 + c * 3 + ((r * c) % 5)) % fills.length];
+      cells.push(<rect key={`${r}-${c}`} x={c * 30} y={r * 42} width={22} height={34} rx={4} fill={f} />);
+    }
+  }
   return (
-    <span aria-hidden>
-      <b className="text-accent">Tem</b>etőmenedzsment és <b className="text-accent">I</b>nformatikai <b className="text-accent">Sz</b>oftver
-    </span>
+    <svg viewBox="0 0 262 244" aria-hidden className="mt-auto hidden w-full max-w-sm opacity-30 lg:block">
+      {cells}
+    </svg>
   );
 }
 

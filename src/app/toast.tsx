@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex max-w-md items-start gap-3 rounded-[4px] border-l-4 px-4 py-3 shadow-xl ${t.tone === "ok" ? "border-accent bg-rail text-rail-ink" : "border-alert bg-alert-bg text-alert"}`}
+            className={`pointer-events-auto flex max-w-md items-start gap-3 rounded-xl border-l-4 px-4 py-3 shadow-xl ${t.tone === "ok" ? "border-accent bg-rail text-rail-ink" : "border-alert bg-alert-bg text-alert"}`}
             role={t.tone === "error" ? "alert" : "status"}
           >
             {t.tone === "ok" ? <CheckCircle2 className="mt-0.5 size-5 text-accent" aria-hidden /> : <AlertTriangle className="mt-0.5 size-5" aria-hidden />}

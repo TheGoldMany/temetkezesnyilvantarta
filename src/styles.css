@@ -1,18 +1,15 @@
 @import "tailwindcss";
-@import "@fontsource/atkinson-hyperlegible-next/400.css";
-@import "@fontsource/atkinson-hyperlegible-next/600.css";
-@import "@fontsource/atkinson-hyperlegible-next/700.css";
-@import "@fontsource/atkinson-hyperlegible-next/800.css";
+@import "@fontsource-variable/instrument-sans/standard.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* TEMISZ "gránit és mécses" tokens – see docs/DESIGN.md.
+/* TEMISZ tokens, shared with the website (docs/DESIGN.md).
    Token names are historical: limestone = canvas, slab = surface, slate = ink,
-   granite = muted text, seam = rule, moss = primary (graphite ink),
-   lichen = selection wash (candle amber), accent = candle amber. */
+   granite = muted text, seam = rule, moss = primary (cypress green),
+   lichen = selection wash (marigold), accent = marigold, rail = deep cypress. */
 @theme {
-  --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
-  --font-serif: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-sans: "Instrument Sans Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-sans);
 
   --color-limestone: var(--c-limestone);
   --color-slab: var(--c-slab);
@@ -33,14 +30,17 @@
   --color-warn-bg: var(--c-warn-bg);
 
   --color-st-free: var(--st-free);
-  --color-st-reserved: #6e93bf;
-  --color-st-occupied: #4f7a60;
-  --color-st-expired: #c9962e;
-  --color-st-notified: #a65a2a;
+  --color-st-reserved: #4f6b8a;
+  --color-st-occupied: #7f9a8d;
+  --color-st-expired: #e2a32b;
+  --color-st-notified: #b5651d;
   --color-st-resellable: #7d62a0;
-  --color-st-liquidated: #7c8486;
+  --color-st-liquidated: #9aa39e;
   --color-st-unusable: #3d4447;
   --color-gilt: #b08d2f;
+
+  --font-weight-bold: 640;
+  --font-weight-extrabold: 680;
 
   --text-sm: 0.9375rem;
   --text-base: 1.0625rem;
@@ -51,47 +51,47 @@
 }
 
 :root {
-  --c-limestone: #eceff1;
+  --c-limestone: #ecf0ec;
   --c-slab: #ffffff;
-  --c-slate: #141b21;
-  --c-granite: #56626b;
-  --c-seam: #d3d9dd;
-  --c-moss: #1e2830;
+  --c-slate: #17251f;
+  --c-granite: #4c5a53;
+  --c-seam: #d9dfda;
+  --c-moss: #1f5546;
   --c-moss-ink: #ffffff;
-  --c-lichen: #fff0c7;
-  --c-accent: #e3a21a;
+  --c-lichen: #fbefd5;
+  --c-accent: #e2a32b;
   --c-accent-ink: #7a4f00;
-  --c-rail: #1a2228;
-  --c-rail-ink: #f2f4f5;
-  --c-rail-muted: #9aa7b0;
+  --c-rail: #143b31;
+  --c-rail-ink: #ffffff;
+  --c-rail-muted: #a9bfb4;
   --c-alert: #a3261b;
   --c-alert-bg: #fbe7e4;
   --c-warn: #7a4f00;
-  --c-warn-bg: #fff4d6;
+  --c-warn-bg: #fbefd5;
   --st-free: #ffffff;
   color-scheme: light;
   font-size: calc(17px * var(--zoom, 1));
 }
 
 [data-theme="dark"] {
-  --c-limestone: #11161a;
-  --c-slab: #182026;
-  --c-slate: #e7ebee;
-  --c-granite: #9ba8b1;
-  --c-seam: #2b353d;
-  --c-moss: #e7ebee;
-  --c-moss-ink: #11161a;
+  --c-limestone: #0f1a16;
+  --c-slab: #16241f;
+  --c-slate: #e6eee9;
+  --c-granite: #9fb2a8;
+  --c-seam: #2a3b34;
+  --c-moss: #7fc2a6;
+  --c-moss-ink: #0f1a16;
   --c-lichen: #3a2f14;
   --c-accent: #f0b43c;
   --c-accent-ink: #f0b43c;
-  --c-rail: #0c1013;
-  --c-rail-ink: #e7ebee;
-  --c-rail-muted: #8796a0;
+  --c-rail: #0b1411;
+  --c-rail-ink: #e6eee9;
+  --c-rail-muted: #8fa89c;
   --c-alert: #f2a097;
   --c-alert-bg: #3b1f1c;
   --c-warn: #f0c46a;
   --c-warn-bg: #3a2f14;
-  --st-free: #222c33;
+  --st-free: #22322b;
   color-scheme: dark;
 }
 
@@ -116,15 +116,24 @@ h1,
 h2,
 h3 {
   font-family: var(--font-sans);
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   line-height: 1.2;
   margin: 0;
 }
 
+/* Page titles use the narrower cut, as on the website. */
 h1 {
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-stretch: 84%;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.wordmark {
+  font-weight: 700;
+  font-stretch: 78%;
+  letter-spacing: 0.06em;
+  line-height: 1;
 }
 
 /* Visible keyboard focus everywhere (NFR-HAS-03) */
@@ -149,12 +158,13 @@ h1 {
   display: inline-flex;
   align-items: stretch;
   font-family: var(--font-sans);
-  font-weight: 700;
+  font-weight: 650;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--c-slate);
   background: var(--c-slab);
-  border: 1.5px solid color-mix(in oklab, var(--c-slate) 70%, transparent);
-  border-radius: 3px;
+  border: 1.5px solid var(--c-moss);
+  border-radius: 6px;
+  overflow: hidden;
   line-height: 1;
   white-space: nowrap;
 }
@@ -164,11 +174,11 @@ h1 {
   text-align: center;
 }
 .plaque > .seg + .seg {
-  border-left: 1.5px solid color-mix(in oklab, var(--c-slate) 70%, transparent);
+  border-left: 1.5px solid var(--c-moss);
 }
 .plaque > .seg:first-child {
-  background: var(--c-slate);
-  color: var(--c-slab);
+  background: var(--c-moss);
+  color: var(--c-moss-ink);
 }
 .plaque-lg {
   font-size: var(--text-2xl);

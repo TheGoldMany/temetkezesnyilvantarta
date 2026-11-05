@@ -36,7 +36,7 @@ export function Expiries() {
   return (
     <>
       <PageHeader title={t("expiries.title")} subtitle={t("expiries.subtitle")} />
-      <div className="mb-5 flex flex-wrap items-end gap-5 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-5 py-4">
+      <div className="mb-5 flex flex-wrap items-end gap-5 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-5 py-4">
         <Field label={t("expiries.within")}>
           <Select value={within} onChange={(e) => setWithin(Number(e.target.value))}>
             <option value={30}>{t("expiries.within30")}</option>
@@ -49,7 +49,7 @@ export function Expiries() {
         <Checkbox label={t("expiries.onlyNotNotified")} checked={onlyNotNotified} onChange={setOnlyNotNotified} />
       </div>
       {ids.length > 0 && (
-        <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-3 rounded-[4px] border border-accent bg-lichen px-5 py-3" data-testid="bulk-bar">
+        <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-accent bg-lichen px-5 py-3" data-testid="bulk-bar">
           <span className="font-semibold">{t("expiries.selected", { count: ids.length })}</span>
           <PrintButton doc="expiry_notice" args={{ plotIds: ids }} label={t("expiries.printLetters")} />
           <PrintButton doc="grave_labels" args={{ plotIds: ids }} label={t("expiries.printLabels")} />
@@ -66,7 +66,7 @@ export function Expiries() {
       ) : rows.length === 0 ? (
         <Empty>{t("expiries.empty")}</Empty>
       ) : (
-        <div className="overflow-x-auto border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)]">
+        <div className="overflow-x-auto rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-seam text-left text-granite">

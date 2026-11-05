@@ -51,7 +51,7 @@ export function BurialsList() {
           )
         }
       />
-      <div className="mb-5 grid gap-4 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-5 py-4 md:grid-cols-[2fr_1.5fr_1fr_1fr]">
+      <div className="mb-5 grid gap-4 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-5 py-4 md:grid-cols-[2fr_1.5fr_1fr_1fr]">
         <Field label={t("burials.filterQuery")}>
           <Input value={query} onChange={(e) => (setQuery(e.target.value), setPage(0))} />
         </Field>
@@ -81,7 +81,7 @@ export function BurialsList() {
         <Empty>{t("burials.empty")}</Empty>
       ) : (
         <>
-          <div className="overflow-x-auto border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)]">
+          <div className="overflow-x-auto rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-seam text-left text-granite">

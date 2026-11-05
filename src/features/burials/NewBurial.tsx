@@ -168,7 +168,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
         ))}
       </ol>
 
-      <div className="flex flex-col gap-5 border-t-2 border-slate bg-slab shadow-[0_1px_0_var(--c-seam)] px-7 py-6">
+      <div className="flex flex-col gap-5 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-7 py-6">
         {step === "deceased" && (
           <>
             {existingDeceasedId ? (
