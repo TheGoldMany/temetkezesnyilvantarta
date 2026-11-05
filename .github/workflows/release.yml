@@ -3,7 +3,8 @@
 # The release is published right away: the download website (website/, on
 # Vercel) always links to the latest release.
 #
-# Start it by pushing a tag:  git tag v0.1.0 && git push origin v0.1.0
+# Start it by pushing a tag (git tag v0.1.0, git push origin v0.1.0) or run it
+# manually (Actions → Release → Run workflow): it then tags v<app version>.
 #
 # Secrets (Settings → Secrets and variables → Actions). Everything is optional:
 # without them the installers are built unsigned (Windows SmartScreen and macOS
@@ -124,8 +125,9 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: "Lunda Temető ${{ github.ref_name }}"
+          # tag push: use the tag; manual run: tauri-action creates v<app version>
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: "Lunda Temető v__VERSION__"
           releaseBody: "Telepítők Windowsra (x64, ARM64) és macOS-re (Apple Silicon és Intel)."
           releaseDraft: false
           prerelease: false
