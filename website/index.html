@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lunda Temető – temetőnyilvántartó letöltése</title>
+    <meta name="description" content="Temetőnyilvántartó program Windowsra és macOS-re: nyilvántartó könyv, sírbolt könyv, megváltások és lejáratok, temetőtérkép. Internet nélkül is működik." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="./">
+        <img src="favicon.svg" alt="" width="32" height="32" />
+        Lunda Temető
+      </a>
+      <nav aria-label="Oldal">
+        <a href="#tudja">Mit tud</a>
+        <a href="#telepites">Telepítés</a>
+        <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Összes kiadás</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-text">
+          <h1>A temető nyilvántartása, papír nélkül</h1>
+          <p class="lead">
+            Nyilvántartó könyv és sírbolt könyv folyószámmal, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. Az adatok a saját gépén maradnak, titkosítva, internet nélkül is.
+          </p>
+
+          <div class="download" id="download" aria-live="polite">
+            <a class="btn" id="primary" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">
+              <span id="primary-label">Letöltés</span>
+              <span class="btn-sub" id="primary-sub">a legfrissebb kiadás</span>
+            </a>
+            <p class="meta">
+              <span class="plaque" id="version" hidden></span>
+              <span id="release-date"></span>
+            </p>
+            <details class="others" id="others" hidden>
+              <summary>Másik rendszerre</summary>
+              <ul id="other-list"></ul>
+            </details>
+            <p class="notice" id="no-release" hidden>
+              Az első kiadás telepítői éppen készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
+              <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
+            </p>
+          </div>
+          <p class="sysreq">Windows 10 és 11 (Intel/AMD vagy ARM) · macOS 12 vagy újabb (Apple Silicon és Intel)</p>
+        </div>
+        <figure class="shot shot-main">
+          <img src="img/kezdolap.png" width="1360" height="860" alt="A program kezdőlapja: helyek állapota, legutóbbi bejegyzések, gyakori teendők" />
+        </figure>
+      </section>
+
+      <section class="features" id="tudja">
+        <h2>Mit tud</h2>
+        <dl>
+          <div>
+            <dt>Nyilvántartó könyv és sírbolt könyv</dt>
+            <dd>Minden temetés automatikus, kihagyás nélküli folyószámot kap. Bejegyzést törölni nem lehet, csak indoklással érvényteleníteni. Hiteles nyomtatás oldalszámozással és záradékkal.</dd>
+          </div>
+          <div>
+            <dt>Megváltás és lejárat</dt>
+            <dd>A lejáratot és a rátemetéskor szükséges újraváltást a program kiszámolja. Lejáratfigyelő, tömeges értesítő levél, QR-kódos sírcímke és hirdetőtábla-lista.</dd>
+          </div>
+          <div>
+            <dt>Rátemetés ellenőrzése</dt>
+            <dd>Férőhely, nyugvási idő, temetési tilalom: ha a temetés nem engedélyezhető, a program megállít és megmondja, miért.</dd>
+          </div>
+          <div>
+            <dt>Temetőtérkép</dt>
+            <dd>Színkódolt helyállapotok, kattintásra az adatlap, kinyomtatható helyszínrajz A4-től A0-ig. Ötvenezer hellyel is gördülékeny.</dd>
+          </div>
+          <div>
+            <dt>Átállás a régi nyilvántartásról</dt>
+            <dd>Excel- vagy CSV-import próbafuttatással, a régi folyószámok megtartásával, és gyors bevitel a papírkönyvből, végig billentyűzetről.</dd>
+          </div>
+          <div>
+            <dt>Biztonság</dt>
+            <dd>Titkosított adatbázis, napi titkosított mentés ellenőrzőösszeggel, változásnapló, felhasználói szerepkörök.</dd>
+          </div>
+        </dl>
+        <div class="shots">
+          <figure class="shot">
+            <img src="img/terkep.png" width="1360" height="860" loading="lazy" alt="Temetőtérkép színkódolt helyállapotokkal és jelmagyarázattal" />
+            <figcaption>Temetőtérkép</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/adatlap.png" width="1360" height="860" loading="lazy" alt="Egy temetési hely adatlapja nyugvókkal, megváltással és jogosulttal" />
+            <figcaption>Temetési hely adatlapja</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="install" id="telepites">
+        <h2>Telepítés</h2>
+        <ol>
+          <li>
+            <h3>Windows</h3>
+            <p>Futtassa a letöltött <code>…-setup.exe</code> fájlt. Ha megjelenik a „A Windows megvédte a számítógépet” ablak, kattintson a „További információ”, majd a „Futtatás mindenképp” gombra.</p>
+          </li>
+          <li>
+            <h3>macOS</h3>
+            <p>Nyissa meg a <code>.dmg</code> fájlt, és húzza a Lunda Temetőt a Programok mappába. Első indításkor kattintson rá a jobb gombbal, és válassza a „Megnyitás” lehetőséget. Ha a rendszer nem engedi, a Rendszerbeállítások › Adatvédelem és biztonság oldalon válassza a „Megnyitás mindenképp” gombot.</p>
+          </li>
+          <li>
+            <h3>Első indítás</h3>
+            <p>Hozza létre a rendszergazda fiókot, adja meg a mentés helyét, és nyomtassa ki a helyreállító kulcsot. Kipróbáláshoz betölthet egy kitalált mintatemetőt.</p>
+          </li>
+        </ol>
+        <p class="fine">A figyelmeztetések a kódaláíró tanúsítvány beszerzéséig jelennek meg. A program az adatokat kizárólag a saját gépén tárolja.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>© 2026 Lunda Software</p>
+      <p><a href="https://github.com/thegoldmany/temetkezesnyilvantarta">Forráskód és kiadások</a></p>
+    </footer>
+
+    <script src="download.js" defer></script>
+  </body>
+</html>

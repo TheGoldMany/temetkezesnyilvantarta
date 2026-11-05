@@ -1,5 +1,7 @@
 # Release build: Windows (x64: NSIS + MSI, ARM64: NSIS) and macOS universal (.dmg),
 # signed when the secrets below exist, with signed updater packages and latest.json.
+# The release is published right away: the download website (website/, on
+# Vercel) always links to the latest release.
 #
 # Start it by pushing a tag:  git tag v0.1.0 && git push origin v0.1.0
 #
@@ -125,7 +127,7 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: "Lunda Temető ${{ github.ref_name }}"
           releaseBody: "Telepítők Windowsra (x64, ARM64) és macOS-re (Apple Silicon és Intel)."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.release.conf.json

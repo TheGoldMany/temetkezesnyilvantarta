@@ -149,8 +149,8 @@ pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis
    git push origin v0.2.0
    ```
 
-3. A **Release** munkafolyamat (`.github/workflows/release.yml`) lefordítja és aláírja a telepítőket (Windows x64 és ARM64, macOS universal), majd **piszkozat** GitHub-kiadást hoz létre. Ha be van állítva a frissítési kulcs, a kiadásba bekerülnek az aláírt frissítőcsomagok és a `latest.json` is.
-4. Ellenőrizd a piszkozatot, próbáld ki a telepítőket, majd tedd közzé.
+3. A **Release** munkafolyamat (`.github/workflows/release.yml`) lefordítja és aláírja a telepítőket (Windows x64 és ARM64, macOS universal), majd **közzéteszi** a GitHub-kiadást. Ha be van állítva a frissítési kulcs, a kiadásba bekerülnek az aláírt frissítőcsomagok és a `latest.json` is.
+4. A letöltőoldal (`website/`, Vercelen) magától a legújabb kiadásra mutat, és a látogató rendszerének megfelelő telepítőt ajánlja fel.
 5. Másold a `latest.json`-t és a frissítőcsomagokat a frissítési szerverre (az `UPDATER_ENDPOINT` által mutatott helyre). Az alkalmazás a Beállítások, „Névjegy és frissítés” fülön keres frissítést. Telepítés előtt automatikus mentést készít, majd ellenőrzi a csomag aláírását.
 
 A **CI** munkafolyamat (`.github/workflows/ci.yml`) minden pushra lefut:
@@ -212,6 +212,10 @@ OV vagy EV tanúsítvány egy hitelesítésszolgáltatótól (pl. Sectigo, DigiC
 
 - **GitHub:** a Settings, Actions, General oldalon a munkafolyamatoknak kapjanak írási jogot (*Read and write permissions*), hogy létrehozhassák a kiadást.
 - **Windows ARM64:** a build a `windows-latest` futtatón keresztfordítással készül. Ha a beépített OpenSSL ARM64-fordítása elakadna, használj `windows-11-arm` futtatót (ha elérhető a csomagodban), és ott a `--target` kapcsoló elhagyható.
+
+## Letöltőoldal
+
+A `website/` mappa egy statikus oldal, amelyet a Vercel szolgál ki (`vercel.json`). Az oldal a GitHub API-ból kérdezi le a legújabb kiadást, és a látogató gépéhez illő telepítőt ajánlja: Windows x64, Windows ARM64 vagy Mac. A többi változat a „Másik rendszerre” alatt érhető el. Build nem kell hozzá. A képernyőképek a `website/img/` mappában vannak.
 
 ## Felépítés
 
