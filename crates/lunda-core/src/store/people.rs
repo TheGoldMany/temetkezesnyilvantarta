@@ -243,7 +243,7 @@ impl Store {
     /// Plots where the person is (or was) a holder.
     pub fn person_plots(&self, person_id: &str) -> Result<Vec<Holder>> {
         let mut stmt = self.conn.prepare(
-            "SELECT h.*, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name) AS person_name, pe.address AS person_address, p.identifier
+            "SELECT h.*, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name) AS person_name, pe.address AS person_address, p.identifier AS plot_identifier
              FROM plot_holders h JOIN persons pe ON pe.id=h.person_id JOIN plots p ON p.id=h.plot_id
              WHERE h.person_id=?1 ORDER BY h.start_date DESC",
         )?;
@@ -255,8 +255,8 @@ impl Store {
 
     pub fn holders_for_plot(&self, plot_id: &str) -> Result<Vec<Holder>> {
         let mut stmt = self.conn.prepare(
-            "SELECT h.*, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name) AS person_name, pe.address AS person_address
-             FROM plot_holders h JOIN persons pe ON pe.id=h.person_id
+            "SELECT h.*, trim(pe.name_prefix||' '||pe.family_name||' '||pe.given_name) AS person_name, pe.address AS person_address, p.identifier AS plot_identifier
+             FROM plot_holders h JOIN persons pe ON pe.id=h.person_id JOIN plots p ON p.id=h.plot_id
              WHERE h.plot_id=?1 ORDER BY (h.end_date IS NULL) DESC, h.role DESC, h.start_date DESC",
         )?;
         let rows = stmt.query_map([plot_id], map_holder)?;
@@ -343,6 +343,7 @@ pub(crate) fn map_holder(r: &rusqlite::Row) -> rusqlite::Result<Holder> {
         end_date: r.get("end_date")?,
         legal_basis: r.get("legal_basis")?,
         document_ref: r.get("document_ref")?,
+        plot_identifier: r.get("plot_identifier")?,
         voided_at: r.get("voided_at")?,
     })
 }

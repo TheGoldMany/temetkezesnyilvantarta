@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/lunda-core"]
+members = ["crates/lunda-core", "crates/lunda-devserver", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

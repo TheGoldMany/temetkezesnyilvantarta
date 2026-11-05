@@ -307,6 +307,7 @@ pub struct Holder {
     pub end_date: Option<String>,
     pub legal_basis: String,
     pub document_ref: String,
+    pub plot_identifier: Option<String>,
     pub voided_at: Option<String>,
 }
 

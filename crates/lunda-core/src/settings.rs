@@ -65,7 +65,7 @@ pub fn get_bool(conn: &Connection, key: &str, default: bool) -> Result<bool> {
 
 pub fn all(conn: &Connection, cemetery_id: Option<&str>) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
-    let mut stmt = conn.prepare("SELECT key, value FROM settings WHERE cemetery_id=''")?;
+    let mut stmt = conn.prepare("SELECT key, value FROM settings WHERE cemetery_id='' AND key NOT LIKE 'internal.%'")?;
     for row in stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
         let (k, v) = row?;
         out.insert(k, v);
