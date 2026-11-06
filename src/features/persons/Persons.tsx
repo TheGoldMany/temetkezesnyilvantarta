@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { UserPlus, Pencil } from "lucide-react";
+import { UserPlus, Pencil, FileDown } from "lucide-react";
 import { useApp } from "../../app/context";
 import { api } from "../../lib/api";
 import type { Holder, Person } from "../../lib/types";
@@ -68,11 +68,32 @@ export function PersonView({ id }: { id: string }) {
       <PageHeader
         title={fullName(x)}
         actions={
-          can("record_events") && (
-            <Button icon={<Pencil className="size-5" aria-hidden />} onClick={() => setEditing(true)}>
-              {t("common.edit")}
-            </Button>
-          )
+          <>
+            {can("view_personal") && (
+              <Button
+                icon={<FileDown className="size-5" aria-hidden />}
+                title={t("persons.gdprHint")}
+                onClick={async () => {
+                  const data = await api<object>("persons.dataExport", { id });
+                  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `adatkiadas-${fullName(x).replace(/\s+/g, "-").toLowerCase()}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                }}
+              >
+                {t("persons.gdpr")}
+              </Button>
+            )}
+            {can("record_events") && (
+              <Button icon={<Pencil className="size-5" aria-hidden />} onClick={() => setEditing(true)}>
+                {t("common.edit")}
+              </Button>
+            )}
+          </>
         }
       />
       <div className="grid gap-6 lg:grid-cols-2">

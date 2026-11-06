@@ -340,6 +340,11 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         })),
         "notices.emailPrepare" => ok(store.expiry_mails(s, &arg::<Vec<String>>(a, "plotIds")?)?),
         "invoices.reminderMail" => ok(store.reminder_mail(s, &arg::<String>(a, "id")?)?),
+        "plots.setGps" => {
+            store.set_plot_gps(s, &arg::<String>(a, "id")?, opt::<f64>(a, "lat")?, opt::<f64>(a, "lon")?)?;
+            ok(true)
+        }
+        "persons.dataExport" => ok(store.person_data_export(s, &arg::<String>(a, "id")?)?),
         "deceased.setPublic" => {
             store.set_deceased_public(s, &arg::<String>(a, "id")?, arg::<bool>(a, "hidden")?)?;
             ok(true)

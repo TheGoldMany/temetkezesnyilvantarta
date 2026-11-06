@@ -401,7 +401,7 @@ impl Store {
             "WITH cand AS MATERIALIZED (SELECT si.ref_id FROM search_index si WHERE si.kind = 'deceased' AND {conds})
              SELECT trim(d.name_prefix || ' ' || d.family_name || ' ' || d.given_name) AS name,
                     substr(d.birth_date, 1, 4) AS birth_year, substr(d.death_date, 1, 4) AS death_year,
-                    c.name AS cemetery, c.id AS cemetery_id, p.identifier AS plot
+                    c.name AS cemetery, c.id AS cemetery_id, p.identifier AS plot, p.gps_lat AS lat, p.gps_lon AS lon
              FROM deceased d
              JOIN LATERAL (SELECT e.plot_id FROM interment_events e WHERE e.deceased_id = d.id AND e.voided_at IS NULL AND e.plot_id IS NOT NULL
                            ORDER BY e.event_date DESC LIMIT 1) last ON true
@@ -482,6 +482,97 @@ impl Store {
         )
     }
 
+    /// The GPS position of a plot, saved on site from a phone, so visitors
+    /// and colleagues can be guided to the grave.
+    pub fn set_plot_gps(&self, s: &Session, plot_id: &str, lat: Option<f64>, lon: Option<f64>) -> Result<()> {
+        if !s.can(Permission::EditMap) {
+            s.require(Permission::ManageStructure)?;
+        }
+        if let (Some(a), Some(o)) = (lat, lon) {
+            if !(-90.0..=90.0).contains(&a) || !(-180.0..=180.0).contains(&o) || (a == 0.0 && o == 0.0) {
+                return Err(CoreError::validation("gps", "invalid coordinates").with("code", "gps_invalid"));
+            }
+        } else if lat.is_some() != lon.is_some() {
+            return Err(CoreError::validation("gps", "both coordinates are needed").with("code", "gps_invalid"));
+        }
+        let tx = crate::db::tx(&self.conn)?;
+        let n = tx.execute(
+            "UPDATE plots SET gps_lat = ?2, gps_lon = ?3, updated_at = ?4, updated_by = ?5 WHERE id = ?1 AND voided_at IS NULL",
+            params![plot_id, lat, lon, crate::util::now_ts(), s.user_name],
+        )?;
+        if n == 0 {
+            return Err(CoreError::not_found("plot", plot_id));
+        }
+        crate::audit::record_simple(&tx, s, "plot", plot_id, "gps", Some(&format!("{lat:?}, {lon:?}")))?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// GDPR Art. 15 (access request): everything the register holds about a
+    /// living person – contact data, plots, leases, notices, e-mails' subjects,
+    /// money matters – as one JSON document. The request itself is logged.
+    pub fn person_data_export(&self, s: &Session, person_id: &str) -> Result<Value> {
+        s.require(Permission::ViewPersonal)?;
+        let person = json_rows(
+            &self.conn,
+            "SELECT name_prefix, family_name, given_name, address, mail_address, phone, email, notes, created_at, updated_at
+             FROM persons WHERE id = ?1",
+            vec![txt(person_id)],
+        )?
+        .into_iter()
+        .next()
+        .ok_or_else(|| CoreError::not_found("person", person_id))?;
+        let p = || vec![txt(person_id)];
+        let plots = json_rows(
+            &self.conn,
+            "SELECT p.identifier, c.name AS cemetery, h.role, h.relation, h.start_date, h.end_date, h.legal_basis
+             FROM plot_holders h JOIN plots p ON p.id = h.plot_id JOIN cemeteries c ON c.id = p.cemetery_id
+             WHERE h.person_id = ?1 AND h.voided_at IS NULL ORDER BY h.start_date",
+            p(),
+        )?;
+        let leases = json_rows(
+            &self.conn,
+            "SELECT p.identifier, l.kind, l.start_date, l.duration_years, l.expiry_date, l.fee_huf, l.status
+             FROM leases l JOIN plots p ON p.id = l.plot_id WHERE l.person_id = ?1 AND l.voided_at IS NULL ORDER BY l.start_date",
+            p(),
+        )?;
+        let arranged = json_rows(
+            &self.conn,
+            "SELECT e.folio, e.event_type, e.event_date, trim(d.family_name || ' ' || d.given_name) AS deceased
+             FROM interment_events e JOIN deceased d ON d.id = e.deceased_id WHERE e.arranger_id = ?1 AND e.voided_at IS NULL ORDER BY e.event_date",
+            p(),
+        )?;
+        let notices = json_rows(
+            &self.conn,
+            "SELECT p.identifier, n.kind, n.notice_date, n.result FROM notices n JOIN plots p ON p.id = n.plot_id
+             JOIN plot_holders h ON h.plot_id = n.plot_id AND h.person_id = ?1 AND h.voided_at IS NULL
+             WHERE n.voided_at IS NULL ORDER BY n.notice_date",
+            p(),
+        )?;
+        let money = json_rows(
+            &self.conn,
+            "SELECT 'számla' AS kind, number AS reference, issue_date AS date, gross_huf AS amount_huf, status FROM invoices WHERE person_id = ?1
+             UNION ALL SELECT 'befizetés', reference, paid_on, amount_huf, CASE WHEN voided_at IS NULL THEN 'érvényes' ELSE 'érvénytelen' END FROM payments WHERE person_id = ?1
+             ORDER BY 3",
+            p(),
+        )?;
+        let tx = crate::db::tx(&self.conn)?;
+        crate::audit::record_simple(&tx, s, "person", person_id, "data_export", Some("GDPR 15. cikk szerinti adatkiadás"))?;
+        tx.commit()?;
+        Ok(json!({
+            "format": "TEMISZ adatkiadás (GDPR 15. cikk)",
+            "createdAt": crate::util::now_ts(),
+            "controller": settings::get(&self.conn, "operator.name", None)?.unwrap_or_default(),
+            "purpose": "A temetőkről és a temetkezésről szóló 1999. évi XLIII. törvény szerinti nyilvántartás vezetése, a temetési helyek használatának és díjainak kezelése.",
+            "person": person,
+            "plots": plots,
+            "leases": leases,
+            "arrangedBurials": arranged,
+            "notices": notices,
+            "invoicesAndPayments": money,
+        }))
+    }
+
     /// FR-UGY-02: the family can ask that a deceased does not appear publicly.
     pub fn set_deceased_public(&self, s: &Session, deceased_id: &str, hidden: bool) -> Result<()> {
         s.require(Permission::RecordEvents)?;
@@ -546,6 +637,12 @@ mod tests {
         assert!(map["plots"].as_array().unwrap().len() > 100);
         assert!(map["plots"].as_array().unwrap().iter().any(|p| p[0] == hits[0]["plot"]));
         assert!(map["sections"][0]["code"].is_string());
+        // a GPS position saved on site shows in public as a route target
+        let pid: String = store.conn.query_row("SELECT id FROM plots WHERE identifier = ?1", params![hits[0]["plot"].as_str().unwrap()], |r| r.get(0)).unwrap();
+        assert_eq!(store.set_plot_gps(&s, &pid, Some(0.0), Some(0.0)).unwrap_err().code, "validation");
+        store.set_plot_gps(&s, &pid, Some(46.9071), Some(19.6925)).unwrap();
+        let again = store.public_search("kovács").unwrap();
+        assert_eq!(again.iter().find(|h| h["plot"] == hits[0]["plot"]).unwrap()["lat"], 46.9071);
         let name = hits[0]["name"].as_str().unwrap().to_string();
         let id: String = store
             .conn
@@ -599,6 +696,22 @@ mod tests {
         // long expired leases are left for manual handling
         lease("1990-01-01");
         assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+    }
+
+    #[test]
+    fn person_data_export_collects_everything_and_is_logged() {
+        let (store, s, _) = setup();
+        let pid: String = store.conn.query_row("SELECT person_id FROM plot_holders WHERE role = 'primary' LIMIT 1", [], |r| r.get(0)).unwrap();
+        let out = store.person_data_export(&s, &pid).unwrap();
+        assert!(out["person"]["familyName"].is_string());
+        assert!(!out["plots"].as_array().unwrap().is_empty());
+        let logged: i64 = store
+            .conn
+            .query_row("SELECT count(*) FROM audit_log WHERE entity = 'person' AND entity_id = ?1 AND action = 'data_export'", params![pid], |r| r.get(0))
+            .unwrap();
+        assert_eq!(logged, 1);
+        let reader = Session::for_role(None, "olvaso", "Olvasó", crate::auth::Role::Reader, &[]);
+        assert_eq!(store.person_data_export(&reader, &pid).unwrap_err().code, "forbidden");
     }
 
     #[test]

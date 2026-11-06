@@ -800,7 +800,7 @@ function CompleteDialog({ order, manage, onClose }: { order: WorkOrder; manage: 
 
 const MAX_UPLOAD = 3 * 1024 * 1024;
 
-async function uploadFile(entity: string, entityId: string, file: File) {
+export async function uploadFile(entity: string, entityId: string, file: File) {
   if (file.size > MAX_UPLOAD) {
     const { ApiError } = await import("../../lib/api");
     throw new ApiError({ code: "file_too_large", message: "file too large", params: { maxMb: "3" } });

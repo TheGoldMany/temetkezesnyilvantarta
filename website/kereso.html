@@ -60,6 +60,7 @@
       #map .lbl { fill: var(--cypress); font-weight: 700; font-family: inherit; }
       #map .hl { fill: var(--marigold); stroke: #8a5c00; stroke-width: 1; }
       #map .ring { fill: none; stroke: var(--marigold); stroke-width: 2; }
+      .ghost-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; font-weight: 600; color: var(--cypress); border: 1px solid var(--line); border-radius: 10px; text-decoration: none; }
       .hint { color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
       footer { margin-top: 18px; font-size: 0.85rem; color: var(--ink-2); }
       footer a { color: inherit; }
@@ -294,6 +295,13 @@
             b.type = "button";
             b.addEventListener("click", function () { showMap(r.cemeteryId, r.plot); });
             where.appendChild(b);
+            if (r.lat != null && r.lon != null) {
+              var nav = el("a", "ghost-link", "Útvonal");
+              nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + r.lat + "," + r.lon + "&travelmode=walking";
+              nav.target = "_blank";
+              nav.rel = "noopener";
+              where.appendChild(nav);
+            }
             li.appendChild(who);
             li.appendChild(where);
             list.appendChild(li);

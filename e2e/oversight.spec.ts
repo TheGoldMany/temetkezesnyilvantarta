@@ -61,5 +61,5 @@ test("fenntartói beszámoló, e-mail értesítő, nyilvános sírkereső", asyn
   const res = await page.request.get(`/api/public/search${url.search}&q=Kov%C3%A1cs`);
   expect(res.headers()["access-control-allow-origin"]).toBe("*");
   const body = await res.json();
-  expect(Object.keys(body.results[0]).sort()).toEqual(["birthYear", "cemetery", "cemeteryId", "deathYear", "name", "plot"]);
+  expect(Object.keys(body.results[0]).sort()).toEqual(["birthYear", "cemetery", "cemeteryId", "deathYear", "lat", "lon", "name", "plot"]);
 });
