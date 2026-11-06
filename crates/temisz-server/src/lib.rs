@@ -10,6 +10,7 @@ pub mod accounts;
 pub mod billing;
 pub mod lifecycle;
 pub mod mail;
+pub mod reminders;
 pub mod tenant_data;
 pub mod totp;
 
@@ -127,7 +128,8 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             if !ok {
                 return Response::text(401, "unauthorized");
             }
-            let res = billing::daily(store, &accounts::base_url(req)).and_then(|b| Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)? })));
+            let res = billing::daily(store, &accounts::base_url(req))
+                .and_then(|b| Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)?, "reminders": reminders::daily(store)? })));
             match res {
                 Ok(v) => Response::json(&v),
                 Err(e) => Response::text(500, &e.to_string()),

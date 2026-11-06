@@ -185,3 +185,44 @@ fn bank_statement_settles_proformas() {
     billing::resolve_line(&store.conn, other["id"].as_str().unwrap(), None, "admin").unwrap();
     assert!(billing::bank_lines(&store.conn).unwrap().iter().all(|l| l["partner"] != "Valaki Más"));
 }
+
+/// The daily job e-mails holders whose lease expires within half a year,
+/// once, and sends the office a summary.
+#[test]
+fn daily_job_sends_expiry_reminders() {
+    let store = platform();
+    let (tenant, _) = new_customer(&store, "reminder");
+    let sys = Session::system();
+    api::dispatch(&store, &sys, "sample.load", &json!({})).unwrap();
+    let in_100 = lunda_core::util::fmt_date(lunda_core::util::today() + chrono::Duration::days(100));
+    let plot: String = store.conn.query_row("SELECT plot_id FROM leases WHERE status = 'active' AND voided_at IS NULL LIMIT 1", [], |r| r.get(0)).unwrap();
+    store.conn.execute("UPDATE leases SET expiry_date = ?2 WHERE plot_id = ?1 AND status = 'active'", lunda_core::params![plot, in_100]).unwrap();
+    let address = format!("jogosult-{}@pelda.hu", &tenant[..8]);
+    store
+        .conn
+        .execute(
+            "UPDATE persons SET email = ?2 WHERE id = (SELECT person_id FROM plot_holders WHERE plot_id = ?1 AND role = 'primary' AND end_date IS NULL LIMIT 1)",
+            lunda_core::params![plot, address],
+        )
+        .unwrap();
+    // nothing happens until the operator switches the reminders on
+    temisz_server::reminders::daily(&store).unwrap();
+    let count = |kind: &str| -> i64 {
+        store
+            .conn
+            .query_row("SELECT count(*) FROM platform.emails WHERE tenant_id = ?1 AND kind = ?2", lunda_core::params![tenant, kind], |r| r.get(0))
+            .unwrap()
+    };
+    assert_eq!(count("expiry_reminder"), 0);
+    store.conn.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('notify.auto_expiry', '', 'true', 'x') ON CONFLICT (key, cemetery_id) DO UPDATE SET value = 'true'", []).unwrap();
+    temisz_server::reminders::daily(&store).unwrap();
+    let to: String = store
+        .conn
+        .query_row("SELECT to_address FROM platform.emails WHERE tenant_id = ?1 AND kind = 'expiry_reminder'", lunda_core::params![tenant], |r| r.get(0))
+        .unwrap();
+    assert_eq!(to, address);
+    assert_eq!(count("reminder_summary"), 1);
+    // the next day nothing new goes to the same holder
+    temisz_server::reminders::daily(&store).unwrap();
+    assert_eq!(count("expiry_reminder"), 1);
+}

@@ -305,6 +305,11 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         // ---- maintainer reports, notices, public search (W12)
         "reports.annual" => ok(store.annual_report(s, opt::<String>(a, "cemeteryId")?.as_deref(), arg::<i32>(a, "year")?)?),
         "reports.capacity" => ok(store.capacity(opt::<String>(a, "cemeteryId")?.as_deref())?),
+        "reminders.status" => ok(json!({
+            "enabled": store.auto_reminders_enabled()?,
+            "due": store.auto_reminder_plots()?.len(),
+            "unanswered": store.unanswered_reminders()?,
+        })),
         "notices.emailPrepare" => ok(store.expiry_mails(s, &arg::<Vec<String>>(a, "plotIds")?)?),
         "invoices.reminderMail" => ok(store.reminder_mail(s, &arg::<String>(a, "id")?)?),
         "deceased.setPublic" => {

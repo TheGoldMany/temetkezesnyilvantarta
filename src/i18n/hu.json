@@ -1483,7 +1483,19 @@
     "subject": "Tárgy",
     "delivered": "Kézbesítésre átadva",
     "queued": "Naplózva",
-    "failed": "Sikertelen"
+    "failed": "Sikertelen",
+    "autoTitle": "Automatikus emlékeztetők",
+    "autoIntro": "A program e-mailt küld a rendelkezési jogosultnak fél évvel a lejárat előtt, majd a lejárat után havonta, amíg újra nem váltja (legfeljebb egy évig). Minden levél értesítésként kerül a nyilvántartásba. Akinek nincs e-mail-címe, vagy több levél után sem jelentkezett, az lent látszik, és hétfőnként összesítőt küldünk róluk az üzemeltető e-mail-címére.",
+    "autoEnable": "Automatikus emlékeztetők bekapcsolása",
+    "autoDue_one": "Ma 1 emlékeztető esedékes.",
+    "autoDue_other": "Ma {{count}} emlékeztető esedékes.",
+    "autoDue": "Ma {{count}} emlékeztető esedékes.",
+    "unanswered": "Nem reagáltak ({{count}})",
+    "noUnanswered": "Mindenki reagált, vagy még nem járt le senki megváltása.",
+    "whatHappened": "Mi a helyzet",
+    "reasonNoEmail": "Nincs e-mail-címe – levelet kell küldeni",
+    "reasonNoReply": "{{count}} emlékeztető után sem jelentkezett (utoljára: {{date}})",
+    "printForNoEmail": "Levelek nyomtatása az e-mail nélkülieknek ({{count}})"
   },
   "annual": {
     "title": "Éves beszámoló a fenntartónak",

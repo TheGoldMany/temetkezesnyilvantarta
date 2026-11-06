@@ -303,6 +303,75 @@ impl Store {
         Ok(OutMail { to, reply_to: self.reply_to()?, subject: format!("Fizetési emlékeztető – {} számla", inv.number), body, ref_id: inv.id })
     }
 
+    // ---------------------------------------------------------------- automatic reminders
+
+    /// Whether the operator switched on the automatic expiry reminders.
+    pub fn auto_reminders_enabled(&self) -> Result<bool> {
+        Ok(settings::get(&self.conn, "notify.auto_expiry", None)?.as_deref() == Some("true"))
+    }
+
+    /// Plots whose holder is due an automatic reminder today: one half a year
+    /// before the expiry, then one a month after it (for leases that expired
+    /// in the last year, at most twelve). Only holders with an e-mail address.
+    pub fn auto_reminder_plots(&self) -> Result<Vec<String>> {
+        let t = today();
+        let d = |days: i64| fmt_date(t + chrono::Duration::days(days));
+        let mut st = self.conn.prepare(&format!(
+            "SELECT p.id FROM leases l
+             JOIN plots p ON p.id = l.plot_id
+             JOIN plot_holders h ON h.plot_id = p.id AND h.role = 'primary' AND h.end_date IS NULL AND h.voided_at IS NULL
+             JOIN persons pe ON pe.id = h.person_id
+             WHERE l.status = 'active' AND l.voided_at IS NULL AND p.voided_at IS NULL
+               AND NOT (p.protected = 1 AND p.protection_kind = 'national')
+               AND pe.email LIKE '%@%.%'
+               AND l.expiry_date <= ?2 AND l.expiry_date >= ?3
+               AND (
+                 (l.expiry_date >= ?1 AND NOT EXISTS (
+                    SELECT 1 FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                      AND n.notice_date >= to_char(CAST(l.expiry_date AS DATE) - {half}, 'YYYY-MM-DD')))
+                 OR
+                 (l.expiry_date < ?1
+                   AND NOT EXISTS (SELECT 1 FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL AND n.notice_date > ?4)
+                   AND (SELECT count(*) FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                          AND n.notice_date >= l.expiry_date) < 12)
+               )
+             ORDER BY l.expiry_date",
+            half = 183
+        ))?;
+        let rows = st.query_map(params![d(0), d(183), d(-365), d(-30)], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// Holders who did not react: the lease expired, at least two reminders
+    /// went out (the one before the expiry and one after), the last one more
+    /// than two weeks ago, and nobody renewed. Also lists holders without an
+    /// e-mail address whose lease expired, since they need a letter.
+    pub fn unanswered_reminders(&self) -> Result<Vec<Value>> {
+        let t = today();
+        let d = |days: i64| fmt_date(t + chrono::Duration::days(days));
+        json_rows(
+            &self.conn,
+            "SELECT * FROM (
+                SELECT p.id AS plot_id, p.identifier, l.expiry_date, trim(pe.name_prefix || ' ' || pe.family_name || ' ' || pe.given_name) AS holder_name,
+                       nullif(trim(pe.email), '') AS email, nullif(trim(pe.phone), '') AS phone, pe.address,
+                       (SELECT count(*) FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                          AND n.notice_date >= to_char(CAST(l.expiry_date AS DATE) - 183, 'YYYY-MM-DD')) AS reminders,
+                       (SELECT max(n.notice_date) FROM notices n WHERE n.plot_id = p.id AND n.voided_at IS NULL) AS last_notice,
+                       CASE WHEN nullif(trim(pe.email), '') IS NULL THEN 'no_email' ELSE 'no_reply' END AS reason
+                FROM leases l
+                JOIN plots p ON p.id = l.plot_id
+                JOIN plot_holders h ON h.plot_id = p.id AND h.role = 'primary' AND h.end_date IS NULL AND h.voided_at IS NULL
+                JOIN persons pe ON pe.id = h.person_id
+                WHERE l.status = 'active' AND l.voided_at IS NULL AND p.voided_at IS NULL
+                  AND l.expiry_date < ?1 AND l.expiry_date >= ?2
+             ) x
+             WHERE (x.email IS NOT NULL AND x.reminders >= 2 AND x.last_notice < ?3)
+                OR (x.email IS NULL AND (x.last_notice IS NULL OR x.last_notice < x.expiry_date))
+             ORDER BY x.expiry_date",
+            vec![txt(d(0)), txt(d(-365)), txt(d(-14))],
+        )
+    }
+
     // ---------------------------------------------------------------- public grave search (FR-UGY-02)
 
     /// Whether the operator publishes the grave search (opt-in).
@@ -458,6 +527,43 @@ mod tests {
         store.set_deceased_public(&s, &id, true).unwrap();
         let after = store.public_search("kovács").unwrap();
         assert_eq!(after.iter().filter(|h| h["name"] == name).count() + 1, hits.iter().filter(|h| h["name"] == name).count());
+    }
+
+    #[test]
+    fn automatic_reminders_half_year_before_then_monthly() {
+        let (store, s, cem) = setup();
+        let plot: String = store.conn.query_row("SELECT id FROM plots WHERE cemetery_id = ?1 AND identifier = 'C/1/1'", params![cem], |r| r.get(0)).unwrap();
+        let person = store
+            .save_person(&s, &Person { family_name: "Emlékeztető".into(), given_name: "Emma".into(), email: "emma@pelda.hu".into(), ..Default::default() })
+            .unwrap();
+        store.conn.execute("INSERT INTO plot_holders (id, plot_id, person_id, role, start_date, created_at, updated_at) VALUES ('h1', ?1, ?2, 'primary', '2000-01-01', 'x', 'x')", params![plot, person.id]).unwrap();
+        let lease = |exp: &str| {
+            store.conn.execute("UPDATE leases SET status = 'superseded' WHERE plot_id = ?1", params![plot]).unwrap();
+            store.conn.execute(
+                "INSERT INTO leases (id, plot_id, person_id, kind, start_date, duration_years, expiry_date, created_at, updated_at) VALUES (?3, ?1, ?2, 'purchase', '2001-01-01', 25, ?4, 'x', 'x')",
+                params![plot, person.id, crate::util::new_id(), exp],
+            ).unwrap();
+        };
+        let in_days = |n: i64| fmt_date(today() + chrono::Duration::days(n));
+        // 100 days before the expiry: the half-year reminder is due once
+        lease(&in_days(100));
+        assert!(store.auto_reminder_plots().unwrap().contains(&plot));
+        store.record_notices(&s, std::slice::from_ref(&plot), "email", &in_days(0), "automatikus").unwrap();
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+        // expired 40 days ago, last reminder 35 days ago: the monthly one is due
+        lease(&in_days(-40));
+        store.conn.execute("UPDATE notices SET notice_date = ?2 WHERE plot_id = ?1", params![plot, in_days(-35)]).unwrap();
+        assert!(store.auto_reminder_plots().unwrap().contains(&plot));
+        store.record_notices(&s, std::slice::from_ref(&plot), "email", &in_days(-20), "automatikus").unwrap();
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+        // two reminders, the last 20 days ago, no renewal: flagged
+        let un = store.unanswered_reminders().unwrap();
+        let row = un.iter().find(|r| r["plotId"] == plot.as_str()).expect("flagged");
+        assert_eq!(row["reason"], "no_reply");
+        assert_eq!(row["reminders"], 2);
+        // long expired leases are left for manual handling
+        lease("1990-01-01");
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
     }
 
     #[test]

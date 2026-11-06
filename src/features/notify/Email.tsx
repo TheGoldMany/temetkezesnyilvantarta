@@ -121,3 +121,93 @@ export function EmailLog() {
     </Panel>
   );
 }
+
+interface ReminderStatus {
+  enabled: boolean;
+  due: number;
+  unanswered: { plotId: string; identifier: string; expiryDate: string; holderName: string | null; email: string | null; phone: string | null; address: string | null; reminders: number; lastNotice: string | null; reason: "no_email" | "no_reply" }[];
+}
+
+/** Automatic expiry reminders: switch, and the holders who did not react. */
+export function AutoReminders({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation();
+  const invalidate = useInvalidate();
+  const q = useQuery({ queryKey: ["reminders"], queryFn: () => api<ReminderStatus>("reminders.status") });
+  const [on, setOn] = useState<boolean | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const r = q.data;
+  if (!r) return null;
+  const enabled = on ?? r.enabled;
+  const noEmail = r.unanswered.filter((u) => u.reason === "no_email");
+  return (
+    <Panel title={t("notify.autoTitle")}>
+      <div className="flex flex-col gap-4" data-testid="auto-reminders">
+        <p className="text-granite">{t("notify.autoIntro")}</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex cursor-pointer items-center gap-3 font-semibold">
+            <input
+              type="checkbox"
+              className="size-5 accent-[var(--c-moss)]"
+              checked={enabled}
+              disabled={!canManage}
+              onChange={async (e) => {
+                const v = e.target.checked;
+                setOn(v);
+                setError(null);
+                try {
+                  await api("settings.set", { values: { "notify.auto_expiry": v ? "true" : "false" } });
+                  await invalidate();
+                } catch (err) {
+                  setOn(null);
+                  setError(err);
+                }
+              }}
+            />
+            {t("notify.autoEnable")}
+          </label>
+          {enabled && <span className="text-granite">{t("notify.autoDue", { count: r.due })}</span>}
+        </div>
+        <ErrorAlert error={error} />
+        <h3 className="font-semibold">{t("notify.unanswered", { count: r.unanswered.length })}</h3>
+        {r.unanswered.length === 0 ? (
+          <p className="text-granite">{t("notify.noUnanswered")}</p>
+        ) : (
+          <>
+            <table className="w-full min-w-[720px]" data-testid="unanswered">
+              <thead>
+                <tr className="border-b border-seam text-left text-sm text-granite">
+                  <th className="py-2 pr-4 font-medium">{t("fields.plot")}</th>
+                  <th className="py-2 pr-4 font-medium">{t("fields.holder")}</th>
+                  <th className="py-2 pr-4 font-medium">{t("fields.leaseExpiry")}</th>
+                  <th className="py-2 pr-4 font-medium">{t("notify.whatHappened")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.unanswered.map((u) => (
+                  <tr key={u.plotId} className="border-b border-seam last:border-0">
+                    <td className="py-2.5 pr-4">
+                      <Plaque identifier={u.identifier} />
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <span className="font-semibold">{u.holderName ?? "–"}</span>
+                      <span className="block text-sm text-granite">{[u.phone, u.email, u.address].filter(Boolean).join(" · ")}</span>
+                    </td>
+                    <td className="py-2.5 pr-4 tabular-nums">{u.expiryDate}</td>
+                    <td className={cx("py-2.5 pr-4", u.reason === "no_email" && "text-warn")}>
+                      {u.reason === "no_email" ? t("notify.reasonNoEmail") : t("notify.reasonNoReply", { count: u.reminders, date: u.lastNotice ?? "" })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {noEmail.length > 0 && (
+              <div>
+                <PrintButton doc="expiry_notice" args={{ plotIds: noEmail.map((u) => u.plotId) }} label={t("notify.printForNoEmail", { count: noEmail.length })} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
