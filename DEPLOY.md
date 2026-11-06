@@ -19,7 +19,7 @@ A lépések sorrendje fontos. A `main` ágra csak akkor kerüljön a webes vált
 
 1. Vercel › Integrations › **Resend**, vagy közvetlenül a resend.com-on.
 2. Domain hozzáadása: `temisz.hu`. A megadott SPF-, DKIM- és DMARC-rekordokat vegye fel a DNS-be.
-3. Környezeti változók: `RESEND_API_KEY`, `MAIL_FROM=TEMISZ <noreply@temisz.hu>`.
+3. Környezeti változók: `RESEND_API_KEY`, `MAIL_FROM=TEMISZ <info@lundasoftware.hu>`.
 4. Az ügyfelek nevében küldött levelek (lejárati értesítő, fizetési emlékeztető) is erről a címről mennek; a válasz az üzemeltető Beállítások › Üzemeltető alatt megadott e-mail-címére érkezik (Reply-To). Ezért a temisz.hu domain SPF- és DKIM-rekordját a Resend útmutatója szerint be kell állítani.
 
 ## 4. Környezeti változók (Vercel › Settings › Environment Variables, Production)
