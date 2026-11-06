@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, FileText, Landmark } from "lucide-react";
+import { FileText, Landmark } from "lucide-react";
 import { command } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Panel, Spinner, TextField, cx } from "../../components/ui";
 import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
@@ -19,17 +19,15 @@ interface Overview {
   cemeteryCount: number;
   vatPercent: number;
   prices: { monthly: Price; yearly: Price };
-  cardAvailable: boolean;
   details: { name: string; taxNumber: string; postcode: string; city: string; address: string; email: string } | null;
   subscription: {
     plan: "monthly" | "yearly";
-    paymentMethod: "card" | "transfer";
+    paymentMethod: "transfer";
     cemeteryCount: number;
     status: "pending" | "active" | "past_due" | "canceled";
     periodStart: string | null;
     periodEnd: string | null;
     cancelAtPeriodEnd: boolean;
-    cardPortal: boolean;
   } | null;
   invoices: { id: string; kind: "proforma" | "invoice"; number: string; description: string; grossHuf: number; date: string; dueDate: string | null; status: string; hasPdf: boolean }[];
 }
@@ -43,7 +41,6 @@ export function SubscriptionTab() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["billing"], queryFn: () => command<Overview>("billing_overview") });
   const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
-  const [method, setMethod] = useState<"transfer" | "card">("transfer");
   const [editDetails, setEditDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -59,11 +56,7 @@ export function SubscriptionTab() {
     setBusy(true);
     setError(null);
     try {
-      const r = await command<{ redirect?: string }>("billing_subscribe", { plan, paymentMethod: method });
-      if (r.redirect) {
-        window.location.href = r.redirect;
-        return;
-      }
+      await command("billing_subscribe", { plan, paymentMethod: "transfer" });
       setDone(true);
       await reload();
     } catch (e) {
@@ -84,13 +77,6 @@ export function SubscriptionTab() {
               {sub.status === "pending" ? t("billing.pending") : sub.periodEnd ? t("billing.paidUntil", { date: sub.periodEnd }) : ""}
               {sub.cancelAtPeriodEnd && ` ${t("billing.cancelAtEnd")}`}
             </p>
-          )}
-          {sub?.cardPortal && (
-            <div>
-              <Button icon={<CreditCard className="size-5" aria-hidden />} onClick={async () => (window.location.href = (await command<{ redirect: string }>("billing_portal")).redirect)}>
-                {t("billing.portal")}
-              </Button>
-            </div>
           )}
           {done && <Alert tone="ok">{t("billing.proformaSent")}</Alert>}
         </div>
@@ -121,23 +107,11 @@ export function SubscriptionTab() {
             </div>
 
             <div>
-              <p className="mb-2 font-semibold">{t("billing.paymentMethod")}</p>
-              <div className="flex flex-wrap gap-3">
-                <Button variant={method === "transfer" ? "primary" : "secondary"} icon={<Landmark className="size-5" aria-hidden />} onClick={() => setMethod("transfer")} aria-pressed={method === "transfer"}>
-                  {t("billing.method.transfer")}
-                </Button>
-                <Button
-                  variant={method === "card" ? "primary" : "secondary"}
-                  icon={<CreditCard className="size-5" aria-hidden />}
-                  onClick={() => setMethod("card")}
-                  aria-pressed={method === "card"}
-                  disabled={!o.cardAvailable}
-                  title={o.cardAvailable ? undefined : t("billing.cardSoon")}
-                >
-                  {t("billing.method.card")}
-                </Button>
-              </div>
-              <p className="mt-2 text-sm text-granite">{method === "transfer" ? t("billing.transferHint") : t("billing.cardHint")}</p>
+              <p className="mb-1 flex items-center gap-2 font-semibold">
+                <Landmark className="size-5" aria-hidden />
+                {t("billing.paymentMethod")}: {t("billing.method.transfer")}
+              </p>
+              <p className="text-sm text-granite">{t("billing.transferHint")}</p>
             </div>
 
             {(!o.details || editDetails) && <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />}
@@ -158,7 +132,7 @@ export function SubscriptionTab() {
             <ErrorAlert error={error} />
             <div>
               <Button variant="primary" size="lg" busy={busy} disabled={!o.details || editDetails} onClick={subscribe}>
-                {method === "transfer" ? t("billing.subscribeTransfer") : t("billing.subscribeCard")}
+                {t("billing.subscribeTransfer")}
               </Button>
             </div>
           </div>

@@ -936,41 +936,14 @@ impl Store {
     /// by their header: date, amount, partner, reference. Lines seen before are skipped.
     pub fn import_bank_csv(&self, s: &Session, cemetery_id: &str, file_name: &str, content_b64: &str) -> Result<Value> {
         s.require(Permission::RecordPayments)?;
-        let table = crate::io::read_upload(file_name, content_b64, None)?;
-        let find = |names: &[&str]| {
-            table.headers.iter().position(|h| {
-                let h = crate::text::normalize(h);
-                names.iter().any(|n| h.contains(n))
-            })
-        };
-        let c_date = find(&["datum", "konyveles", "date"]).ok_or_else(|| CoreError::new("bank_columns", "date column not found").with("column", "dátum"))?;
-        let c_amount =
-            find(&["osszeg", "amount", "jovairas"]).ok_or_else(|| CoreError::new("bank_columns", "amount column not found").with("column", "összeg"))?;
-        let c_partner = find(&["partner", "nev", "kedvezmenyezett", "befizeto", "ellenoldal"]);
-        let c_ref = find(&["kozlemeny", "megjegyzes", "reference", "leiras"]);
-        let (mut added, mut skipped) = (0, 0);
+        let (lines, mut skipped) = parse_bank_statement(file_name, content_b64)?;
+        let mut added = 0;
         let tx = crate::db::tx(&self.conn)?;
-        for row in &table.rows {
-            let get = |i: Option<usize>| i.and_then(|i| row.get(i)).map(|v| v.trim().to_string()).unwrap_or_default();
-            let date = match crate::io::parse_date_loose(&get(Some(c_date))) {
-                Some(d) => fmt_date(d),
-                None => {
-                    skipped += 1;
-                    continue;
-                }
-            };
-            let raw = get(Some(c_amount)).replace([' ', '\u{a0}', '+'], "").replace("Ft", "").replace(',', ".");
-            let Ok(amount) = raw.parse::<f64>() else {
-                skipped += 1;
-                continue;
-            };
-            let amount = amount.round() as i64;
-            let (partner, reference) = (get(c_partner), get(c_ref));
-            let fp = sha256_hex(format!("{date}|{amount}|{partner}|{reference}").as_bytes());
+        for l in &lines {
             let n = tx.execute(
                 "INSERT INTO bank_transactions (id, cemetery_id, booked_on, amount_huf, partner, reference, fingerprint, created_at, created_by)
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9) ON CONFLICT DO NOTHING",
-                params![new_id(), cemetery_id, date, amount, partner, reference, fp, now_ts(), s.user_name],
+                params![new_id(), cemetery_id, l.booked_on, l.amount_huf, l.partner, l.reference, l.fingerprint, now_ts(), s.user_name],
             )?;
             if n == 1 {
                 added += 1
@@ -1233,6 +1206,54 @@ impl Store {
             "vatCodes": VAT_CODES,
         }))
     }
+}
+
+/// One line of a bank statement.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BankLine {
+    pub booked_on: String,
+    pub amount_huf: i64,
+    pub partner: String,
+    pub reference: String,
+    /// stable hash of the line, so a statement imported twice adds nothing
+    pub fingerprint: String,
+}
+
+/// Reads a statement exported from an internet bank (CSV or XLSX, base64).
+/// Columns are found by their header: date, amount, partner, reference.
+/// Returns the lines and the number of rows that could not be read.
+pub fn parse_bank_statement(file_name: &str, content_b64: &str) -> Result<(Vec<BankLine>, usize)> {
+    let table = crate::io::read_upload(file_name, content_b64, None)?;
+    let find = |names: &[&str]| {
+        table.headers.iter().position(|h| {
+            let h = crate::text::normalize(h);
+            names.iter().any(|n| h.contains(n))
+        })
+    };
+    let c_date = find(&["datum", "konyveles", "date"]).ok_or_else(|| CoreError::new("bank_columns", "date column not found").with("column", "dátum"))?;
+    let c_amount = find(&["osszeg", "amount", "jovairas"]).ok_or_else(|| CoreError::new("bank_columns", "amount column not found").with("column", "összeg"))?;
+    let c_partner = find(&["partner", "nev", "kedvezmenyezett", "befizeto", "ellenoldal"]);
+    let c_ref = find(&["kozlemeny", "megjegyzes", "reference", "leiras"]);
+    let mut out = vec![];
+    let mut skipped = 0;
+    for row in &table.rows {
+        let get = |i: Option<usize>| i.and_then(|i| row.get(i)).map(|v| v.trim().to_string()).unwrap_or_default();
+        let Some(date) = crate::io::parse_date_loose(&get(Some(c_date))).map(fmt_date) else {
+            skipped += 1;
+            continue;
+        };
+        let raw = get(Some(c_amount)).replace([' ', '\u{a0}', '+'], "").replace("Ft", "").replace(',', ".");
+        let Ok(amount) = raw.parse::<f64>() else {
+            skipped += 1;
+            continue;
+        };
+        let amount = amount.round() as i64;
+        let (partner, reference) = (get(c_partner), get(c_ref));
+        let fingerprint = sha256_hex(format!("{date}|{amount}|{partner}|{reference}").as_bytes());
+        out.push(BankLine { booked_on: date, amount_huf: amount, partner, reference, fingerprint });
+    }
+    Ok((out, skipped))
 }
 
 fn refresh_invoice_paid(conn: &crate::sql::Connection, invoice_id: &str) -> Result<()> {

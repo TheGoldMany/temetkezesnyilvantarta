@@ -1,5 +1,5 @@
 //! Subscription and billing (W3): 30-day trial, per-cemetery price,
-//! transfer (proforma → invoice) or card (Stripe), read-only after expiry.
+//! bank transfer (proforma → invoice, statement matching), read-only after expiry.
 
 #![allow(clippy::type_complexity)]
 
@@ -10,7 +10,7 @@ use lunda_core::util::new_id;
 use lunda_core::{CoreError, Result, Store};
 use serde_json::{json, Value};
 
-use crate::{mail, stripe};
+use crate::mail;
 use lunda_core::szamlazz::{self, Document, Line, Party};
 
 pub const MONTHLY_NET: i64 = 45_000;
@@ -84,15 +84,13 @@ pub struct Sub {
     pub start: Option<NaiveDate>,
     pub end: Option<NaiveDate>,
     pub cancel_at_end: bool,
-    pub stripe_customer: Option<String>,
-    pub stripe_sub: Option<String>,
 }
 
 pub fn subscription(conn: &Connection, tenant_id: &str) -> Result<Option<Sub>> {
     let row = conn
         .query_row(
             "SELECT plan, payment_method, cemetery_count, status, to_char(current_period_start, 'YYYY-MM-DD'),
-                    to_char(current_period_end, 'YYYY-MM-DD'), cancel_at_period_end, stripe_customer_id, stripe_subscription_id
+                    to_char(current_period_end, 'YYYY-MM-DD'), cancel_at_period_end
              FROM platform.subscriptions WHERE tenant_id = ?1",
             params![tenant_id],
             |r| {
@@ -104,13 +102,11 @@ pub fn subscription(conn: &Connection, tenant_id: &str) -> Result<Option<Sub>> {
                     r.get::<_, Option<String>>(4)?,
                     r.get::<_, Option<String>>(5)?,
                     r.get::<_, bool>(6)?,
-                    r.get::<_, Option<String>>(7)?,
-                    r.get::<_, Option<String>>(8)?,
                 ))
             },
         )
         .optional()?;
-    let Some((plan, method, count, status, start, end, cancel, cust, sub)) = row else { return Ok(None) };
+    let Some((plan, method, count, status, start, end, cancel)) = row else { return Ok(None) };
     Ok(Some(Sub {
         plan,
         method,
@@ -119,8 +115,6 @@ pub fn subscription(conn: &Connection, tenant_id: &str) -> Result<Option<Sub>> {
         start: start.as_deref().map(parse).transpose()?,
         end: end.as_deref().map(parse).transpose()?,
         cancel_at_end: cancel,
-        stripe_customer: cust,
-        stripe_sub: sub,
     }))
 }
 
@@ -198,8 +192,7 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
         .optional()?;
     let sub = subscription(conn, tenant_id)?.map(|s| {
         json!({ "plan": s.plan, "paymentMethod": s.method, "cemeteryCount": s.count, "status": s.status,
-                "periodStart": s.start.map(ymd), "periodEnd": s.end.map(ymd), "cancelAtPeriodEnd": s.cancel_at_end,
-                "cardPortal": s.stripe_customer.is_some() })
+                "periodStart": s.start.map(ymd), "periodEnd": s.end.map(ymd), "cancelAtPeriodEnd": s.cancel_at_end })
     });
     let invoices: Vec<Value> = conn
         .prepare(
@@ -223,7 +216,6 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
         "cemeteryCount": count,
         "vatPercent": VAT_PERCENT,
         "prices": { "monthly": plan("monthly"), "yearly": plan("yearly") },
-        "cardAvailable": stripe::available(),
         "details": details,
         "subscription": sub,
         "invoices": invoices,
@@ -286,7 +278,7 @@ fn issue(
         issue_date: ymd(today),
         fulfilment_date: ymd(if proforma { today } else { period.0.min(today) }),
         due_date: ymd(due),
-        payment_method: if method == "card" { "Bankkártya".into() } else { "Átutalás".into() },
+        payment_method: "Átutalás".into(),
         note: format!("TEMISZ előfizetés. Közlemény: {}", &tenant_id[..8]),
         order_number: tenant_id[..8].to_string(),
         proforma_number: proforma_of.map(|(_, n)| n.to_string()),
@@ -369,13 +361,13 @@ pub fn fmt_huf(n: i64) -> String {
 
 // ---------------------------------------------------------------- subscribing
 
-pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method: &str, base_url: &str) -> Result<Value> {
+pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method: &str) -> Result<Value> {
     s.require(Permission::ManageSettings)?;
-    if !matches!(plan, "monthly" | "yearly") || !matches!(method, "card" | "transfer") {
+    if !matches!(plan, "monthly" | "yearly") || method != "transfer" {
         return Err(CoreError::new("bad_request", "plan and payment method required"));
     }
     let conn = &store.conn;
-    let party = buyer(conn, tenant_id)?;
+    buyer(conn, tenant_id)?; // billing details are required
     if let Some(sub) = subscription(conn, tenant_id)? {
         if matches!(sub.status.as_str(), "active" | "pending") {
             return Err(CoreError::new("already_subscribed", "there is already a subscription"));
@@ -388,10 +380,6 @@ pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method
             Ok((r.get(0)?, r.get(1)?))
         })?;
     let start = if in_trial { parse(&trial_end)? } else { today() };
-    if method == "card" {
-        let url = stripe::checkout(tenant_id, &party.email, plan, count, unit_net(plan), base_url)?;
-        return Ok(json!({ "redirect": url }));
-    }
     let t = lunda_core::db::tx(conn)?;
     t.execute(
         "INSERT INTO platform.subscriptions (tenant_id, plan, payment_method, cemetery_count, status, current_period_start, current_period_end)
@@ -470,7 +458,7 @@ fn prorate(sub: &Sub, extra: i64) -> (i64, Option<(NaiveDate, NaiveDate)>) {
 }
 
 /// After cemeteries were created or archived: bill the extra ones for the rest of
-/// the period (transfer: proforma, card: Stripe proration); fewer apply at renewal.
+/// the period with a proforma; fewer apply at renewal.
 pub fn sync_cemetery_count(store: &Store, tenant_id: &str) -> Result<()> {
     let Some(sub) = subscription(&store.conn, tenant_id)?.filter(|s| matches!(s.status.as_str(), "active" | "pending")) else { return Ok(()) };
     let count = cemetery_count(store)?.max(1);
@@ -478,18 +466,14 @@ pub fn sync_cemetery_count(store: &Store, tenant_id: &str) -> Result<()> {
         return Ok(());
     }
     let extra = count - sub.count;
-    if sub.method == "card" {
-        if let Some(id) = &sub.stripe_sub {
-            stripe::set_quantity(id, count)?;
-        }
-    } else if extra > 0 {
+    if extra > 0 {
         let (net, period) = prorate(&sub, extra);
         if let (true, Some(p)) = (net > 0, period) {
             // one line: N extra cemeteries for the remaining days, as a single priced item
             issue(&store.conn, tenant_id, true, &format!("TEMISZ előfizetés – {extra} további temető, időarányosan"), 1, net, p, "transfer", None)?;
         }
     }
-    if extra > 0 || sub.method == "card" {
+    if extra > 0 {
         store.conn.execute("UPDATE platform.subscriptions SET cemetery_count = ?2, updated_at = now() WHERE tenant_id = ?1", params![tenant_id, count])?;
     }
     Ok(())
@@ -607,7 +591,7 @@ pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
         )?;
     }
     done.insert("overdue".into(), json!(overdue.len()));
-    // card subscriptions cancelled and their period over
+    // cancelled subscriptions whose period is over
     let n = conn.execute(
         "UPDATE platform.tenants t SET status = 'read_only', read_only_since = now() FROM platform.subscriptions s
          WHERE s.tenant_id = t.id AND s.status = 'canceled' AND s.current_period_end <= CAST(?1 AS DATE) AND t.status = 'active'",
@@ -617,88 +601,145 @@ pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
     Ok(Value::Object(done))
 }
 
-// ---------------------------------------------------------------- Stripe webhook
+// ---------------------------------------------------------------- bank statement matching
 
-pub fn stripe_event(store: &Store, ev: &Value) -> Result<()> {
-    let conn = &store.conn;
-    let obj = &ev["data"]["object"];
-    let ts_date = |v: &Value| v.as_i64().and_then(|t| chrono::DateTime::from_timestamp(t, 0)).map(|d| ymd(d.date_naive()));
-    match ev["type"].as_str().unwrap_or("") {
-        "checkout.session.completed" => {
-            let tenant = obj["client_reference_id"].as_str().unwrap_or("");
-            let sub_id = obj["subscription"].as_str().unwrap_or("");
-            let cust = obj["customer"].as_str().unwrap_or("");
-            let sub = stripe::subscription(sub_id)?;
-            let item = &sub["items"]["data"][0];
-            let plan = if item["price"]["recurring"]["interval"].as_str() == Some("year") { "yearly" } else { "monthly" };
-            conn.execute(
-                "INSERT INTO platform.subscriptions (tenant_id, plan, payment_method, cemetery_count, status, current_period_start, current_period_end, stripe_customer_id, stripe_subscription_id)
-                 VALUES (?1, ?2, 'card', ?3, 'active', CAST(?4 AS DATE), CAST(?5 AS DATE), ?6, ?7)
-                 ON CONFLICT (tenant_id) DO UPDATE SET plan=excluded.plan, payment_method='card', cemetery_count=excluded.cemetery_count, status='active',
-                     current_period_start=excluded.current_period_start, current_period_end=excluded.current_period_end,
-                     stripe_customer_id=excluded.stripe_customer_id, stripe_subscription_id=excluded.stripe_subscription_id, updated_at=now()",
-                params![
-                    tenant,
-                    plan,
-                    item["quantity"].as_i64().unwrap_or(1),
-                    ts_date(&item["current_period_start"]).or(ts_date(&sub["current_period_start"])),
-                    ts_date(&item["current_period_end"]).or(ts_date(&sub["current_period_end"])),
-                    cust,
-                    sub_id
-                ],
-            )?;
-            conn.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
-        }
-        "invoice.paid" => {
-            let sub_id = obj["subscription"].as_str().or(obj["parent"]["subscription_details"]["subscription"].as_str()).unwrap_or("");
-            let tenant: Option<String> =
-                conn.query_row("SELECT tenant_id FROM platform.subscriptions WHERE stripe_subscription_id = ?1", params![sub_id], |r| r.get(0)).optional()?;
-            let Some(tenant) = tenant else { return Ok(()) };
-            let line = &obj["lines"]["data"][0];
-            let ps = ts_date(&line["period"]["start"]).map(|d| parse(&d)).transpose()?.unwrap_or_else(today);
-            let pe = ts_date(&line["period"]["end"]).map(|d| parse(&d)).transpose()?.unwrap_or_else(|| period_end(ps, "monthly"));
-            let net = obj["subtotal"].as_i64().unwrap_or(0) / 100;
-            if net <= 0 {
-                return Ok(());
-            }
-            issue(conn, &tenant, false, "TEMISZ előfizetés (bankkártyás fizetés)", 1, net, (ps, pe), "card", None)?;
-            conn.execute(
-                "UPDATE platform.subscriptions SET status = 'active', current_period_start = CAST(?2 AS DATE), current_period_end = GREATEST(current_period_end, CAST(?3 AS DATE)), updated_at = now() WHERE tenant_id = ?1",
-                params![tenant, ymd(ps), ymd(pe)],
-            )?;
-            conn.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
-        }
-        "invoice.payment_failed" => {
-            let sub_id = obj["subscription"].as_str().unwrap_or("");
-            if let Some(tenant) = conn
-                .query_row("SELECT tenant_id FROM platform.subscriptions WHERE stripe_subscription_id = ?1", params![sub_id], |r| r.get::<_, String>(0))
-                .optional()?
-            {
-                conn.execute("UPDATE platform.subscriptions SET status = 'past_due' WHERE tenant_id = ?1", params![tenant])?;
-                let (to, org) = tenant_email(conn, &tenant)?;
-                mail::send(
-                    conn,
-                    &to,
-                    "Sikertelen bankkártyás terhelés",
-                    &format!("Jó napot kívánunk!\n\nA(z) {org} TEMISZ-előfizetésének terhelése nem sikerült. Kérjük, frissítse a kártyaadatokat a Beállítások › Előfizetés oldalon. A Stripe a következő napokban újrapróbálja a terhelést.{}", mail::FOOTER),
-                    "payment_failed",
-                )?;
-            }
-        }
-        "customer.subscription.deleted" => {
-            conn.execute(
-                "UPDATE platform.subscriptions SET status = 'canceled', updated_at = now() WHERE stripe_subscription_id = ?1",
-                params![obj["id"].as_str().unwrap_or("")],
-            )?;
-        }
-        "customer.subscription.updated" => {
-            conn.execute(
-                "UPDATE platform.subscriptions SET cancel_at_period_end = ?2, updated_at = now() WHERE stripe_subscription_id = ?1",
-                params![obj["id"].as_str().unwrap_or(""), obj["cancel_at_period_end"].as_bool().unwrap_or(false)],
-            )?;
-        }
-        _ => {}
+fn alnum(s: &str) -> String {
+    s.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_lowercase()
+}
+
+struct OpenProforma {
+    id: String,
+    tenant: String,
+    number: String,
+    gross: i64,
+    buyer: String,
+}
+
+fn open_proformas(conn: &Connection) -> Result<Vec<OpenProforma>> {
+    let mut st = conn.prepare(
+        "SELECT i.id, i.tenant_id, i.number, i.gross_huf, coalesce(b.name, t.name)
+         FROM platform.invoices i JOIN platform.tenants t ON t.id = i.tenant_id LEFT JOIN platform.billing_details b ON b.tenant_id = i.tenant_id
+         WHERE i.kind = 'proforma' AND i.status = 'open' ORDER BY i.created_at",
+    )?;
+    let rows = st.query_map([], |r| Ok(OpenProforma { id: r.get(0)?, tenant: r.get(1)?, number: r.get(2)?, gross: r.get(3)?, buyer: r.get(4)? }))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// The proforma a transfer pays, and whether the match is certain.
+/// Certain: the reference names the proforma or the customer (the proforma
+/// asks for the customer code as reference) and the amount covers it.
+/// Otherwise a suggestion: the same amount from a payer with a similar name.
+fn find_proforma<'a>(open: &'a [OpenProforma], amount: i64, partner: &str, reference: &str) -> Option<(&'a OpenProforma, bool)> {
+    let r = alnum(reference);
+    let named: Vec<&OpenProforma> = open
+        .iter()
+        .filter(|p| {
+            let num = alnum(&p.number);
+            (!num.is_empty() && r.contains(&num)) || r.contains(&p.tenant[..8.min(p.tenant.len())].to_lowercase())
+        })
+        .collect();
+    if let Some(p) = named.iter().find(|p| p.gross == amount).or(if named.len() == 1 { named.first() } else { None }) {
+        return Some((p, amount >= p.gross));
     }
+    let partner = lunda_core::text::normalize(partner);
+    let same: Vec<&OpenProforma> = open
+        .iter()
+        .filter(|p| p.gross == amount)
+        .filter(|p| {
+            let first = lunda_core::text::normalize(&p.buyer);
+            let word = first.split(' ').find(|w| w.len() >= 4).unwrap_or("");
+            !word.is_empty() && partner.contains(word)
+        })
+        .collect();
+    if same.len() == 1 {
+        Some((same[0], false))
+    } else {
+        None
+    }
+}
+
+/// Platform admin: imports TEMISZ's bank statement and settles the proformas
+/// it certainly pays (final invoice, period started). Returns the counts.
+pub fn import_statement(conn: &Connection, file_name: &str, content_b64: &str, by: &str) -> Result<Value> {
+    let (lines, mut skipped) = lunda_core::store::finance::parse_bank_statement(file_name, content_b64)?;
+    let mut added = 0;
+    for l in lines.iter().filter(|l| l.amount_huf > 0) {
+        let n = conn.execute(
+            "INSERT INTO platform.bank_lines (id, booked_on, amount_huf, partner, reference, fingerprint) VALUES (?1, CAST(?2 AS DATE), ?3, ?4, ?5, ?6)
+             ON CONFLICT (fingerprint) DO NOTHING",
+            params![new_id(), l.booked_on, l.amount_huf, l.partner, l.reference, l.fingerprint],
+        )?;
+        if n == 1 {
+            added += 1;
+        } else {
+            skipped += 1;
+        }
+    }
+    let matched = auto_match(conn, by)?;
+    Ok(json!({ "added": added, "skipped": skipped, "matched": matched }))
+}
+
+fn auto_match(conn: &Connection, by: &str) -> Result<usize> {
+    let mut st = conn.prepare("SELECT id, amount_huf, partner, reference FROM platform.bank_lines WHERE status = 'unmatched' ORDER BY booked_on")?;
+    let lines: Vec<(String, i64, String, String)> =
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<std::result::Result<_, _>>()?;
+    let mut n = 0;
+    for (id, amount, partner, reference) in lines {
+        let open = open_proformas(conn)?;
+        if let Some((p, true)) = find_proforma(&open, amount, &partner, &reference) {
+            let t = lunda_core::db::tx(conn)?;
+            settle(&t, &id, &p.id, by)?;
+            t.commit()?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+fn settle(conn: &Connection, line_id: &str, invoice_id: &str, by: &str) -> Result<()> {
+    mark_paid(conn, invoice_id)?;
+    conn.execute(
+        "UPDATE platform.bank_lines SET status = 'matched', invoice_id = ?2, matched_at = now(), matched_by = ?3 WHERE id = ?1",
+        params![line_id, invoice_id, by],
+    )?;
+    Ok(())
+}
+
+/// Lines not matched yet, each with a suggested proforma when there is one.
+pub fn bank_lines(conn: &Connection) -> Result<Vec<Value>> {
+    let open = open_proformas(conn)?;
+    let mut st = conn.prepare(
+        "SELECT id, to_char(booked_on, 'YYYY-MM-DD'), amount_huf, partner, reference FROM platform.bank_lines WHERE status = 'unmatched' ORDER BY booked_on DESC LIMIT 200",
+    )?;
+    let rows: Vec<(String, String, i64, String, String)> =
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?.collect::<std::result::Result<_, _>>()?;
+    Ok(rows
+        .into_iter()
+        .map(|(id, date, amount, partner, reference)| {
+            let s = find_proforma(&open, amount, &partner, &reference).map(|(p, _)| p);
+            json!({ "id": id, "bookedOn": date, "amountHuf": amount, "partner": partner, "reference": reference,
+                    "suggestedId": s.map(|p| p.id.clone()), "suggestedNumber": s.map(|p| p.number.clone()), "suggestedBuyer": s.map(|p| p.buyer.clone()),
+                    "suggestedGross": s.map(|p| p.gross) })
+        })
+        .collect())
+}
+
+/// Platform admin: pays a proforma with a bank line by hand, or sets a line aside.
+pub fn resolve_line(conn: &Connection, line_id: &str, invoice_id: Option<&str>, by: &str) -> Result<()> {
+    let status: Option<String> = conn.query_row("SELECT status FROM platform.bank_lines WHERE id = ?1", params![line_id], |r| r.get(0)).optional()?;
+    match status.as_deref() {
+        None => return Err(CoreError::not_found("bank_line", line_id)),
+        Some("unmatched") => {}
+        Some(_) => return Err(CoreError::new("bank_already_matched", "this line is already settled")),
+    }
+    let t = lunda_core::db::tx(conn)?;
+    match invoice_id {
+        Some(inv) => settle(&t, line_id, inv, by)?,
+        None => {
+            t.execute("UPDATE platform.bank_lines SET status = 'ignored', matched_at = now(), matched_by = ?2 WHERE id = ?1", params![line_id, by])?;
+        }
+    }
+    t.commit()?;
     Ok(())
 }
 
@@ -738,8 +779,6 @@ mod tests {
             start: Some(start),
             end: Some(period_end(start, "yearly")),
             cancel_at_end: false,
-            stripe_customer: None,
-            stripe_sub: None,
         };
         let (net, p) = prorate(&sub, 1);
         let total = (period_end(start, "yearly") - start).num_days() as f64;

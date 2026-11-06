@@ -134,3 +134,54 @@ fn rate_limit_blocks_after_the_limit() {
     temisz_server::accounts::rate_limit(&store.conn, &key, 2, 15).unwrap();
     assert_eq!(temisz_server::accounts::rate_limit(&store.conn, &key, 2, 15).unwrap_err().code, "rate_limited");
 }
+
+/// Transfers are matched from TEMISZ's bank statement: a certain match pays
+/// the proforma and issues the invoice, a doubtful one is only suggested.
+#[test]
+fn bank_statement_settles_proformas() {
+    use temisz_server::billing;
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "bank");
+    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
+    let s = store.session_for(&user).unwrap();
+    billing::save_details(
+        &store.conn,
+        &tenant,
+        &json!({ "name": "Bankfalva Község Önkormányzata", "postcode": "9999", "city": "Bankfalva", "address": "Fő tér 1.", "email": email }),
+    )
+    .unwrap();
+    billing::subscribe(&store, &s, &tenant, "yearly", "transfer").unwrap();
+    let (proforma, number, gross): (String, String, i64) = store
+        .conn
+        .query_row(
+            "SELECT id, number, gross_huf FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'",
+            lunda_core::params![tenant],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    let code = &tenant[..8];
+    // a line for someone else, and the customer's transfer with the customer code
+    let csv = format!(
+        "Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.05;12 000;Valaki Más;ajándék\n2026.11.06;{gross};BANKFALVA KÖZSÉG ÖNK;TEMISZ {code}\n"
+    );
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(csv.as_bytes());
+    let r = billing::import_statement(&store.conn, "kivonat.csv", &b64, "admin").unwrap();
+    assert_eq!(r["matched"], 1, "{r}");
+    let status: String = store.conn.query_row("SELECT status FROM platform.invoices WHERE id = ?1", lunda_core::params![proforma], |r| r.get(0)).unwrap();
+    assert_eq!(status, "paid");
+    let invoices: i64 = store
+        .conn
+        .query_row("SELECT count(*) FROM platform.invoices WHERE proforma_id = ?1 AND kind = 'invoice'", lunda_core::params![proforma], |r| r.get(0))
+        .unwrap();
+    assert_eq!(invoices, 1, "final invoice issued for {number}");
+    // the same statement again adds nothing
+    let again = billing::import_statement(&store.conn, "kivonat.csv", &b64, "admin").unwrap();
+    assert_eq!(again["added"], 0);
+    // the unrelated line stays for a decision, without a suggestion
+    let lines = billing::bank_lines(&store.conn).unwrap();
+    let other = lines.iter().find(|l| l["partner"] == "Valaki Más").unwrap();
+    assert!(other["suggestedId"].is_null());
+    billing::resolve_line(&store.conn, other["id"].as_str().unwrap(), None, "admin").unwrap();
+    assert!(billing::bank_lines(&store.conn).unwrap().iter().all(|l| l["partner"] != "Valaki Más"));
+}

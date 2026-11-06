@@ -123,7 +123,6 @@
     "read_only": "A fiók csak olvasható. Előfizetés után azonnal újra szerkeszthető (Beállítások › Előfizetés).",
     "billing_details_missing": "Először adja meg a számlázási adatokat.",
     "already_subscribed": "Már van előfizetése.",
-    "card_unavailable": "A bankkártyás fizetés még nem érhető el. Válassza az átutalást.",
     "payment_failed": "A fizetési szolgáltató hibát jelzett. Próbálja újra később, vagy válassza az átutalást.",
     "invoicing_failed": "A számla kiállítása nem sikerült. Próbálja újra néhány perc múlva.",
     "pdf_unavailable": "Ehhez a bizonylathoz nincs PDF. A Számlázz.hu e-mailben küldte el.",
@@ -988,7 +987,6 @@
     "pending": "A díjbekérő befizetésére várunk.",
     "paidUntil": "Kifizetve {{date}}-ig.",
     "cancelAtEnd": "Az időszak végén megszűnik.",
-    "portal": "Bankkártya és előfizetés kezelése",
     "proformaSent": "Elküldtük a díjbekérőt e-mailben. A befizetés beérkezéséig is zavartalanul dolgozhat.",
     "chooseTitle": "Díjcsomag",
     "priceIntro_one": "A díj a létrehozott temetők számától függ, a felhasználók száma nem számít. Jelenleg {{count}} temető.",
@@ -1006,14 +1004,9 @@
     "yearlySaving": "2 hónap ingyen",
     "paymentMethod": "Fizetés módja",
     "method": {
-      "transfer": "Átutalás",
-      "card": "Bankkártya"
+      "transfer": "Átutalás"
     },
     "transferHint": "Díjbekérőt küldünk 8 napos fizetési határidővel. A befizetés után a számlát e-mailben kapja.",
-    "cardHint": "A díjat a Stripe vonja le automatikusan minden időszak elején. A számlát e-mailben kapja.",
-    "cardSoon": "A bankkártyás fizetés hamarosan elérhető.",
-    "cardDone": "Köszönjük! A bankkártyás előfizetés elindult.",
-    "cardCanceled": "A bankkártyás fizetés megszakadt, nem terheltünk.",
     "invoiceTo": "A számla adatai",
     "taxNumber": "Adószám",
     "taxHint": "Szervezetnél kötelező, magánszemélynél hagyja üresen.",
@@ -1026,7 +1019,6 @@
     "emailHint": "A díjbekérők és a számlák erre a címre érkeznek.",
     "saveDetails": "Számlázási adatok mentése",
     "subscribeTransfer": "Előfizetek, kérem a díjbekérőt",
-    "subscribeCard": "Tovább a bankkártyás fizetéshez",
     "invoicesTitle": "Díjbekérők és számlák",
     "noInvoices": "Még nincs díjbekérő vagy számla.",
     "number": "Sorszám",
@@ -1074,7 +1066,15 @@
       "closed": "Megszűnt",
       "trial": "Próbaidő"
     },
-    "extendTrial": "Próbaidő +14 nap"
+    "extendTrial": "Próbaidő +14 nap",
+    "bank": "Banki befizetések",
+    "importStatement": "Kivonat betöltése",
+    "bankHint": "Töltse be a TEMISZ bankszámlájának kivonatát (CSV vagy Excel a netbankból). Ha a közlemény a díjbekérő számát vagy az ügyfélkódot tartalmazza, és az összeg fedezi, a díjbekérő magától kifizetettnek számít, és elkészül a számla. A többinél javaslatot kap.",
+    "imported": "{{added}} új tétel, {{matched}} díjbekérő automatikusan kiegyenlítve, {{skipped}} kihagyva (már betöltött vagy olvashatatlan sor).",
+    "suggested": "Javaslat: {{number}}, {{buyer}}, {{amount}}",
+    "noSuggestion": "Nincs hozzá illő díjbekérő.",
+    "confirmMatch": "Párosítás",
+    "ignore": "Nem díjbefizetés"
   },
   "finance": {
     "title": "Pénzügy",
@@ -1116,8 +1116,7 @@
     "testMode": "Nincs megadva Számlázz.hu Számla Agent kulcs (Beállítás fül), ezért TESZT sorszámú, ki nem állított bizonylat készül.",
     "method": {
       "transfer": "Átutalás",
-      "cash": "Készpénz",
-      "card": "Bankkártya"
+      "cash": "Készpénz"
     },
     "filter": "Szűrés",
     "filters": {

@@ -10,7 +10,6 @@ pub mod accounts;
 pub mod billing;
 pub mod lifecycle;
 pub mod mail;
-pub mod stripe;
 pub mod tenant_data;
 pub mod totp;
 
@@ -34,6 +33,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (3, include_str!("../migrations/0003_billing.sql")),
     (4, include_str!("../migrations/0004_lifecycle.sql")),
     (5, include_str!("../migrations/0005_notices.sql")),
+    (6, include_str!("../migrations/0006_bank.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -120,7 +120,6 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
-        ("POST", "/api/stripe/webhook") => stripe_webhook(store, req),
         ("GET", "/api/public/search") | ("OPTIONS", "/api/public/search") => public_search(store, req),
         ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
             let secret = std::env::var("CRON_SECRET").unwrap_or_default();
@@ -458,15 +457,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             "billing_subscribe" => {
                 let c = require(store, req)?;
-                billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"), &accounts::base_url(req))
-            }
-            "billing_portal" => {
-                let c = require(store, req)?;
-                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
-                let sub = billing::subscription(&store.conn, &c.tenant_id)?
-                    .and_then(|x| x.stripe_customer)
-                    .ok_or_else(|| CoreError::new("card_unavailable", "no card subscription"))?;
-                Ok(json!({ "redirect": stripe::portal(&sub, &accounts::base_url(req))? }))
+                billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"))
             }
             "billing_quote_cemetery" => {
                 let c = require(store, req)?;
@@ -491,7 +482,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 c.session.require(lunda_core::auth::Permission::ManageSettings)?;
                 billing::invoice_pdf(&store.conn, &c.tenant_id, &s("id"))
             }
-            "admin_overview" | "admin_mark_paid" | "admin_extend_trial" => {
+            "admin_overview" | "admin_mark_paid" | "admin_extend_trial" | "admin_bank_import" | "admin_bank_resolve" => {
                 let c = require(store, req)?;
                 let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
                 if !is_superadmin(&acc.email) {
@@ -500,6 +491,17 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 match cmd {
                     "admin_mark_paid" => {
                         billing::mark_paid(&store.conn, &s("invoiceId"))?;
+                        admin_overview(store)
+                    }
+                    "admin_bank_import" => {
+                        let r = billing::import_statement(&store.conn, &s("fileName"), &s("content"), &acc.email)?;
+                        let mut o = admin_overview(store)?;
+                        o["import"] = r;
+                        Ok(o)
+                    }
+                    "admin_bank_resolve" => {
+                        let inv = args["invoiceId"].as_str().filter(|x| !x.is_empty());
+                        billing::resolve_line(&store.conn, &s("lineId"), inv, &acc.email)?;
                         admin_overview(store)
                     }
                     "admin_extend_trial" => {
@@ -822,23 +824,7 @@ fn admin_overview(store: &Store) -> Result<Value> {
                        "dueDate": r.get::<_, Option<String>>(4)?, "description": r.get::<_, String>(5)?, "reference": r.get::<_, String>(6)? }))
         })?
         .collect::<std::result::Result<_, _>>()?;
-    Ok(json!({ "tenants": rows, "openProformas": open }))
-}
-
-fn stripe_webhook(store: &Store, req: &Request) -> Response {
-    let Ok(secret) = std::env::var("STRIPE_WEBHOOK_SECRET") else { return Response::text(404, "not configured") };
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-    if !stripe::verify_webhook(&req.body, req.header("stripe-signature").unwrap_or(""), &secret, now) {
-        return Response::text(400, "bad signature");
-    }
-    let ev: Value = match serde_json::from_slice(&req.body) {
-        Ok(v) => v,
-        Err(_) => return Response::text(400, "bad payload"),
-    };
-    match billing::stripe_event(store, &ev) {
-        Ok(()) => Response::text(200, "ok"),
-        Err(e) => Response::text(500, &e.to_string()),
-    }
+    Ok(json!({ "tenants": rows, "openProformas": open, "bankLines": billing::bank_lines(&store.conn)? }))
 }
 
 #[cfg(feature = "desktop-import")]

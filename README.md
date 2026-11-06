@@ -69,7 +69,7 @@ pnpm typecheck && pnpm test
 pnpm e2e
 ```
 
-- **Rust:** szabályok, változásnapló, import, Postgres-réteg, ügyfelek elkülönítése, TOTP, Számlázz.hu XML, Stripe-aláírás, adatexport és asztali mentés betöltése.
+- **Rust:** szabályok, változásnapló, import, Postgres-réteg, ügyfelek elkülönítése, TOTP, Számlázz.hu XML, banki befizetések párosítása, adatexport és asztali mentés betöltése.
 - **E2E:** valódi böngésző, szerver és Postgres. Lefedi a temetés rögzítését, a rátemetést, a lejáratokat, az importot és a hiteles nyomtatást. Ugyanígy a regisztrációt, a meghívót, az elfelejtett jelszót, a kétlépcsős belépést, az előfizetést, a csak olvasható módot és a fiók megszüntetését. Az üzemeltetésből: számla, készpénzes befizetés és pénztárzárás; foglalás ütközéssel, ismétlődő munkalap, iktatás és döntés, bejárás; éves beszámoló, e-mail értesítő és a nyilvános sírkereső.
 - **Teljesítmény:** 100 000 elhunyt és 50 000 sírhely mellett a keresés 300 ms alatt fut, futtatása: `cargo test -p lunda-core --release --test perf -- --ignored --nocapture`.
 
@@ -83,7 +83,6 @@ pnpm e2e
 | `RESEND_API_KEY`, `MAIL_FROM` | igen | E-mail küldés (pl. `TEMISZ <noreply@temisz.hu>`) |
 | `SUPERADMIN_EMAILS` | igen | A TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva (Ügyfelek oldal) |
 | `SZAMLAZZ_AGENT_KEY` | élesben | Számlázz.hu Számla Agent kulcs; nélküle TESZT-sorszámú bizonylatok készülnek |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX_RATE_ID` | kártyás fizetéshez | Nélkülük csak az átutalás választható |
 | `BLOB_READ_WRITE_TOKEN` | ajánlott | Napi teljes export a Vercel Blobba |
 
 ## Adatbiztonság

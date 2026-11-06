@@ -8,7 +8,7 @@ use lunda_core::sql::{params, Connection};
 use lunda_core::{CoreError, Result, Store};
 use serde_json::{json, Value};
 
-use crate::{mail, stripe, tenant_data};
+use crate::{mail, tenant_data};
 
 pub const DELETE_AFTER_CLOSE_DAYS: i64 = 30;
 pub const WARN_READ_ONLY_DAYS: i64 = 60;
@@ -23,11 +23,6 @@ pub fn close(store: &Store, s: &Session, tenant_id: &str, password: &str) -> Res
     }
     store.verify_own_password(s, password)?;
     let conn = &store.conn;
-    if let Some(sub) = crate::billing::subscription(conn, tenant_id)? {
-        if let (Some(id), "active" | "past_due") = (sub.stripe_sub.as_deref(), sub.status.as_str()) {
-            stripe::cancel(id)?;
-        }
-    }
     let t = lunda_core::db::tx(conn)?;
     lunda_core::audit::record_simple(&t, s, "account", tenant_id, "close", None)?;
     t.execute("UPDATE platform.tenants SET status = 'closed', closed_at = now() WHERE id = ?1", params![tenant_id])?;

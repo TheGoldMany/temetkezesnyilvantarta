@@ -52,8 +52,12 @@ test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ p
   const admin = await (await browser.newContext()).newPage();
   await login(admin);
   await admin.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Ügyfelek", exact: true }).click();
+  // … by loading the bank statement: the reference carries the customer code
   const row = admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: "Kisrét Község" });
-  await row.getByRole("button", { name: "Befizetve" }).click();
+  const code = (await row.innerText()).match(/Közlemény: ([0-9a-f]{8})/)![1];
+  const csv = `Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.06;571 500;KISRÉT KÖZSÉG ÖNK.;TEMISZ ${code}\n`;
+  await admin.locator("input[name=statement]").setInputFiles({ name: "kivonat.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf-8") });
+  await expect(admin.getByText(/1 díjbekérő automatikusan kiegyenlítve/)).toBeVisible();
   await expect(admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: "Kisrét Község" })).toHaveCount(0);
 
   await page.reload();

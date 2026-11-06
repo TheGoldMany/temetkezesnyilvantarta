@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { command } from "../../lib/api";
-import { Button, ErrorAlert, PageHeader, Panel, Spinner } from "../../components/ui";
+import { Alert, Button, ErrorAlert, PageHeader, Panel, Spinner } from "../../components/ui";
 import { huf } from "./Subscription";
 
 interface AdminData {
   tenants: { id: string; name: string; status: string; trialEndsAt: string; createdAt: string; email: string; plan: string | null; paymentMethod: string | null; cemeteryCount: number | null; subscriptionStatus: string | null; periodEnd: string | null; users: number }[];
   openProformas: { id: string; tenant: string; number: string; grossHuf: number; dueDate: string | null; description: string; reference: string }[];
+  bankLines: { id: string; bookedOn: string; amountHuf: number; partner: string; reference: string; suggestedId: string | null; suggestedNumber: string | null; suggestedBuyer: string | null; suggestedGross: number | null }[];
+  import?: { added: number; skipped: number; matched: number };
 }
 
 /** TEMISZ operators: every customer, open proformas to match with bank transfers. */
@@ -14,8 +17,17 @@ export function PlatformAdmin() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["platform"], queryFn: () => command<AdminData>("admin_overview") });
+  const [error, setError] = useState<unknown>(null);
+  const [imported, setImported] = useState<AdminData["import"] | null>(null);
   const act = async (cmd: string, args: Record<string, unknown>) => {
-    qc.setQueryData(["platform"], await command<AdminData>(cmd, args));
+    setError(null);
+    try {
+      const d = await command<AdminData>(cmd, args);
+      qc.setQueryData(["platform"], d);
+      if (d.import) setImported(d.import);
+    } catch (e) {
+      setError(e);
+    }
   };
   if (q.error) return <ErrorAlert error={q.error} />;
   if (!q.data) return <Spinner />;
@@ -23,6 +35,64 @@ export function PlatformAdmin() {
     <>
       <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle", { count: q.data.tenants.length })} />
       <div className="flex flex-col gap-6">
+        <Panel
+          title={t("platform.bank")}
+          actions={
+            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-moss bg-moss px-4 font-semibold text-moss-ink hover:bg-moss/90">
+              {t("platform.importStatement")}
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls,text/csv"
+                className="sr-only"
+                name="statement"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  const buf = new Uint8Array(await f.arrayBuffer());
+                  let bin = "";
+                  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+                  await act("admin_bank_import", { fileName: f.name, content: btoa(bin) });
+                }}
+              />
+            </label>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-granite">{t("platform.bankHint")}</p>
+            <ErrorAlert error={error} />
+            {imported && <Alert tone="ok">{t("platform.imported", imported)}</Alert>}
+            {q.data.bankLines.length > 0 && (
+              <table className="w-full min-w-[720px]" data-testid="bank-lines">
+                <tbody>
+                  {q.data.bankLines.map((l) => (
+                    <tr key={l.id} className="border-b border-seam last:border-0">
+                      <td className="py-2.5 pr-4 tabular-nums">{l.bookedOn}</td>
+                      <td className="py-2.5 pr-4">
+                        <span className="font-semibold">{l.partner || "–"}</span>
+                        <span className="block text-sm text-granite">{l.reference}</span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-right tabular-nums">{huf(l.amountHuf)}</td>
+                      <td className="py-2.5 pr-4 text-sm">{l.suggestedNumber ? t("platform.suggested", { number: l.suggestedNumber, buyer: l.suggestedBuyer, amount: huf(l.suggestedGross ?? 0) }) : t("platform.noSuggestion")}</td>
+                      <td className="py-2.5 text-right">
+                        <div className="flex justify-end gap-2">
+                          {l.suggestedId && (
+                            <Button variant="primary" onClick={() => act("admin_bank_resolve", { lineId: l.id, invoiceId: l.suggestedId })}>
+                              {t("platform.confirmMatch")}
+                            </Button>
+                          )}
+                          <Button variant="quiet" onClick={() => act("admin_bank_resolve", { lineId: l.id, invoiceId: null })}>
+                            {t("platform.ignore")}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Panel>
         <Panel title={t("platform.openProformas")}>
           {q.data.openProformas.length === 0 ? (
             <p className="text-granite">{t("platform.noOpen")}</p>

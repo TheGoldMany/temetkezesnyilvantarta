@@ -36,22 +36,9 @@ A Számlázz.hu-fiókban adja meg a bankszámlaszámot és a cégadatokat: a dí
 
 **Számlázás ellenőrzése élesítés előtt:** a Számla Agent kérés felépítése a dokumentáció szerint készült, de valódi kulccsal még nem futott. Az első díjbekérőt kísérje figyelemmel: a sorszám, a PDF és az e-mail is megérkezik-e.
 
-## 5. Bankkártyás fizetés (Stripe, nem kötelező)
+## 5. Befizetések
 
-1. Stripe-fiók, a cégadatokkal és a magyar bankszámlával.
-2. Products › Tax rates: **27%, exclusive** adókulcs. Az azonosítója (`txr_…`) lesz a `STRIPE_TAX_RATE_ID`.
-3. Developers › Webhooks › Add endpoint: `https://temisz.hu/api/stripe/webhook`. Események:
-   - `checkout.session.completed`
-   - `invoice.paid`
-   - `invoice.payment_failed`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-
-   Az aláíró titok lesz a `STRIPE_WEBHOOK_SECRET`.
-4. Settings › Billing › Customer portal: engedélyezze a kártyacserét és a lemondást.
-5. Változók: `STRIPE_SECRET_KEY` (élesben `sk_live_…`), `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX_RATE_ID`.
-
-Amíg a `STRIPE_SECRET_KEY` nincs megadva, a programban csak az átutalás választható.
+Az ügyfelek átutalással fizetnek, díjbekérő alapján (a közleményben az ügyfélkód szerepel). A TEMISZ bankszámlájának kivonatát (CSV vagy Excel a netbankból) az Ügyfelek oldalon kell betölteni: a közlemény és az összeg alapján a program kiegyenlíti a díjbekérőket és kiállítja a számlákat, a bizonytalan tételekre javaslatot ad.
 
 ## 6. Élesítés
 
@@ -71,4 +58,3 @@ A `website/aszf.html`, `adatkezeles.html`, `adatfeldolgozas.html` és `impresszu
 | Neon (Launch) | 19 USD-től |
 | Resend | 0–20 USD |
 | Számlázz.hu | a választott csomag szerint |
-| Stripe | tranzakciónként (EU-s kártya kb. 1,5% + 0,25 EUR) |
