@@ -80,7 +80,7 @@ pnpm e2e
 | `DATABASE_URL` | igen | Postgres (Neonnál a közvetlen, nem pooled cím, `sslmode=require`) |
 | `PUBLIC_URL` | igen | A program címe a levelekben, pl. `https://temisz.hu/app` |
 | `CRON_SECRET` | igen | A napi feladat hívásának titka (a Vercel Cron automatikusan küldi) |
-| `RESEND_API_KEY`, `MAIL_FROM` | igen | E-mail küldés (pl. `TEMISZ <info@lundasoftware.hu>`) |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_REPLY_TO` | igen | E-mail küldés (alapból `TEMISZ <noreply@temisz.hu>`, válaszcím `info@lundasoftware.hu`) |
 | `SUPERADMIN_EMAILS` | igen | A TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva (Ügyfelek oldal) |
 | `SZAMLAZZ_AGENT_KEY` | élesben | Számlázz.hu Számla Agent kulcs; nélküle TESZT-sorszámú bizonylatok készülnek |
 | `BLOB_READ_WRITE_TOKEN` | ajánlott | Napi teljes export a Vercel Blobba |

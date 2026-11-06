@@ -24,11 +24,11 @@ pub fn send_for(conn: &Connection, tenant_id: Option<&str>, to: &str, reply_to: 
         }
         return Ok(());
     };
-    let from = std::env::var("MAIL_FROM").unwrap_or_else(|_| "TEMISZ <info@lundasoftware.hu>".into());
-    let mut payload = serde_json::json!({ "from": from, "to": [to], "subject": subject, "text": body });
-    if let Some(r) = reply_to {
-        payload["reply_to"] = serde_json::json!(r);
-    }
+    // sent from the temisz.hu domain (verified in Resend); answers to system
+    // messages go to a real mailbox, answers to operator messages to the operator
+    let from = std::env::var("MAIL_FROM").unwrap_or_else(|_| "TEMISZ <noreply@temisz.hu>".into());
+    let reply_to = reply_to.map(str::to_string).unwrap_or_else(|| std::env::var("MAIL_REPLY_TO").unwrap_or_else(|_| "info@lundasoftware.hu".into()));
+    let payload = serde_json::json!({ "from": from, "to": [to], "reply_to": reply_to, "subject": subject, "text": body });
     let res = ureq::post("https://api.resend.com/emails")
         .header("Authorization", &format!("Bearer {key}"))
         .header("Content-Type", "application/json")
