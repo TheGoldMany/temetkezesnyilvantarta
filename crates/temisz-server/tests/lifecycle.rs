@@ -24,7 +24,10 @@ fn new_customer(store: &Store, tag: &str) -> (String, String) {
 fn export_covers_every_tenant_table() {
     let store = platform();
     let _ = new_customer(&store, "tables");
-    let mut st = store.conn.prepare("SELECT tablename::text FROM pg_tables WHERE schemaname = current_schema() AND tablename NOT IN ('schema_migrations', 'schema_version')").unwrap();
+    let mut st = store
+        .conn
+        .prepare("SELECT tablename::text FROM pg_tables WHERE schemaname = current_schema() AND tablename NOT IN ('schema_migrations', 'schema_version')")
+        .unwrap();
     let all: Vec<String> = st.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
     let missing: Vec<&String> = all.iter().filter(|t| !tenant_data::TABLES.contains(&t.as_str())).collect();
     assert!(missing.is_empty(), "tables missing from the export: {missing:?}");

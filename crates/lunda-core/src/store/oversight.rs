@@ -273,7 +273,9 @@ impl Store {
                          Üdvözlettel:\n{sig}",
                         name = holder.clone().unwrap_or_else(|| "Hozzátartozó".into()),
                     );
-                    mails.push(OutMail { to, reply_to: reply.clone(), subject: format!("Temetési hely lejárata – {cem} {ident}"), body, ref_id: pid.clone() });
+                    mails.push(OutMail {
+                        to, reply_to: reply.clone(), subject: format!("Temetési hely lejárata – {cem} {ident}"), body, ref_id: pid.clone()
+                    });
                 }
                 None => without.push(json!({ "plotId": pid, "identifier": ident, "holderName": holder })),
             }
@@ -285,7 +287,9 @@ impl Store {
     pub fn reminder_mail(&self, s: &Session, invoice_id: &str) -> Result<OutMail> {
         s.require(Permission::RecordPayments)?;
         let inv = self.get_invoice(invoice_id)?;
-        let to = Some(inv.buyer_email.trim().to_string()).filter(|e| e.contains('@')).ok_or_else(|| CoreError::new("no_email", "the buyer has no e-mail address"))?;
+        let to = Some(inv.buyer_email.trim().to_string())
+            .filter(|e| e.contains('@'))
+            .ok_or_else(|| CoreError::new("no_email", "the buyer has no e-mail address"))?;
         let due = parse_date(&inv.due_date)?.format("%Y. %m. %d.").to_string();
         let open = inv.gross_huf - inv.paid_huf;
         let body = format!(

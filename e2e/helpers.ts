@@ -49,3 +49,32 @@ export function totp(secretB32: string, at = Date.now()): string {
   const bin = ((h[off] & 0x7f) << 24) | (h[off + 1] << 16) | (h[off + 2] << 8) | h[off + 3];
   return String(bin % 1_000_000).padStart(6, "0");
 }
+
+/**
+ * Clicks a button that opens a generated PDF in a new tab and returns the
+ * first bytes of the document. Reads the blob in the page itself: headless
+ * Chromium on CI does not always report the address of a PDF tab.
+ */
+export async function openedPdf(page: Page, click: () => Promise<void>): Promise<string> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __opened?: string[]; __openPatched?: boolean };
+    w.__opened = [];
+    if (!w.__openPatched) {
+      const orig = window.open.bind(window);
+      window.open = (url?: string | URL, ...rest: unknown[]) => {
+        w.__opened!.push(String(url ?? ""));
+        return orig(url, ...(rest as [string?, string?]));
+      };
+      w.__openPatched = true;
+    }
+  });
+  await click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened.join(" "))).toContain("blob:");
+  const head = await page.evaluate(async () => {
+    const url = (window as unknown as { __opened: string[] }).__opened[0];
+    const buf = await (await fetch(url)).arrayBuffer();
+    return new TextDecoder().decode(buf.slice(0, 5));
+  });
+  for (const p of page.context().pages()) if (p !== page) await p.close();
+  return head;
+}

@@ -838,15 +838,25 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
                 vec![Value::from("Temetési helyek összesen"), r["plots"]["total"].clone()],
             ]
             .into_iter()
-            .chain(r["plots"]["byStatus"].as_object().cloned().unwrap_or_default().into_iter().map(|(k, v)| vec![Value::from(format!("Hely állapota: {k}")), v]))
+            .chain(
+                r["plots"]["byStatus"].as_object().cloned().unwrap_or_default().into_iter().map(|(k, v)| vec![Value::from(format!("Hely állapota: {k}")), v]),
+            )
             .collect();
             vec![
                 ("Összesítő".into(), cols(&["tétel", "érték"]), summary),
                 ("Temetések".into(), cols(&["esemény", "darab"]), rows("burials", &["eventType", "n"])),
                 ("Megváltások".into(), cols(&["fajta", "darab", "díj (Ft)"]), rows("leases", &["kind", "n", "feeHuf"])),
-                ("Bevétel jogcímenként".into(), cols(&["díjtétel", "főkönyvi szám", "nettó", "ÁFA", "bruttó"]), rows("revenue", &["feeKind", "ledgerCode", "netHuf", "vatHuf", "grossHuf"])),
+                (
+                    "Bevétel jogcímenként".into(),
+                    cols(&["díjtétel", "főkönyvi szám", "nettó", "ÁFA", "bruttó"]),
+                    rows("revenue", &["feeKind", "ledgerCode", "netHuf", "vatHuf", "grossHuf"]),
+                ),
                 ("Elvégzett munkák".into(), cols(&["munka", "darab"]), rows("workDone", &["kind", "n"])),
-                ("Ügyiratok".into(), cols(&["ügytípus", "darab", "jóváhagyva", "elutasítva", "folyamatban"]), rows("cases", &["kind", "n", "approved", "rejected", "pending"])),
+                (
+                    "Ügyiratok".into(),
+                    cols(&["ügytípus", "darab", "jóváhagyva", "elutasítva", "folyamatban"]),
+                    rows("cases", &["kind", "n", "approved", "rejected", "pending"]),
+                ),
                 (
                     "Kapacitás".into(),
                     cols(&["temető", "parcella", "összes hely", "szabad", "újraértékesíthető", "lejárt", "új temetés/év", "várható betelés (év)"]),

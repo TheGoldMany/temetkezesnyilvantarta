@@ -95,7 +95,9 @@ pub fn load_into_new_schema(conn: &Connection, tenant_id: &str, tables: &BTreeMa
                 have.extend(o.keys().cloned());
             }
         }
-        let mut st = conn.prepare("SELECT attname::text FROM pg_attribute WHERE attrelid = CAST(CAST(?1 AS text) AS regclass) AND attnum > 0 AND NOT attisdropped ORDER BY attnum")?;
+        let mut st = conn.prepare(
+            "SELECT attname::text FROM pg_attribute WHERE attrelid = CAST(CAST(?1 AS text) AS regclass) AND attnum > 0 AND NOT attisdropped ORDER BY attnum",
+        )?;
         let cols: Vec<String> = st.query_map(params![t], |r| r.get(0))?.collect::<std::result::Result<Vec<String>, _>>()?;
         let cols: Vec<String> = cols.into_iter().filter(|c| have.contains(c)).map(|c| format!("\"{c}\"")).collect();
         let list = cols.join(", ");

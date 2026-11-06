@@ -369,13 +369,15 @@ impl Store {
     pub fn list_contractors(&self, include_voided: bool) -> Result<Vec<Value>> {
         json_rows(
             &self.conn,
-            &format!("SELECT c.id, c.name, c.kind, c.tax_number, c.postcode, c.city, c.address, c.contact_name, c.phone, c.email,
+            &format!(
+                "SELECT c.id, c.name, c.kind, c.tax_number, c.postcode, c.city, c.address, c.contact_name, c.phone, c.email,
                     c.permit_number, c.permit_valid_until, c.notes, c.voided_at,
                     (c.permit_valid_until IS NOT NULL AND c.permit_valid_until < ?1) AS permit_expired,
                     (SELECT count(*) FROM work_notices n WHERE n.contractor_id = c.id AND n.voided_at IS NULL) AS notices
              FROM contractors c
              WHERE ({include_voided} OR c.voided_at IS NULL)
-             ORDER BY c.name COLLATE \"hu-x-icu\""),
+             ORDER BY c.name COLLATE \"hu-x-icu\""
+            ),
             vec![s(fmt_date(today()))],
         )
     }
@@ -460,7 +462,20 @@ impl Store {
                 "UPDATE bookings SET title=?2, starts_at=?3, ends_at=?4, facility_id=?5, plot_id=?6, contractor_id=?7, deceased_name=?8,
                         container=?9, notes=?10, updated_at=?11, updated_by=?12
                  WHERE id=?1 AND status = 'planned'",
-                params![id, b.title.trim(), start, end, facility, plot, opt_s(&b.contractor_id), b.deceased_name.trim(), container, b.notes.trim(), ts, se.user_name],
+                params![
+                    id,
+                    b.title.trim(),
+                    start,
+                    end,
+                    facility,
+                    plot,
+                    opt_s(&b.contractor_id),
+                    b.deceased_name.trim(),
+                    container,
+                    b.notes.trim(),
+                    ts,
+                    se.user_name
+                ],
             )?;
             if n == 0 {
                 return Err(CoreError::new("booking_closed", "only planned bookings can be changed"));
@@ -1032,7 +1047,8 @@ impl Store {
     pub fn list_conditions(&self, cemetery_id: &str, problems_only: bool) -> Result<Vec<Value>> {
         json_rows(
             &self.conn,
-            &format!("SELECT * FROM (
+            &format!(
+                "SELECT * FROM (
                 SELECT DISTINCT ON (pc.plot_id) pc.id, pc.plot_id, p.identifier AS plot_identifier, pc.observed_on, pc.condition, pc.note, pc.created_by,
                        (SELECT k.case_number FROM cases k WHERE k.plot_id = pc.plot_id AND k.kind = 'neglect' AND k.voided_at IS NULL
                          ORDER BY k.created_at DESC LIMIT 1) AS case_number
@@ -1040,7 +1056,8 @@ impl Store {
                 WHERE p.cemetery_id = ?1
                 ORDER BY pc.plot_id, pc.observed_on DESC, pc.created_at DESC
              ) x WHERE (NOT {problems_only} OR x.condition <> 'ok')
-             ORDER BY x.observed_on DESC, x.plot_identifier COLLATE \"hu-x-icu\""),
+             ORDER BY x.observed_on DESC, x.plot_identifier COLLATE \"hu-x-icu\""
+            ),
             vec![s(cemetery_id)],
         )
     }

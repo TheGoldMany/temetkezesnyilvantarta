@@ -288,7 +288,9 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         "attachments.get" => {
             let (name, mime, data) = store.get_attachment(&arg::<String>(a, "id")?)?;
             use base64::Engine;
-            ok(json!({ "fileName": name, "mimeType": mime, "path": "", "pages": 0, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(data) }))
+            ok(
+                json!({ "fileName": name, "mimeType": mime, "path": "", "pages": 0, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(data) }),
+            )
         }
         "attachments.void" => {
             store.void_attachment(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;

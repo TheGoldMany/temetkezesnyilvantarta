@@ -173,9 +173,7 @@ fn public_search(store: &Store, req: &Request) -> Response {
         return cors(Response::text(204, ""));
     }
     let query = req.path.split_once('?').map(|(_, q)| q).unwrap_or("");
-    let param = |k: &str| {
-        query.split('&').find_map(|kv| kv.split_once('=').filter(|(a, _)| *a == k).map(|(_, v)| url_decode(v))).unwrap_or_default()
-    };
+    let param = |k: &str| query.split('&').find_map(|kv| kv.split_once('=').filter(|(a, _)| *a == k).map(|(_, v)| url_decode(v))).unwrap_or_default();
     let out = (|| -> Result<Value> {
         accounts::rate_limit(&store.conn, &format!("public:{}", req.ip), 60, 1)?;
         let token = param("t");
@@ -217,15 +215,13 @@ fn url_decode(s: &str) -> String {
     while i < b.len() {
         match b[i] {
             b'+' => out.push(b' '),
-            b'%' if i + 2 < b.len() => {
-                match u8::from_str_radix(std::str::from_utf8(&b[i + 1..i + 3]).unwrap_or("zz"), 16) {
-                    Ok(v) => {
-                        out.push(v);
-                        i += 2;
-                    }
-                    Err(_) => out.push(b'%'),
+            b'%' if i + 2 < b.len() => match u8::from_str_radix(std::str::from_utf8(&b[i + 1..i + 3]).unwrap_or("zz"), 16) {
+                Ok(v) => {
+                    out.push(v);
+                    i += 2;
                 }
-            }
+                Err(_) => out.push(b'%'),
+            },
             c => out.push(c),
         }
         i += 1;

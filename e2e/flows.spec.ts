@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { login, nav } from "./helpers";
+import { login, nav, openedPdf } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -76,9 +76,7 @@ test("UC-03: lejáratkezelés – értesítés rögzítése és levelek nyomtat�
   await rows.nth(1).locator("input[type=checkbox]").check();
   await expect(page.getByTestId("bulk-bar")).toContainText("2 kijelölve");
   // értesítő levelek PDF
-  const [popup] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "Értesítő levelek" }).click()]);
-  await expect.poll(() => popup.url()).toContain("blob:");
-  await popup.close();
+  expect(await openedPdf(page, () => page.getByRole("button", { name: "Értesítő levelek" }).click())).toBe("%PDF-");
   await page.getByRole("button", { name: "Értesítés rögzítése" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Értesítés rögzítése" }).click();
   await expect(page.getByText("2 értesítés rögzítve.")).toBeVisible();
@@ -129,7 +127,6 @@ test("Hiteles nyilvántartó könyv nyomtatása", async ({ page }) => {
   await login(page);
   await nav(page, "Nyomtatványok");
   await page.getByLabel("ettől").fill("1950.01.01");
-  const [popup] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "PDF készítése" }).first().click()]);
-  await expect.poll(() => popup.url()).toContain("blob:");
+  expect(await openedPdf(page, () => page.getByRole("button", { name: "PDF készítése" }).first().click())).toBe("%PDF-");
   await expect(page.getByText(/Kötet azonosító/)).toBeVisible();
 });
