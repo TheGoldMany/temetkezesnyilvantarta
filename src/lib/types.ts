@@ -14,7 +14,7 @@ export type EventType =
   | "common_grave";
 export const EVENT_TYPES: EventType[] = ["coffin_burial", "urn_placement", "reburial", "urn_release", "urn_removal", "ash_scattering", "relocation", "common_grave"];
 
-export type Role = "admin" | "clerk" | "finance" | "reader" | "cashier";
+export type Role = "admin" | "clerk" | "finance" | "reader" | "cashier" | "worker";
 export type Permission =
   | "manage_users"
   | "manage_settings"
@@ -23,6 +23,8 @@ export type Permission =
   | "record_leases"
   | "record_payments"
   | "cash_desk"
+  | "operations"
+  | "complete_work"
   | "correct_entries"
   | "void_entries"
   | "view_personal"
@@ -40,6 +42,8 @@ export const PERMISSIONS: Permission[] = [
   "record_leases",
   "record_payments",
   "cash_desk",
+  "operations",
+  "complete_work",
   "correct_entries",
   "void_entries",
   "view_personal",

@@ -17,7 +17,8 @@
     "logout": "Kijelentkezés",
     "back": "Vissza",
     "platform": "Ügyfelek",
-    "finance": "Pénzügy"
+    "finance": "Pénzügy",
+    "operations": "Üzemeltetés"
   },
   "common": {
     "save": "Mentés",
@@ -59,7 +60,10 @@
     "savedToast": "Elmentve.",
     "years": "{{count}} év",
     "days": "{{count}} nap",
-    "hidden": "rejtett adat"
+    "hidden": "rejtett adat",
+    "status": "Állapot",
+    "name": "Név",
+    "delete": "Törlés"
   },
   "errors": {
     "generic": "A művelet nem sikerült: {{message}}",
@@ -136,7 +140,19 @@
     "proforma_unavailable": "ASP-s számlázásnál a díjbekérőt az ASP-ben állítják ki.",
     "bank_columns": "A kivonatban nem találom a(z) {{column}} oszlopot.",
     "bank_already_matched": "Ezt a jóváírást már feldolgozták.",
-    "vat_invalid": "Ismeretlen ÁFA-kód."
+    "vat_invalid": "Ismeretlen ÁFA-kód.",
+    "booking_conflict": "Ez az időpont már foglalt: {{with}} ({{at}}). Válasszon másik időpontot vagy helyiséget.",
+    "booking_closed": "Csak tervezett foglalás módosítható.",
+    "ends_before_start": "a befejezés a kezdés után legyen",
+    "invalid_time": "érvénytelen időpont",
+    "invalid_choice": "érvénytelen érték",
+    "work_order_closed": "Ez a munkalap már le van zárva.",
+    "case_closed": "Ez az ügy le van zárva, nem módosítható.",
+    "decision_required": "jóváhagyáshoz vagy elutasításhoz írja be a döntést",
+    "contractor_permit_expired": "{{name}} engedélye lejárt. Frissítse az engedély adatait, mielőtt munkát jelent be.",
+    "fee_rate_missing": "A díjrendeletben nincs temetőfenntartási hozzájárulás. Vegye fel a Beállítások › Díjtételek alatt.",
+    "file_too_large": "A fájl túl nagy. Legfeljebb {{maxMb}} MB-os fájlt csatolhat.",
+    "bad_file": "a fájl nem olvasható"
   },
   "fields": {
     "familyName": "Családi név",
@@ -182,7 +198,16 @@
     "name": "Név",
     "postcode": "Irányítószám",
     "city": "Település",
-    "taxNumber": "Adószám"
+    "taxNumber": "Adószám",
+    "decision": "Döntés",
+    "startsAt": "Kezdés",
+    "endsAt": "Befejezés",
+    "subject": "Tárgy",
+    "title": "Megnevezés",
+    "contractorId": "Vállalkozó",
+    "plotId": "Sírhely",
+    "workDate": "Munkavégzés napja",
+    "dueDate": "Határidő"
   },
   "sex": {
     "": "–",
@@ -244,7 +269,8 @@
     "clerk": "Ügyintéző",
     "finance": "Pénzügyes",
     "reader": "Olvasó",
-    "cashier": "Pénztáros"
+    "cashier": "Pénztáros",
+    "worker": "Temetői dolgozó"
   },
   "permission": {
     "manage_users": "Felhasználók kezelése",
@@ -262,7 +288,9 @@
     "backup": "Mentés",
     "edit_map": "Térkép szerkesztése",
     "override_checks": "Temetési tiltás felülbírálása",
-    "cash_desk": "Házipénztár"
+    "cash_desk": "Házipénztár",
+    "operations": "Üzemeltetés (naptár, ügyiratok)",
+    "complete_work": "Munkalapok lezárása"
   },
   "burialCheck": {
     "allowed": "A temetés engedélyezhető.",
@@ -1203,5 +1231,214 @@
       "KBAET": "KBAET",
       "ATK": "ÁFA tv. hatályán kívül (ATK)"
     }
+  },
+  "ops": {
+    "title": "Üzemeltetés",
+    "tabs": {
+      "calendar": "Naptár",
+      "orders": "Munkalapok",
+      "cases": "Ügyiratok",
+      "contractors": "Vállalkozók",
+      "inspection": "Bejárás"
+    },
+    "prevWeek": "Előző hét",
+    "nextWeek": "Következő hét",
+    "thisWeek": "Ez a hét",
+    "weekday": {
+      "0": "Hétfő",
+      "1": "Kedd",
+      "2": "Szerda",
+      "3": "Csütörtök",
+      "4": "Péntek",
+      "5": "Szombat",
+      "6": "Vasárnap"
+    },
+    "facilities": "Helyiségek",
+    "facilitiesHint": "Ravatalozó, hűtő, terem: ezekre lehet időpontot foglalni. Egy helyiség egyszerre egy foglalást fogad.",
+    "facilityName": "Helyiség neve",
+    "facilityKind": "Fajta",
+    "facilityKinds": {
+      "chapel": "Ravatalozó",
+      "cooler": "Hűtő",
+      "hall": "Terem",
+      "other": "Egyéb"
+    },
+    "newBooking": "Új időpont",
+    "editBooking": "Időpont módosítása",
+    "overdueOrders": "{{count}} munkalap határideje lejárt. Nézze meg a Munkalapok fülön.",
+    "caseDeadline": "Határidő: {{number}}",
+    "weekList": "A hét szertartásai",
+    "noBookings": "Erre a hétre nincs foglalás.",
+    "when": "Időpont",
+    "bookingTitle": "Megnevezés",
+    "bookingTitleHint": "Például: Kovács János temetése",
+    "facility": "Helyiség",
+    "noFacility": "Nincs helyiség",
+    "plot": "Sírhely",
+    "contractor": "Vállalkozó",
+    "start": "Kezdés",
+    "end": "Befejezés",
+    "container": "Koporsó vagy urna",
+    "containers": {
+      "coffin": "Koporsó",
+      "urn": "Urna"
+    },
+    "deceasedName": "Elhunyt neve",
+    "digOrder": "Sírásási munkalap készítése",
+    "digOrderHint": "A szertartás napjára munkalap készül a kiválasztott sírhelyhez.",
+    "close": "Lezárás",
+    "closeAs": "A szertartás",
+    "doneHint": "Megtörtént. A temetést a Temetések menüben rögzítse.",
+    "cancelHint": "Elmaradt. A hozzá tartozó munkalapok is lezárulnak.",
+    "bookingStatus": {
+      "planned": "Tervezett",
+      "done": "Megtörtént",
+      "cancelled": "Elmaradt"
+    },
+    "orderShow": {
+      "open": "Nyitott",
+      "done": "Lezárt"
+    },
+    "newOrder": "Új munkalap",
+    "editOrder": "Munkalap módosítása",
+    "cancelOrder": "Munkalap visszavonása",
+    "noOpenOrders": "Nincs nyitott munkalap.",
+    "noDoneOrders": "Még nincs lezárt munkalap.",
+    "orderKind": "Munka fajtája",
+    "orderKinds": {
+      "grave_digging": "Sírásás",
+      "preparation": "Előkészítés",
+      "maintenance": "Karbantartás",
+      "cleaning": "Takarítás",
+      "tree": "Fakivágás, gallyazás",
+      "repair": "Javítás",
+      "other": "Egyéb"
+    },
+    "recurrenceLabel": "Ismétlődés",
+    "recurrence": {
+      "none": "Egyszeri",
+      "weekly": "Hetente",
+      "monthly": "Havonta",
+      "yearly": "Évente"
+    },
+    "orderStatus": {
+      "open": "Nyitott",
+      "done": "Elvégezve",
+      "cancelled": "Visszavonva"
+    },
+    "orderTitle": "Feladat",
+    "dueDate": "Határidő",
+    "assignee": "Felelős",
+    "assigneeHint": "A dolgozó neve, aki elvégzi",
+    "details": "Részletek",
+    "forPlot": "Sírhelyhez kapcsolódik",
+    "lateSince": "Lejárt: {{date}}",
+    "dueOn": "Határidő: {{date}}",
+    "ceremonyAt": "szertartás {{time}}-kor",
+    "markDone": "Elvégezve",
+    "doneNote": "Megjegyzés",
+    "photo": "Fénykép vagy dokumentum",
+    "photoHint": "Telefonon közvetlenül fényképezhet.",
+    "nextWillBeCreated": "Ismétlődő munka: lezárás után elkészül a következő munkalap.",
+    "cases": "Ügyiratok",
+    "allStatuses": "Minden állapot",
+    "newCase": "Új ügy iktatása",
+    "noCases": "Nincs iktatott ügy.",
+    "case": "Ügy",
+    "caseNumber": "Iktatószám",
+    "subject": "Tárgy",
+    "applicant": "Ügyfél",
+    "received": "Beérkezett",
+    "deadline": "Határidő",
+    "deadlineHint": "Az ügyintézés határideje",
+    "caseKind": "Ügytípus",
+    "fileCase": "Iktatás",
+    "numberHint": "Az iktatószámot a rendszer adja, évente 1-től, kihagyás nélkül.",
+    "caseKinds": {
+      "lease_contract": "Megváltási szerződés",
+      "renewal": "Újraváltás",
+      "monument_permit": "Síremlék-állítási engedély",
+      "monument_removal": "Síremlék elszállítása",
+      "exhumation": "Exhumálás",
+      "relocation": "Áthelyezés",
+      "ash_release": "Hamvak kiadása",
+      "holder_transfer": "Rendelkezési jog átruházása",
+      "neglect": "Gondozatlan sírhely",
+      "complaint": "Panasz",
+      "other": "Egyéb"
+    },
+    "caseStatus": {
+      "received": "Beérkezett",
+      "missing_docs": "Hiánypótlás",
+      "approved": "Jóváhagyva",
+      "rejected": "Elutasítva",
+      "closed": "Lezárva"
+    },
+    "decision": "Döntés, intézkedés",
+    "decisionHint": "Jóváhagyáshoz és elutasításhoz kötelező.",
+    "attachments": "Mellékletek",
+    "addAttachment": "Fájl csatolása",
+    "history": "Előzmények",
+    "historyActions": {
+      "create": "Iktatva",
+      "update": "Módosítva",
+      "attach": "Melléklet csatolva",
+      "void": "Érvénytelenítve"
+    },
+    "contractors": "Vállalkozók",
+    "newContractor": "Új vállalkozó",
+    "noContractors": "Még nincs vállalkozó. Vegye fel a temetkezési vállalkozókat és a kőfaragókat.",
+    "contractorKind": "Tevékenység",
+    "contractorKinds": {
+      "funeral": "Temetkezési szolgáltató",
+      "stonemason": "Kőfaragó",
+      "gardener": "Kertész",
+      "other": "Egyéb"
+    },
+    "contact": "Elérhetőség",
+    "permit": "Engedély",
+    "expired": "lejárt",
+    "validUntil": "érvényes",
+    "noticesCount": "Bejelentések",
+    "taxNumber": "Adószám",
+    "postcode": "Irányítószám",
+    "city": "Település",
+    "address": "Cím",
+    "contactName": "Kapcsolattartó",
+    "phone": "Telefon",
+    "email": "E-mail",
+    "permitNumber": "Engedély száma",
+    "permitValidUntil": "Engedély érvényessége",
+    "workNotices": "Munkavégzési bejelentések",
+    "newNotice": "Új bejelentés",
+    "noNotices": "Az elmúlt 90 napban nem volt bejelentés.",
+    "noticeKind": "Munka",
+    "noticeKinds": {
+      "burial": "Temetés",
+      "monument": "Síremlék állítása",
+      "renovation": "Felújítás",
+      "demolition": "Bontás",
+      "other": "Egyéb"
+    },
+    "workDate": "Munkavégzés napja",
+    "description": "Leírás",
+    "contribution": "Hozzájárulás",
+    "chargeContribution": "Temetőfenntartási hozzájárulás felszámítása",
+    "chargeContributionHint": "A díjrendelet szerinti tétel a Pénzügy menübe kerül a vállalkozó nevére.",
+    "recordCondition": "Sírhely állapotának rögzítése",
+    "conditionLabel": "Állapot",
+    "conditions": {
+      "ok": "Rendben",
+      "neglected": "Gondozatlan",
+      "dangerous": "Balesetveszélyes",
+      "to_liquidate": "Felszámolandó"
+    },
+    "openNeglectCase": "Ügy indítása a rendelkezési jogosult felé",
+    "openNeglectCaseHint": "Iktatott ügy készül 60 napos határidővel, a lejárt felszólítás után indulhat a felszámolás.",
+    "saveCondition": "Állapot mentése",
+    "conditionSaved": "Állapot rögzítve.",
+    "conditionSavedCase": "Állapot rögzítve, az ügy iktatva.",
+    "problemPlots": "Problémás sírhelyek",
+    "noProblems": "Nincs gondozatlan vagy veszélyes sírhely rögzítve."
   }
 }

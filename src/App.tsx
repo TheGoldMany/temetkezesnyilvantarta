@@ -7,6 +7,7 @@ import { Login } from "./features/auth/Login";
 import { TotpRequired } from "./features/account/Security";
 import { PlatformAdmin } from "./features/account/PlatformAdmin";
 import { FinanceView } from "./features/finance/Finance";
+import { OperationsView } from "./features/operations/Operations";
 import { shell } from "./lib/api";
 import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
@@ -84,6 +85,7 @@ export function App() {
       {r.view === "settings" && <SettingsView key={r.tab ?? ""} tab={r.tab} />}
       {r.view === "platform" && <PlatformAdmin />}
       {r.view === "finance" && <FinanceView />}
+      {r.view === "operations" && <OperationsView />}
     </Shell>
   );
 }

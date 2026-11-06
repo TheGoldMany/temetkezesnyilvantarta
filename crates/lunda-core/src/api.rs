@@ -236,6 +236,68 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
             s.require(Permission::RecordPayments)?;
             ok(store.revenue_report(opt::<String>(a, "cemeteryId")?.as_deref(), &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?)
         }
+        // ---- operations (W8–W11)
+        "facilities.list" => ok(store.list_facilities(&arg::<String>(a, "cemeteryId")?)?),
+        "facilities.save" => ok(store.save_facility(s, &arg(a, "facility")?)?),
+        "facilities.void" => {
+            store.void_facility(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "contractors.list" => ok(store.list_contractors(opt(a, "includeVoided")?.unwrap_or(false))?),
+        "contractors.save" => ok(store.save_contractor(s, &arg(a, "contractor")?)?),
+        "contractors.void" => {
+            store.void_contractor(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "bookings.list" => ok(store.list_bookings(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "bookings.save" => ok(store.save_booking(s, &arg(a, "booking")?)?),
+        "bookings.status" => ok(store.set_booking_status(
+            s,
+            &arg::<String>(a, "id")?,
+            &arg::<String>(a, "status")?,
+            opt::<String>(a, "reason")?.as_deref(),
+            opt::<String>(a, "eventId")?.as_deref(),
+        )?),
+        "workNotices.list" => ok(store.list_work_notices(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "workNotices.add" => ok(store.add_work_notice(s, &arg(a, "notice")?)?),
+        "workOrders.list" => {
+            ok(store.list_work_orders(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "assignee")?.as_deref())?)
+        }
+        "workOrders.save" => ok(store.save_work_order(s, &arg(a, "order")?)?),
+        "workOrders.complete" => ok(store.complete_work_order(s, &arg::<String>(a, "id")?, &opt::<String>(a, "note")?.unwrap_or_default())?),
+        "workOrders.cancel" => ok(store.cancel_work_order(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?),
+        "cases.list" => {
+            ok(store.list_cases(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "plotId")?.as_deref())?)
+        }
+        "cases.get" => ok(store.case_detail(&arg::<String>(a, "id")?)?),
+        "cases.create" => ok(store.create_case(s, &arg(a, "case")?)?),
+        "cases.update" => ok(store.update_case(s, &arg::<String>(a, "id")?, &arg(a, "update")?)?),
+        "cases.void" => {
+            store.void_case(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "attachments.list" => ok(store.list_attachments(&arg::<String>(a, "entity")?, &arg::<String>(a, "entityId")?)?),
+        "attachments.add" => ok(store.add_attachment(
+            s,
+            &arg::<String>(a, "entity")?,
+            &arg::<String>(a, "entityId")?,
+            &arg::<String>(a, "fileName")?,
+            &opt::<String>(a, "mimeType")?.unwrap_or_default(),
+            &arg::<String>(a, "content")?,
+        )?),
+        "attachments.get" => {
+            let (name, mime, data) = store.get_attachment(&arg::<String>(a, "id")?)?;
+            use base64::Engine;
+            ok(json!({ "fileName": name, "mimeType": mime, "path": "", "pages": 0, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(data) }))
+        }
+        "attachments.void" => {
+            store.void_attachment(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "conditions.record" => ok(store.record_condition(s, &arg(a, "condition")?)?),
+        "conditions.list" => ok(store.list_conditions(&arg::<String>(a, "cemeteryId")?, opt(a, "problemsOnly")?.unwrap_or(false))?),
+        "conditions.plot" => ok(store.plot_conditions(&arg::<String>(a, "plotId")?)?),
+        "operations.agenda" => ok(store.agenda(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
         "audit.verify" => ok(audit::verify_chain(&store.conn)?),
         "sample.load" => {
             s.require(Permission::ManageSettings)?;

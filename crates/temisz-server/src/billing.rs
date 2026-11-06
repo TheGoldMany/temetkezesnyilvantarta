@@ -166,6 +166,8 @@ pub fn is_read_method(m: &str) -> bool {
                 | "finance.status"
                 | "finance.revenue"
                 | "invoices.pdf"
+                | "operations.agenda"
+                | "conditions.plot"
         )
 }
 

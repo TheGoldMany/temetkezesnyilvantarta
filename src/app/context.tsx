@@ -22,7 +22,8 @@ export type Route =
   | { view: "quickEntry" }
   | { view: "settings"; tab?: string }
   | { view: "platform" }
-  | { view: "finance" };
+  | { view: "finance" }
+  | { view: "operations" };
 
 interface Nav {
   route: Route;

@@ -19,6 +19,8 @@ pub enum Role {
     Reader,
     /// Pénztáros (csak a házipénztár)
     Cashier,
+    /// Temetői dolgozó (munkalapok)
+    Worker,
 }
 
 impl Role {
@@ -29,6 +31,7 @@ impl Role {
             Role::Finance => "finance",
             Role::Reader => "reader",
             Role::Cashier => "cashier",
+            Role::Worker => "worker",
         }
     }
     pub fn parse(s: &str) -> Result<Self> {
@@ -38,6 +41,7 @@ impl Role {
             "finance" => Role::Finance,
             "reader" => Role::Reader,
             "cashier" => Role::Cashier,
+            "worker" => Role::Worker,
             _ => return Err(CoreError::validation("role", format!("unknown role {s}"))),
         })
     }
@@ -53,6 +57,8 @@ impl Role {
                 RecordLeases,
                 RecordPayments,
                 CashDesk,
+                Operations,
+                CompleteWork,
                 CorrectEntries,
                 VoidEntries,
                 ViewPersonal,
@@ -63,10 +69,12 @@ impl Role {
                 EditMap,
                 OverrideChecks,
             ],
-            Role::Clerk => &[ManageStructure, RecordEvents, RecordLeases, RecordPayments, CashDesk, ViewPersonal, Print, Export, Import, EditMap, Backup],
+            Role::Clerk => &[ManageStructure, RecordEvents, RecordLeases, RecordPayments, CashDesk, Operations, CompleteWork, ViewPersonal, Print, Export, Import, EditMap, Backup],
             Role::Finance => &[RecordPayments, CashDesk, ViewPersonal, Print, Export],
             // FR-PEN-10: the cash desk only
             Role::Cashier => &[CashDesk, Print],
+            // FR-UZE-01: work orders only
+            Role::Worker => &[CompleteWork, Print],
             Role::Reader => &[Print, Export],
         }
     }
@@ -83,6 +91,10 @@ pub enum Permission {
     RecordPayments,
     /// házipénztár (FR-PEN-06)
     CashDesk,
+    /// naptár, munkalapok, vállalkozók, ügyiratok, bejárás (W8–W11)
+    Operations,
+    /// munkalap elvégzettnek jelölése
+    CompleteWork,
     /// bejegyzés javítása (FR-JOG-03)
     CorrectEntries,
     /// érvénytelenítés (FR-NAP-02)
@@ -108,6 +120,8 @@ impl Permission {
             Permission::RecordLeases => "record_leases",
             Permission::RecordPayments => "record_payments",
             Permission::CashDesk => "cash_desk",
+            Permission::Operations => "operations",
+            Permission::CompleteWork => "complete_work",
             Permission::CorrectEntries => "correct_entries",
             Permission::VoidEntries => "void_entries",
             Permission::ViewPersonal => "view_personal",

@@ -30,6 +30,25 @@ pub const TABLES: &[&str] = &[
     "plot_holders",
     "fee_rates",
     "leases",
+    // finance (W7)
+    "charges",
+    "invoices",
+    "invoice_lines",
+    "payments",
+    "cash_sequences",
+    "cash_entries",
+    "cash_closings",
+    "bank_transactions",
+    "reminders",
+    // operations (W8–W11)
+    "facilities",
+    "contractors",
+    "bookings",
+    "work_notices",
+    "work_orders",
+    "case_sequences",
+    "cases",
+    "plot_conditions",
     "notices",
     "monuments",
     "external_placements",
@@ -68,7 +87,19 @@ pub fn load_into_new_schema(conn: &Connection, tenant_id: &str, tables: &BTreeMa
         if rows.as_array().map(|a| a.is_empty()).unwrap_or(true) {
             continue;
         }
-        conn.execute(&format!("INSERT INTO {t} SELECT * FROM json_populate_recordset(NULL::{t}, CAST(?1 AS json))"), params![rows.to_string()])?;
+        // only the columns the data carries: an older export lacks newer
+        // columns, which then take their defaults
+        let mut have = std::collections::BTreeSet::new();
+        for r in rows.as_array().into_iter().flatten() {
+            if let Some(o) = r.as_object() {
+                have.extend(o.keys().cloned());
+            }
+        }
+        let mut st = conn.prepare("SELECT attname::text FROM pg_attribute WHERE attrelid = CAST(CAST(?1 AS text) AS regclass) AND attnum > 0 AND NOT attisdropped ORDER BY attnum")?;
+        let cols: Vec<String> = st.query_map(params![t], |r| r.get(0))?.collect::<std::result::Result<Vec<String>, _>>()?;
+        let cols: Vec<String> = cols.into_iter().filter(|c| have.contains(c)).map(|c| format!("\"{c}\"")).collect();
+        let list = cols.join(", ");
+        conn.execute(&format!("INSERT INTO {t} ({list}) SELECT {list} FROM json_populate_recordset(NULL::{t}, CAST(?1 AS json))"), params![rows.to_string()])?;
     }
     conn.execute_batch("SELECT setval(pg_get_serial_sequence('audit_log', 'seq'), coalesce((SELECT max(seq) FROM audit_log), 0) + 1, false)")?;
     db::analyze(conn)?;

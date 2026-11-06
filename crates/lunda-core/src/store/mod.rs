@@ -4,6 +4,7 @@
 mod events;
 pub mod finance;
 pub(crate) mod leases;
+pub mod operations;
 mod people;
 mod reports;
 mod search;

@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   Building2,
   Wallet,
+  ClipboardList,
 } from "lucide-react";
 import { useApp, type Route } from "./context";
 import { api, shell } from "../lib/api";
@@ -32,6 +33,7 @@ const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "map", key: "nav.map", icon: MapIcon },
   { view: "persons", key: "nav.persons", icon: Users },
   { view: "expiries", key: "nav.expiries", icon: CalendarClock },
+  { view: "operations", key: "nav.operations", icon: ClipboardList },
   { view: "finance", key: "nav.finance", icon: Wallet },
   { view: "prints", key: "nav.prints", icon: Printer },
   { view: "reports", key: "nav.reports", icon: BarChart3 },
@@ -123,7 +125,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4">
           <ul className="flex min-w-max">
-            {[...NAV.filter((n) => n.view !== "finance" || can("record_payments") || can("cash_desk")), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
+            {[...NAV.filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
               return (
