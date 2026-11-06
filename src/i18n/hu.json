@@ -153,7 +153,8 @@
     "file_too_large": "A fájl túl nagy. Legfeljebb {{maxMb}} MB-os fájlt csatolhat.",
     "bad_file": "a fájl nem olvasható",
     "no_email": "A vevőnek nincs e-mail-címe. Küldjön levelet, vagy adja meg a címet a számlán.",
-    "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva."
+    "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva.",
+    "booking_not_own": "Ezt az időpontot egy másik iroda rögzítette, csak ő módosíthatja. Keresse a temető ügyfélszolgálatát."
   },
   "fields": {
     "familyName": "Családi név",
@@ -271,7 +272,8 @@
     "finance": "Pénzügyes",
     "reader": "Olvasó",
     "cashier": "Pénztáros",
-    "worker": "Temetői dolgozó"
+    "worker": "Temetői dolgozó",
+    "undertaker": "Temetkezési iroda (meghívott)"
   },
   "permission": {
     "manage_users": "Felhasználók kezelése",
@@ -291,7 +293,8 @@
     "override_checks": "Temetési tiltás felülbírálása",
     "cash_desk": "Házipénztár",
     "operations": "Üzemeltetés (naptár, ügyiratok)",
-    "complete_work": "Munkalapok lezárása"
+    "complete_work": "Munkalapok lezárása",
+    "calendar": "Közös temetési naptár"
   },
   "burialCheck": {
     "allowed": "A temetés engedélyezhető.",
@@ -1465,7 +1468,9 @@
     "summaryInvoice_other": "Összesítő számla ({{count}} tétel)",
     "summaryInvoice": "Összesítő számla ({{count}} tétel)",
     "issueDocument": "Irat kiadása (PDF)",
-    "documentHint": "Az irat az ügy állapotához igazodik: átvételi elismervény, hiánypótlási felhívás, határozat vagy felszólítás. A kiadott példány változatlanul a mellékletek közé kerül. Előbb mentse a változásokat."
+    "documentHint": "Az irat az ügy állapotához igazodik: átvételi elismervény, hiánypótlási felhívás, határozat vagy felszólítás. A kiadott példány változatlanul a mellékletek közé kerül. Előbb mentse a változásokat.",
+    "bookedBy": "Rögzítette",
+    "bookedByMe": "Ön"
   },
   "notify": {
     "sendEmail": "Értesítés e-mailben",

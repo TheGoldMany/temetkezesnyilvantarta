@@ -106,7 +106,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           )}
           <div className="ml-auto flex min-w-0 flex-1 justify-end">
-            <QuickSearch />
+            {status?.session?.role !== "undertaker" && <QuickSearch />}
           </div>
           <div className="flex shrink-0 items-center gap-3 border-l border-seam pl-5">
             <span className="hidden text-right leading-tight lg:block">
@@ -128,7 +128,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4">
           <ul className="flex min-w-max">
-            {[...NAV.filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
+            {[...NAV.filter((n) => status?.session?.role !== "undertaker" || n.view === "operations").filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work") || can("calendar"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
               return (

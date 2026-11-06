@@ -419,7 +419,14 @@ impl Store {
     /// Creates or moves a booking. A facility or a plot can hold one planned
     /// booking at a time; an overlap is refused with `booking_conflict`.
     pub fn save_booking(&self, se: &Session, b: &BookingInput) -> Result<Value> {
-        se.require(Permission::Operations)?;
+        let manager = se.can(Permission::Operations);
+        if !manager {
+            se.require(Permission::Calendar)?;
+        }
+        // an invited office changes only its own bookings
+        if let (Some(id), false) = (&b.id, manager) {
+            self.require_own_booking(se, id)?;
+        }
         non_empty("cemeteryId", &b.cemetery_id)?;
         non_empty("title", &b.title)?;
         let start = parse_local("startsAt", &b.starts_at)?;
@@ -455,6 +462,7 @@ impl Store {
             }
         }
         let ts = now_ts();
+        let contractor = if manager { opt_s(&b.contractor_id) } else { None };
         let tx = crate::db::tx(&self.conn)?;
         let id = b.id.clone().unwrap_or_else(new_id);
         if b.id.is_some() {
@@ -462,20 +470,7 @@ impl Store {
                 "UPDATE bookings SET title=?2, starts_at=?3, ends_at=?4, facility_id=?5, plot_id=?6, contractor_id=?7, deceased_name=?8,
                         container=?9, notes=?10, updated_at=?11, updated_by=?12
                  WHERE id=?1 AND status = 'planned'",
-                params![
-                    id,
-                    b.title.trim(),
-                    start,
-                    end,
-                    facility,
-                    plot,
-                    opt_s(&b.contractor_id),
-                    b.deceased_name.trim(),
-                    container,
-                    b.notes.trim(),
-                    ts,
-                    se.user_name
-                ],
+                params![id, b.title.trim(), start, end, facility, plot, contractor, b.deceased_name.trim(), container, b.notes.trim(), ts, se.user_name],
             )?;
             if n == 0 {
                 return Err(CoreError::new("booking_closed", "only planned bookings can be changed"));
@@ -493,7 +488,7 @@ impl Store {
                     end,
                     facility,
                     plot,
-                    opt_s(&b.contractor_id),
+                    contractor,
                     b.deceased_name.trim(),
                     container,
                     b.notes.trim(),
@@ -501,7 +496,7 @@ impl Store {
                     se.user_name
                 ],
             )?;
-            if b.dig_order {
+            if b.dig_order && manager {
                 if let Some(p) = &plot {
                     let details = match container.as_str() {
                         "urn" => "Urna",
@@ -530,6 +525,15 @@ impl Store {
         self.get_booking(&id)
     }
 
+    fn require_own_booking(&self, se: &Session, id: &str) -> Result<()> {
+        let owner: Option<Option<String>> = self.conn.query_row("SELECT created_by FROM bookings WHERE id = ?1", params![id], |r| r.get(0)).optional()?;
+        match owner {
+            None => Err(CoreError::not_found("booking", id)),
+            Some(o) if o.as_deref() == Some(se.user_name.as_str()) => Ok(()),
+            Some(_) => Err(CoreError::new("booking_not_own", "only the office that booked it can change this booking")),
+        }
+    }
+
     pub fn get_booking(&self, id: &str) -> Result<Value> {
         json_row(&self.conn, &format!("{BOOKING_SELECT} WHERE b.id = ?1"), vec![s(id)], "booking", id)
     }
@@ -547,8 +551,14 @@ impl Store {
 
     /// done | cancelled (cancelling needs a reason); linking the recorded burial.
     pub fn set_booking_status(&self, se: &Session, id: &str, status: &str, reason: Option<&str>, event_id: Option<&str>) -> Result<Value> {
-        se.require(Permission::Operations)?;
         let status = one_of("status", status, &["done", "cancelled"])?;
+        let manager = se.can(Permission::Operations);
+        if !manager && !(status == "cancelled" && se.can(Permission::Calendar)) && !(status == "done" && se.can(Permission::RecordEvents)) {
+            return Err(CoreError::forbidden("operations"));
+        }
+        if !manager && status == "cancelled" {
+            self.require_own_booking(se, id)?;
+        }
         let reason = if status == "cancelled" { Some(require_reason(reason)?) } else { None };
         let tx = crate::db::tx(&self.conn)?;
         let n = tx.execute(
@@ -1105,9 +1115,13 @@ impl Store {
     // ---------------------------------------------------------------- agenda
 
     /// Everything due in a day range: bookings, open work orders and case deadlines.
-    pub fn agenda(&self, cemetery_id: &str, from: &str, to: &str) -> Result<Value> {
+    pub fn agenda(&self, se: &Session, cemetery_id: &str, from: &str, to: &str) -> Result<Value> {
         let f = fmt_date(parse_date(from)?);
         let t = fmt_date(parse_date(to)?);
+        if !se.can(Permission::Operations) {
+            se.require(Permission::Calendar)?;
+            return Ok(json!({ "bookings": self.list_bookings(cemetery_id, &f, &t)?, "workOrders": [], "caseDeadlines": [], "today": fmt_date(today()) }));
+        }
         let orders = json_rows(
             &self.conn,
             &format!("{ORDER_SELECT} WHERE w.cemetery_id = ?1 AND w.status = 'open' AND w.due_date <= ?3 ORDER BY w.due_date"),
@@ -1205,6 +1219,43 @@ mod tests {
         assert_eq!(store.set_booking_status(&se, id, "cancelled", None, None).unwrap_err().code, "reason_required");
         store.set_booking_status(&se, id, "cancelled", Some("a család kérésére"), None).unwrap();
         assert!(store.list_work_orders(&cem, Some("open"), None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn invited_office_books_and_changes_only_its_own() {
+        let (store, se, cem, _) = setup();
+        let chapel = store.save_facility(&se, &FacilityInput { cemetery_id: cem.clone(), name: "Ravatalozó".into(), ..Default::default() }).unwrap();
+        let fid = chapel["id"].as_str().unwrap().to_string();
+        let office = |name: &str| Session::for_role(None, name, name, Role::Undertaker, &[]);
+        let (a, b) = (office("kegyelet@pelda.hu"), office("vegtisztesseg@pelda.hu"));
+        let mk = |s: &Session, title: &str, h: u32| {
+            store.save_booking(
+                s,
+                &BookingInput {
+                    cemetery_id: cem.clone(),
+                    title: title.into(),
+                    starts_at: format!("2026-12-01T{h:02}:00"),
+                    ends_at: format!("2026-12-01T{:02}:00", h + 1),
+                    facility_id: Some(fid.clone()),
+                    dig_order: true,
+                    ..Default::default()
+                },
+            )
+        };
+        let own = mk(&a, "Kegyelet: Szabó Béla", 9).unwrap();
+        // the other office sees it and cannot book over it
+        assert_eq!(mk(&b, "Végtisztesség: Kiss Anna", 9).unwrap_err().code, "booking_conflict");
+        let other = mk(&b, "Végtisztesség: Kiss Anna", 11).unwrap();
+        let agenda = store.agenda(&b, &cem, "2026-12-01", "2026-12-01").unwrap();
+        assert_eq!(agenda["bookings"].as_array().unwrap().len(), 2);
+        assert!(agenda["workOrders"].as_array().unwrap().is_empty());
+        // offices do not create work orders, and change only their own bookings
+        assert!(store.list_work_orders(&cem, None, None).unwrap().is_empty());
+        let id = own["id"].as_str().unwrap().to_string();
+        assert_eq!(store.set_booking_status(&b, &id, "cancelled", Some("tévedés"), None).unwrap_err().code, "booking_not_own");
+        store.set_booking_status(&a, &id, "cancelled", Some("a család kérte"), None).unwrap();
+        assert_eq!(store.set_booking_status(&a, other["id"].as_str().unwrap(), "done", None, None).unwrap_err().code, "forbidden");
+        assert!(store.save_facility(&a, &FacilityInput { cemetery_id: cem.clone(), name: "X".into(), ..Default::default() }).is_err());
     }
 
     #[test]
@@ -1359,7 +1410,7 @@ mod tests {
         store.record_condition(&se, &ConditionInput { plot_id: plot.clone(), condition: "ok".into(), ..Default::default() }).unwrap();
         assert!(store.list_conditions(&cem, true).unwrap().is_empty());
         assert_eq!(store.plot_conditions(&plot).unwrap().len(), 3);
-        let agenda = store.agenda(&cem, &fmt_date(today()), "2099-12-31").unwrap();
+        let agenda = store.agenda(&se, &cem, &fmt_date(today()), "2099-12-31").unwrap();
         assert_eq!(agenda["caseDeadlines"].as_array().unwrap().len(), 1);
     }
 }

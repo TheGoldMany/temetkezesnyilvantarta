@@ -55,6 +55,10 @@ pub fn call(store: &Store, s: &Session, method: &str, args: &Value, work_dir: &P
         args.get(k).and_then(|v| v.as_str()).map(String::from).ok_or_else(|| CoreError::new("bad_request", format!("argument `{k}`")))
     };
     let empty = Value::Object(Default::default());
+    if s.role == crate::auth::Role::Undertaker {
+        // an invited office reaches only the calendar methods of the API
+        return crate::api::dispatch(store, s, method, args);
+    }
     match method {
         "print.document" => {
             let doc = str_arg("doc")?;

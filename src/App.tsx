@@ -60,6 +60,14 @@ export function App() {
   if (status.account?.totpRequired) return <TotpRequired />;
   if (status.settings["onboarding.completed"] !== "true") return <Onboarding />;
   const r = nav.route;
+  // an invited funeral office works only in the shared calendar
+  if (status.session.role === "undertaker") {
+    return (
+      <Shell>
+        <OperationsView />
+      </Shell>
+    );
+  }
   return (
     <Shell>
       {r.view === "dashboard" && <Dashboard />}

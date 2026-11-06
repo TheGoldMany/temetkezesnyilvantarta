@@ -21,6 +21,8 @@ pub enum Role {
     Cashier,
     /// Temetői dolgozó (munkalapok)
     Worker,
+    /// Meghívott temetkezési iroda (közös temetési naptár)
+    Undertaker,
 }
 
 impl Role {
@@ -32,6 +34,7 @@ impl Role {
             Role::Reader => "reader",
             Role::Cashier => "cashier",
             Role::Worker => "worker",
+            Role::Undertaker => "undertaker",
         }
     }
     pub fn parse(s: &str) -> Result<Self> {
@@ -42,6 +45,7 @@ impl Role {
             "reader" => Role::Reader,
             "cashier" => Role::Cashier,
             "worker" => Role::Worker,
+            "undertaker" => Role::Undertaker,
             _ => return Err(CoreError::validation("role", format!("unknown role {s}"))),
         })
     }
@@ -59,6 +63,7 @@ impl Role {
                 CashDesk,
                 Operations,
                 CompleteWork,
+                Calendar,
                 CorrectEntries,
                 VoidEntries,
                 ViewPersonal,
@@ -77,6 +82,7 @@ impl Role {
                 CashDesk,
                 Operations,
                 CompleteWork,
+                Calendar,
                 ViewPersonal,
                 Print,
                 Export,
@@ -89,6 +95,8 @@ impl Role {
             Role::Cashier => &[CashDesk, Print],
             // FR-UZE-01: work orders only
             Role::Worker => &[CompleteWork, Print],
+            // a funeral office invited into the account: the shared calendar only
+            Role::Undertaker => &[Calendar],
             Role::Reader => &[Print, Export],
         }
     }
@@ -109,6 +117,8 @@ pub enum Permission {
     Operations,
     /// munkalap elvégzettnek jelölése
     CompleteWork,
+    /// közös temetési naptár (időpont foglalása, a saját foglalás módosítása)
+    Calendar,
     /// bejegyzés javítása (FR-JOG-03)
     CorrectEntries,
     /// érvénytelenítés (FR-NAP-02)
@@ -136,6 +146,7 @@ impl Permission {
             Permission::CashDesk => "cash_desk",
             Permission::Operations => "operations",
             Permission::CompleteWork => "complete_work",
+            Permission::Calendar => "calendar",
             Permission::CorrectEntries => "correct_entries",
             Permission::VoidEntries => "void_entries",
             Permission::ViewPersonal => "view_personal",
