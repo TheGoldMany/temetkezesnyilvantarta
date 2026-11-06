@@ -78,8 +78,11 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Top bar, as in the website's program window: identity, search, user; then the section tabs. */}
       <header className="no-print shrink-0 border-b border-seam bg-slab">
         <div className="flex h-16 items-center gap-3 px-4 sm:gap-5 sm:px-6">
-          <p className="flex shrink-0 items-baseline gap-3">
-            <span className="wordmark text-[1.375rem] text-moss">{t("app.name")}</span>
+          <div className="flex shrink-0 items-center gap-4">
+            <p className="flex flex-col gap-0.5" title={t("app.tagline")}>
+              <span className="wordmark text-[1.625rem] text-moss sm:text-[1.875rem]">{t("app.name")}</span>
+              <span className="hidden text-[0.625rem] leading-none font-semibold tracking-wide text-granite sm:block">{t("app.tagline")}</span>
+            </p>
             {list.length > 1 ? (
               <select
                 aria-label={t("common.cemetery")}
@@ -94,9 +97,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 ))}
               </select>
             ) : (
-              <span className="hidden max-w-64 truncate text-sm text-granite md:inline">{current?.name}</span>
+              <span className="hidden max-w-64 truncate border-l border-seam pl-4 text-sm text-granite md:inline">{current?.name}</span>
             )}
-          </p>
+          </div>
           {nav.canGoBack && (
             <button type="button" onClick={nav.back} className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-md px-2 text-granite hover:bg-limestone hover:text-slate" aria-label={t("nav.back")}>
               <ArrowLeft className="size-5" aria-hidden />

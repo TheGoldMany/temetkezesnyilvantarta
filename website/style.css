@@ -85,6 +85,18 @@ a { color: inherit; }
   box-shadow: 0 1px 0 rgba(20, 59, 49, 0.08);
 }
 
+/* the wordmark with its expansion underneath */
+.brand { display: inline-flex; flex-direction: column; gap: 3px; text-decoration: none; flex-shrink: 0; }
+.brand .wordmark { font-size: 32px; }
+.brand-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
 .wordmark {
   font-weight: 700;
   font-stretch: 78%;
@@ -166,6 +178,8 @@ a { color: inherit; }
 /* Phones and narrow windows: a full-screen menu under the bar. */
 @media (max-width: 899px) {
   .bar { height: 60px; }
+  .brand .wordmark { font-size: 27px; }
+  .brand-sub { font-size: 9.5px; letter-spacing: 0.02em; }
   .menu-btn { display: inline-flex; }
   /* backdrop-filter would make the bar the containing block of the fixed menu. */
   .bar.menu-open { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--paper); }

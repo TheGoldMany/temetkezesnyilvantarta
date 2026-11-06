@@ -10,8 +10,8 @@ function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-full lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       <aside className="relative flex flex-col overflow-hidden bg-rail px-10 py-10 text-rail-ink">
-        <p className="wordmark text-[2rem]">{t("app.name")}</p>
-        <p className="mt-4 max-w-sm text-lg text-rail-muted">{t("app.tagline")}</p>
+        <p className="wordmark text-[3rem]">{t("app.name")}</p>
+        <p className="mt-2 text-xs font-semibold tracking-[0.08em] text-rail-muted uppercase">{t("app.tagline")}</p>
         <PlotPattern />
       </aside>
       <div className="flex items-center bg-limestone px-6 py-10 lg:px-16">
