@@ -332,7 +332,7 @@ impl Store {
             "WITH cand AS MATERIALIZED (SELECT si.ref_id FROM search_index si WHERE si.kind = 'deceased' AND {conds})
              SELECT trim(d.name_prefix || ' ' || d.family_name || ' ' || d.given_name) AS name,
                     substr(d.birth_date, 1, 4) AS birth_year, substr(d.death_date, 1, 4) AS death_year,
-                    c.name AS cemetery, p.identifier AS plot
+                    c.name AS cemetery, c.id AS cemetery_id, p.identifier AS plot
              FROM deceased d
              JOIN LATERAL (SELECT e.plot_id FROM interment_events e WHERE e.deceased_id = d.id AND e.voided_at IS NULL AND e.plot_id IS NOT NULL
                            ORDER BY e.event_date DESC LIMIT 1) last ON true
@@ -344,6 +344,46 @@ impl Store {
             conds = conds.join(" AND ")
         );
         json_rows(&self.conn, &sql, args)
+    }
+
+    /// Cemeteries with address and opening hours for the public page.
+    pub fn public_cemeteries(&self) -> Result<Vec<Value>> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        json_rows(&self.conn, "SELECT id, name, address, opening_hours FROM cemeteries WHERE voided_at IS NULL ORDER BY name COLLATE \"hu-x-icu\"", vec![])
+    }
+
+    /// The layout of a cemetery for the public map: sections and plot outlines
+    /// with their identifiers. No names, holders or statuses.
+    pub fn public_map(&self, cemetery_id: &str) -> Result<Value> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        let cemetery =
+            json_rows(&self.conn, "SELECT id, name, address, opening_hours FROM cemeteries WHERE id = ?1 AND voided_at IS NULL", vec![txt(cemetery_id)])?
+                .into_iter()
+                .next()
+                .ok_or_else(|| CoreError::not_found("cemetery", cemetery_id))?;
+        let sections = json_rows(
+            &self.conn,
+            "SELECT code, name, round(map_x::numeric, 1) AS x, round(map_y::numeric, 1) AS y, round(map_w::numeric, 1) AS w,
+                    round(map_h::numeric, 1) AS h, round(map_rot::numeric, 1) AS rot
+             FROM sections WHERE cemetery_id = ?1 AND voided_at IS NULL ORDER BY code",
+            vec![txt(cemetery_id)],
+        )?;
+        // compact rows: [identifier, x, y, w, h, rotation]
+        let mut st = self.conn.prepare(
+            "SELECT identifier, map_x, map_y, map_w, map_h, map_rot FROM plots
+             WHERE cemetery_id = ?1 AND voided_at IS NULL AND merged_into_id IS NULL AND map_w > 0 ORDER BY identifier",
+        )?;
+        let r1 = |v: f64| (v * 10.0).round() / 10.0;
+        let plots: Vec<Value> = st
+            .query_map(params![cemetery_id], |r| {
+                Ok(json!([r.get::<_, String>(0)?, r1(r.get(1)?), r1(r.get(2)?), r1(r.get(3)?), r1(r.get(4)?), r1(r.get(5)?)]))
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+        Ok(json!({ "cemetery": cemetery, "sections": sections, "plots": plots }))
     }
 
     /// FR-UGY-02: the family can ask that a deceased does not appear publicly.
@@ -400,8 +440,16 @@ mod tests {
         let hits = store.public_search("kovács").unwrap();
         assert!(!hits.is_empty());
         assert!(hits[0].get("birthDate").is_none(), "no full dates in public");
+        assert_eq!(store.public_map("x").unwrap_err().code, "not_found");
         assert!(hits[0]["plot"].is_string());
         assert!(store.public_search("ko").unwrap().is_empty(), "too short a query");
+        assert!(hits[0]["cemeteryId"].is_string());
+        let cems = store.public_cemeteries().unwrap();
+        assert!(cems[0]["openingHours"].as_str().unwrap().contains("óra"));
+        let map = store.public_map(hits[0]["cemeteryId"].as_str().unwrap()).unwrap();
+        assert!(map["plots"].as_array().unwrap().len() > 100);
+        assert!(map["plots"].as_array().unwrap().iter().any(|p| p[0] == hits[0]["plot"]));
+        assert!(map["sections"][0]["code"].is_string());
         let name = hits[0]["name"].as_str().unwrap().to_string();
         let id: String = store
             .conn

@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sírkereső</title>
     <meta name="robots" content="noindex" />
-    <!-- FR-UGY-02: public grave search, embedded on the operator's website with an iframe.
-         Shows only what a headstone shows: name, years, cemetery, plot. -->
+    <!-- FR-UGY-02: public grave search and cemetery map, embedded on the
+         operator's website with an iframe. Shows only what a headstone and a
+         notice board show: name, years, plot, the layout, opening hours. -->
     <style>
       @font-face {
         font-family: "Instrument Sans";
@@ -22,60 +23,44 @@
         --line: #d9dfda;
         --cypress: #1f5546;
         --cypress-soft: #dfe9e3;
+        --marigold: #e2a32b;
         color-scheme: light;
       }
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font: 17px/1.5 "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: var(--ink);
-        background: var(--paper);
-      }
-      main { max-width: 760px; margin: 0 auto; padding: 20px 16px 28px; }
+      body { margin: 0; font: 17px/1.5 "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+      main { max-width: 980px; margin: 0 auto; padding: 20px 16px 28px; }
       h1 { margin: 0 0 4px; font-size: 1.5rem; letter-spacing: -0.01em; }
-      .sub { margin: 0 0 18px; color: var(--ink-2); }
+      h2 { margin: 0 0 8px; font-size: 1.1rem; }
+      .sub { margin: 0 0 16px; color: var(--ink-2); }
+      .cems { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 0 0 20px; padding: 0; list-style: none; }
+      .cems li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+      .cems b { display: block; }
+      .cems .meta { color: var(--ink-2); font-size: 0.92rem; }
       form { display: flex; gap: 8px; }
       label.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-      input[type="search"] {
-        flex: 1;
-        min-width: 0;
-        min-height: 48px;
-        padding: 0 14px;
-        font: inherit;
-        color: inherit;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--canvas);
-      }
-      input[type="search"]:focus { outline: 3px solid var(--cypress-soft); border-color: var(--cypress); }
-      button {
-        min-height: 48px;
-        padding: 0 20px;
-        font: inherit;
-        font-weight: 600;
-        color: #fff;
-        background: var(--cypress);
-        border: 0;
-        border-radius: 10px;
-        cursor: pointer;
-      }
+      input[type="search"], select { min-height: 48px; padding: 0 14px; font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+      input[type="search"] { flex: 1; min-width: 0; }
+      input:focus, select:focus { outline: 3px solid var(--cypress-soft); border-color: var(--cypress); }
+      button { min-height: 44px; padding: 0 18px; font: inherit; font-weight: 600; color: #fff; background: var(--cypress); border: 0; border-radius: 10px; cursor: pointer; }
+      button.ghost { color: var(--cypress); background: transparent; border: 1px solid var(--line); }
       button:focus-visible { outline: 3px solid var(--cypress-soft); outline-offset: 2px; }
-      #status { min-height: 1.5em; margin: 14px 0 6px; color: var(--ink-2); }
-      ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-      li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+      #status { min-height: 1.5em; margin: 12px 0 6px; color: var(--ink-2); }
+      ol { list-style: none; margin: 0 0 20px; padding: 0; border-top: 1px solid var(--line); }
+      li.hit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
       .name { font-weight: 600; }
       .years { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-      .where { text-align: right; }
-      .plaque {
-        display: inline-block;
-        margin-left: 8px;
-        padding: 1px 8px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        border: 1px solid var(--cypress);
-        border-radius: 6px;
-        color: var(--cypress);
-      }
+      .where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .plaque { display: inline-block; padding: 1px 8px; font-weight: 600; font-variant-numeric: tabular-nums; border: 1px solid var(--cypress); border-radius: 6px; color: var(--cypress); }
+      .mapbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
+      .mapbar .tools { display: flex; gap: 6px; }
+      .mapbar button { min-height: 40px; padding: 0 12px; }
+      #map { width: 100%; height: min(70vh, 560px); border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); touch-action: none; display: block; }
+      #map .plot { fill: #fff; stroke: #b9c4bd; stroke-width: 0.4; }
+      #map .sec { fill: none; stroke: var(--cypress); stroke-width: 1; stroke-dasharray: 4 3; }
+      #map .lbl { fill: var(--cypress); font-weight: 700; font-family: inherit; }
+      #map .hl { fill: var(--marigold); stroke: #8a5c00; stroke-width: 1; }
+      #map .ring { fill: none; stroke: var(--marigold); stroke-width: 2; }
+      .hint { color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
       footer { margin-top: 18px; font-size: 0.85rem; color: var(--ink-2); }
       footer a { color: inherit; }
     </style>
@@ -83,7 +68,8 @@
   <body>
     <main>
       <h1>Sírkereső</h1>
-      <p class="sub" id="operator">Keressen név vagy évszám alapján.</p>
+      <p class="sub" id="operator">Keressen név vagy évszám alapján, és nézze meg a sírhelyet a térképen.</p>
+      <ul class="cems" id="cems" aria-label="Temetők"></ul>
       <form id="f" role="search">
         <label class="sr" for="q">Elhunyt neve</label>
         <input id="q" name="q" type="search" placeholder="Például: Kovács János 1950" autocomplete="off" minlength="3" required />
@@ -91,6 +77,22 @@
       </form>
       <p id="status" role="status" aria-live="polite"></p>
       <ol id="results" aria-label="Találatok"></ol>
+
+      <section id="mapbox" hidden>
+        <div class="mapbar">
+          <h2 id="maptitle">Térkép</h2>
+          <div class="tools">
+            <label class="sr" for="cem">Temető</label>
+            <select id="cem" hidden></select>
+            <button type="button" class="ghost" id="zin" aria-label="Nagyítás">+</button>
+            <button type="button" class="ghost" id="zout" aria-label="Kicsinyítés">−</button>
+            <button type="button" class="ghost" id="zall">Teljes térkép</button>
+          </div>
+        </div>
+        <svg id="map" role="img" aria-label="A temető térképe"></svg>
+        <p class="hint">Húzással mozgathatja, a gombokkal nagyíthatja a térképet.</p>
+      </section>
+
       <footer>
         Csak azok az adatok látszanak, amelyeket a hozzátartozók nem kértek elrejteni. Hibát talált? Keresse a temető ügyfélszolgálatát.
         <br />Nyilvántartás: <a href="https://temisz.hu" target="_blank" rel="noopener">TEMISZ</a>
@@ -99,65 +101,199 @@
     <script>
       (function () {
         var token = new URLSearchParams(location.search).get("t") || "";
-        var form = document.getElementById("f");
-        var q = document.getElementById("q");
-        var status = document.getElementById("status");
-        var list = document.getElementById("results");
-        var operator = document.getElementById("operator");
+        var api = function (path, extra) {
+          return fetch("/api/public/" + path + "?t=" + encodeURIComponent(token) + (extra || "")).then(function (res) {
+            return res.json().then(function (body) {
+              return { ok: res.ok, status: res.status, body: body };
+            });
+          });
+        };
+        var $ = function (id) { return document.getElementById(id); };
+        var status = $("status"), list = $("results"), svg = $("map");
+        var NS = "http://www.w3.org/2000/svg";
+        var maps = {}, current = null, view = null, full = null, highlight = null;
 
-        function text(tag, cls, value) {
-          var el = document.createElement(tag);
-          if (cls) el.className = cls;
-          el.textContent = value;
-          return el;
+        function el(tag, cls, text) {
+          var e = document.createElement(tag);
+          if (cls) e.className = cls;
+          if (text != null) e.textContent = text;
+          return e;
+        }
+        function s(tag, attrs) {
+          var e = document.createElementNS(NS, tag);
+          for (var k in attrs) e.setAttribute(k, attrs[k]);
+          return e;
         }
 
+        // ---- cemeteries with address and opening hours
+        api("info").then(function (r) {
+          if (!r.ok) {
+            status.textContent = r.status === 404 ? "A sírkereső most nem érhető el." : "Hiba történt. Próbálja újra később.";
+            return;
+          }
+          if (r.body.operator) $("operator").textContent = r.body.operator;
+          var cems = r.body.cemeteries || [];
+          cems.forEach(function (c) {
+            var li = el("li");
+            li.appendChild(el("b", null, c.name));
+            if (c.address) li.appendChild(el("span", "meta", c.address));
+            if (c.openingHours) {
+              li.appendChild(el("br"));
+              li.appendChild(el("span", "meta", "Nyitvatartás: " + c.openingHours));
+            }
+            $("cems").appendChild(li);
+            var o = el("option", null, c.name);
+            o.value = c.id;
+            $("cem").appendChild(o);
+          });
+          if (cems.length > 1) $("cem").hidden = false;
+          if (cems.length) showMap(cems[0].id, null);
+        });
+        $("cem").addEventListener("change", function () { showMap(this.value, null); });
+
+        // ---- map
+        function load(cid) {
+          if (maps[cid]) return Promise.resolve(maps[cid]);
+          return api("map", "&c=" + encodeURIComponent(cid)).then(function (r) {
+            if (!r.ok) throw new Error("map");
+            maps[cid] = r.body;
+            return r.body;
+          });
+        }
+        function bounds(m) {
+          var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+          m.plots.forEach(function (p) {
+            x0 = Math.min(x0, p[1]); y0 = Math.min(y0, p[2]);
+            x1 = Math.max(x1, p[1] + p[3]); y1 = Math.max(y1, p[2] + p[4]);
+          });
+          if (!isFinite(x0)) return null;
+          var pad = 20;
+          return { x: x0 - pad, y: y0 - pad - 14, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad + 14 };
+        }
+        function setView(v) {
+          view = v;
+          svg.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h);
+        }
+        function draw(m) {
+          while (svg.firstChild) svg.removeChild(svg.firstChild);
+          var g = s("g", {});
+          m.sections.forEach(function (sec) {
+            if (sec.w > 0 && sec.h > 0) g.appendChild(s("rect", { class: "sec", x: sec.x, y: sec.y, width: sec.w, height: sec.h, rx: 4 }));
+          });
+          m.plots.forEach(function (p) {
+            var r = s("rect", { class: "plot", x: p[1], y: p[2], width: p[3], height: p[4] });
+            if (p[5]) r.setAttribute("transform", "rotate(" + p[5] + " " + (p[1] + p[3] / 2) + " " + (p[2] + p[4] / 2) + ")");
+            var t = s("title", {});
+            t.textContent = p[0];
+            r.appendChild(t);
+            g.appendChild(r);
+          });
+          // section letters above each section
+          var first = {};
+          m.plots.forEach(function (p) {
+            var code = p[0].split("/")[0];
+            var f = first[code];
+            if (!f || p[2] < f.y || (p[2] === f.y && p[1] < f.x)) first[code] = { x: p[1], y: p[2] };
+          });
+          m.sections.forEach(function (sec) {
+            var f = first[sec.code];
+            if (!f) return;
+            var t = s("text", { class: "lbl", x: f.x, y: f.y - 5, "font-size": 12 });
+            t.textContent = sec.code + (sec.name && sec.w > 120 ? " – " + sec.name : "");
+            g.appendChild(t);
+          });
+          svg.appendChild(g);
+        }
+        function showMap(cid, ident) {
+          return load(cid).then(function (m) {
+            $("mapbox").hidden = false;
+            $("maptitle").textContent = m.cemetery.name + " – térkép";
+            $("cem").value = cid;
+            if (current !== cid) {
+              draw(m);
+              current = cid;
+              full = bounds(m);
+            }
+            if (highlight) { highlight.forEach(function (e) { e.remove(); }); highlight = null; }
+            if (!full) {
+              status.textContent = "Ennek a temetőnek még nincs térképe.";
+              return;
+            }
+            var p = ident && m.plots.find(function (x) { return x[0] === ident; });
+            if (p) {
+              var cx = p[1] + p[3] / 2, cy = p[2] + p[4] / 2;
+              var hl = s("rect", { class: "hl", x: p[1], y: p[2], width: p[3], height: p[4] });
+              var ring = s("circle", { class: "ring", cx: cx, cy: cy, r: Math.max(p[3], p[4]) * 1.2 });
+              var tag = s("text", { class: "lbl", x: cx + Math.max(p[3], p[4]) * 1.3, y: cy + 4, "font-size": 10 });
+              tag.textContent = p[0];
+              svg.firstChild.appendChild(hl);
+              svg.firstChild.appendChild(ring);
+              svg.firstChild.appendChild(tag);
+              highlight = [hl, ring, tag];
+              var w = Math.max(160, full.w / 6), h = w * (svg.clientHeight / Math.max(1, svg.clientWidth));
+              setView({ x: cx - w / 2, y: cy - h / 2, w: w, h: h });
+              $("mapbox").scrollIntoView({ behavior: "smooth", block: "start" });
+            } else {
+              setView(full);
+            }
+          }).catch(function () { status.textContent = "A térkép most nem tölthető be."; });
+        }
+        function zoom(f) {
+          if (!view) return;
+          var cx = view.x + view.w / 2, cy = view.y + view.h / 2;
+          setView({ x: cx - (view.w * f) / 2, y: cy - (view.h * f) / 2, w: view.w * f, h: view.h * f });
+        }
+        $("zin").addEventListener("click", function () { zoom(0.6); });
+        $("zout").addEventListener("click", function () { zoom(1.6); });
+        $("zall").addEventListener("click", function () { if (full) setView(full); });
+        // drag to pan
+        var drag = null;
+        svg.addEventListener("pointerdown", function (e) { drag = { x: e.clientX, y: e.clientY, v: view }; svg.setPointerCapture(e.pointerId); });
+        svg.addEventListener("pointermove", function (e) {
+          if (!drag || !drag.v) return;
+          var k = drag.v.w / svg.clientWidth;
+          setView({ x: drag.v.x - (e.clientX - drag.x) * k, y: drag.v.y - (e.clientY - drag.y) * k, w: drag.v.w, h: drag.v.h });
+        });
+        svg.addEventListener("pointerup", function () { drag = null; });
+        svg.addEventListener("wheel", function (e) { e.preventDefault(); zoom(e.deltaY > 0 ? 1.15 : 0.87); }, { passive: false });
+
+        // ---- search
         function show(results) {
           list.textContent = "";
           results.forEach(function (r) {
-            var li = document.createElement("li");
-            var who = document.createElement("div");
-            who.appendChild(text("span", "name", r.name));
+            var li = el("li", "hit");
+            var who = el("div");
+            who.appendChild(el("span", "name", r.name));
             who.appendChild(document.createTextNode(" "));
-            who.appendChild(text("span", "years", (r.birthYear || "?") + "–" + (r.deathYear || "?")));
-            var where = document.createElement("div");
-            where.className = "where";
+            who.appendChild(el("span", "years", (r.birthYear || "?") + "–" + (r.deathYear || "?")));
+            var where = el("div", "where");
             where.appendChild(document.createTextNode(r.cemetery));
-            where.appendChild(text("span", "plaque", r.plot));
+            where.appendChild(el("span", "plaque", r.plot));
+            var b = el("button", "ghost", "Térképen");
+            b.type = "button";
+            b.addEventListener("click", function () { showMap(r.cemeteryId, r.plot); });
+            where.appendChild(b);
             li.appendChild(who);
             li.appendChild(where);
             list.appendChild(li);
           });
         }
-
-        form.addEventListener("submit", function (e) {
+        $("f").addEventListener("submit", function (e) {
           e.preventDefault();
-          var term = q.value.trim();
-          if (term.length < 3) {
-            status.textContent = "Írjon be legalább 3 betűt.";
-            return;
-          }
+          var term = $("q").value.trim();
+          if (term.length < 3) { status.textContent = "Írjon be legalább 3 betűt."; return; }
           status.textContent = "Keresés…";
-          fetch("/api/public/search?t=" + encodeURIComponent(token) + "&q=" + encodeURIComponent(term))
-            .then(function (res) {
-              return res.json().then(function (body) {
-                return { ok: res.ok, status: res.status, body: body };
-              });
-            })
+          api("search", "&q=" + encodeURIComponent(term))
             .then(function (r) {
               if (!r.ok) {
                 list.textContent = "";
-                status.textContent =
-                  r.status === 429 ? "Túl sok keresés. Próbálja újra egy perc múlva." : r.status === 404 ? "A sírkereső most nem érhető el." : "Hiba történt. Próbálja újra később.";
+                status.textContent = r.status === 429 ? "Túl sok keresés. Próbálja újra egy perc múlva." : r.status === 404 ? "A sírkereső most nem érhető el." : "Hiba történt. Próbálja újra később.";
                 return;
               }
-              if (r.body.operator) operator.textContent = r.body.operator;
               show(r.body.results);
               status.textContent = r.body.results.length ? r.body.results.length + " találat" : "Nincs találat. Próbálja más írásmóddal vagy csak a családnévvel.";
             })
-            .catch(function () {
-              status.textContent = "Nincs kapcsolat. Próbálja újra később.";
-            });
+            .catch(function () { status.textContent = "Nincs kapcsolat. Próbálja újra később."; });
         });
       })();
     </script>

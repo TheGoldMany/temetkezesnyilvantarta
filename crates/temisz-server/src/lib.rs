@@ -120,7 +120,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
-        ("GET", "/api/public/search") | ("OPTIONS", "/api/public/search") => public_search(store, req),
+        ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map") => public_search(store, req),
         ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
             let secret = std::env::var("CRON_SECRET").unwrap_or_default();
             let ok = (!secret.is_empty() && req.header("authorization") == Some(&format!("Bearer {secret}"))) || cfg.dev_mode;
@@ -190,8 +190,11 @@ fn public_search(store: &Store, req: &Request) -> Response {
             .optional()?;
         let Some((schema, name)) = row else { return Err(CoreError::new("not_found", "unknown search")) };
         store.conn.use_schema(&schema)?;
-        let hits = store.public_search(&param("q"))?;
-        Ok(json!({ "operator": name, "results": hits }))
+        match req.path.split('?').next().unwrap_or("") {
+            "/api/public/info" => Ok(json!({ "operator": name, "cemeteries": store.public_cemeteries()? })),
+            "/api/public/map" => store.public_map(&param("c")),
+            _ => Ok(json!({ "operator": name, "results": store.public_search(&param("q"))? })),
+        }
     })();
     let mut resp = match out {
         Ok(v) => Response::json(&v),
