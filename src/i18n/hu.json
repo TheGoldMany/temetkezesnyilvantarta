@@ -453,7 +453,17 @@
     "printCertificate": "Megváltási igazolás",
     "printFeeRequest": "Díjbekérő",
     "openPlot": "Hely adatlapja",
-    "another": "Újabb temetés"
+    "another": "Újabb temetés",
+    "offHome": "Urna hazavitele (nincs sírhely)",
+    "offElsewhere": "Hamvak szórása máshol (nincs sírhely)",
+    "offHomeHint": "Az urnát a hozzátartozó hazavitte vagy elvitte. Sírhely nem kell, de a bejegyzés folyószámot kap a nyilvántartó könyvben, az átvevő adataival.",
+    "offHomeWhere": "Hová került",
+    "offHomeWhereHint": "Például: hazavitték, külföldre vitték. Üresen „hazavitték” kerül be.",
+    "offElsewhereHint": "A hamvakat nem ebben a temetőben, sírhely nélkül szórták szét. A bejegyzés folyószámot kap, a szórás helyével.",
+    "destinationHint": "Például: Kisvölgyi köztemető szóróparcellája, vagy a Duna, Budapest",
+    "offPeopleHint": "Sírhely nélkül nincs rendelkezési jogosult. Az eltemettetőt megadhatja, de nem kötelező.",
+    "offNoLease": "Sírhely nélkül megváltás sincs. Lépjen tovább az ellenőrzéshez.",
+    "scatterPlace": "Szórás helye"
   },
   "plots": {
     "title": "Temetési helyek",

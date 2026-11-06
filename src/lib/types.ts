@@ -475,6 +475,10 @@ export interface BurialInput {
   historicalFolio: number | null;
   overrideReason: string | null;
   notes: string;
+  cemeteryId?: string | null;
+  receiverName?: string;
+  receiverAddress?: string;
+  destination?: string;
 }
 
 export interface BurialResult {

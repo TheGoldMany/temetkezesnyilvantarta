@@ -57,6 +57,10 @@ fn historical_folio_advances_counter_and_rejects_duplicates() {
         historical_folio: folio,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     let _ = p;
     let r = fx.store.record_burial(&fx.admin, &mk(Some(4500), "A/1/1")).unwrap();
@@ -128,6 +132,10 @@ fn uc01_mandatory_register_columns_are_validated() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     let e = fx.store.record_burial(&fx.admin, &input).unwrap_err();
     assert_eq!(e.code, "validation");
@@ -152,6 +160,10 @@ fn unknown_identity_requires_authority_and_case_number() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&fx.admin, &mk(d.clone())).unwrap_err().params["field"], "authorityName");
     d.authority_name = "Kecskeméti Rendőrkapitányság".into();
@@ -195,6 +207,10 @@ fn uc02_reburial_rules_and_extension() {
         historical_folio: None,
         override_reason: Some("mélyített sír, hatósági engedély 12/2026".into()),
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&clerk, &input).unwrap_err().code, "burial_not_allowed");
     let r = fx.store.record_burial(&fx.admin, &input).unwrap();
@@ -258,6 +274,10 @@ fn permissions_are_enforced() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&reader, &input).unwrap_err().code, "forbidden");
     assert_eq!(fx.store.record_burial(&finance, &input).unwrap_err().code, "forbidden");
@@ -679,4 +699,51 @@ fn all_documents_render_from_sample_data() {
     let none = lunda_core::auth::Session { permissions: vec![], ..lunda_core::auth::Session::system() };
     assert_eq!(lunda_core::pdf::generate(&store, &none, "index", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap_err().code, "forbidden");
     std::fs::remove_dir_all(dir).ok();
+}
+
+/// An urn taken home or ashes scattered elsewhere: no plot, but the register
+/// keeps the entry with a folio, the receiver or the place, and prints it.
+#[test]
+fn urn_taken_home_and_ashes_scattered_elsewhere() {
+    let fx = fixture();
+    let first = fx.burial("A/1/1", "coffin_burial", "2024-03-01", "Előző", "Péter").unwrap();
+    let off = |ty: &str, receiver: &str, destination: &str, family: &str| {
+        fx.store.record_burial(
+            &fx.admin,
+            &BurialInput {
+                event_type: ty.into(),
+                event_date: "2024-03-05".into(),
+                container: "urn".into(),
+                deceased: DeceasedRef::New { deceased: Fx::deceased(family, "Anna", "2024-02-20") },
+                plot_id: None,
+                crypt_slot_id: None,
+                arranger: None,
+                holder: None,
+                holder_relation: None,
+                lease: LeaseChoice::default(),
+                historical_folio: None,
+                override_reason: None,
+                notes: String::new(),
+                cemetery_id: Some(fx.cemetery.id.clone()),
+                receiver_name: receiver.into(),
+                receiver_address: "6050 Lajosmizse, Fő utca 2.".into(),
+                destination: destination.into(),
+            },
+        )
+    };
+    // the receiver is required for an urn taken home
+    assert_eq!(off("urn_release", "", "", "Hazavitt").unwrap_err().code, "validation");
+    let home = off("urn_release", "Hazavitt Gábor", "", "Hazavitt").unwrap();
+    assert_eq!(home.folio, first.folio + 1);
+    assert_eq!(home.event.plot_id, None);
+    assert_eq!(home.event.destination, "hazavitték");
+    assert_eq!(off("ash_scattering", "", "", "Szórt").unwrap_err().code, "validation");
+    let scattered = off("ash_scattering", "", "Kisvölgyi köztemető, szóróparcella", "Szórt").unwrap();
+    assert_eq!(scattered.folio, first.folio + 2);
+    let events = fx.store.list_events(&EventFilter { cemetery_id: Some(fx.cemetery.id.clone()), ..Default::default() }).unwrap();
+    assert_eq!(events.total, 3);
+    // the register book prints entries without a plot
+    let dir = std::env::temp_dir().join(format!("reg-{}", lunda_core::util::new_id()));
+    let f = lunda_core::pdf::generate(&fx.store, &fx.admin, "register", &serde_json::json!({ "cemeteryId": fx.cemetery.id }), &dir).unwrap();
+    assert!(f.pages >= 1);
 }

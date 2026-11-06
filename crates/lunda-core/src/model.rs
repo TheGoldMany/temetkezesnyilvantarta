@@ -471,6 +471,18 @@ pub struct BurialInput {
     pub override_reason: Option<String>,
     #[serde(default)]
     pub notes: String,
+    /// without a plot (urn taken home, ashes scattered elsewhere): the
+    /// cemetery whose register keeps the entry
+    #[serde(default)]
+    pub cemetery_id: Option<String>,
+    /// urn taken home: who received it (JOG-15)
+    #[serde(default)]
+    pub receiver_name: String,
+    #[serde(default)]
+    pub receiver_address: String,
+    /// ashes scattered elsewhere, urn taken abroad, …
+    #[serde(default)]
+    pub destination: String,
 }
 
 /// Urn release / urn removal / relocation / ash scattering from an existing placement.

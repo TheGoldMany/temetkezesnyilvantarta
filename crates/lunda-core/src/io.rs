@@ -514,6 +514,10 @@ pub fn import_rows(store: &Store, s: &Session, table: &Table, o: &ImportOptions)
                 historical_folio: folio,
                 override_reason: None,
                 notes: notes.clone(),
+                cemetery_id: None,
+                receiver_name: String::new(),
+                receiver_address: String::new(),
+                destination: String::new(),
             };
             if d.birth_date.is_none() {
                 // allow import without birth date: the register keeps the gap visible

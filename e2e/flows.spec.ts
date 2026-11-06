@@ -37,6 +37,29 @@ test("UC-01: új temetés új helyre, folyószámmal és megváltással", async 
   await expect(page.getByText("Teszt Tímea").first()).toBeVisible();
 });
 
+test("urna hazavitele sírhely nélkül: folyószám, átvevő", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Új temetés rögzítése" }).first().click();
+  await page.getByLabel("Családi név").fill("Hazavitt");
+  await page.getByLabel("Utónév").fill("Hermina");
+  await page.getByLabel("Születési idő").fill("1938.03.02");
+  await page.getByLabel("Anyja neve").fill("Minta Margit");
+  await page.getByLabel("Legutolsó lakóhely").fill("9999 Mintavölgy, Béke utca 6.");
+  await page.getByLabel("Elhalálozás ideje").fill("20261020");
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await page.locator("select[name=eventKind]").selectOption("off_home");
+  await expect(page.getByRole("button", { name: "Tovább" })).toBeDisabled();
+  await page.locator("input[name=receiverName]").fill("Hazavitt Gergely");
+  await page.locator("input[name=receiverAddress]").fill("9999 Mintavölgy, Béke utca 6.");
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await expect(page.getByText(/megváltás sincs/)).toBeVisible();
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await expect(page.getByText("Hazavitt Gergely, 9999 Mintavölgy")).toBeVisible();
+  await page.getByRole("button", { name: "Temetés rögzítése" }).click();
+  await expect(page.getByTestId("burial-done")).toContainText(/Rögzítve a \d+\. folyószámon/);
+});
+
 test("UC-02: rátemetés – nyugvási időn belül koporsó tiltva, urna engedélyezve", async ({ page }) => {
   await login(page);
   // keresés ékezet nélkül a gyorskeresőben
