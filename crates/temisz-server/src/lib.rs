@@ -121,7 +121,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
-        ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map") => public_search(store, req),
+        ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map" | "/api/public/notices") => public_search(store, req),
         ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
             let secret = std::env::var("CRON_SECRET").unwrap_or_default();
             let ok = (!secret.is_empty() && req.header("authorization") == Some(&format!("Bearer {secret}"))) || cfg.dev_mode;
@@ -195,6 +195,7 @@ fn public_search(store: &Store, req: &Request) -> Response {
         match req.path.split('?').next().unwrap_or("") {
             "/api/public/info" => Ok(json!({ "operator": name, "cemeteries": store.public_cemeteries()? })),
             "/api/public/map" => store.public_map(&param("c")),
+            "/api/public/notices" => Ok(json!({ "notices": store.public_reuse_notices()? })),
             _ => Ok(json!({ "operator": name, "results": store.public_search(&param("q"))? })),
         }
     })();

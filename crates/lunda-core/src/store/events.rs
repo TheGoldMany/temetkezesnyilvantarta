@@ -180,6 +180,13 @@ impl Store {
             }
         };
         let proposal = if input.lease.create { self.lease_proposal_for_burial(&plot, date, container)? } else { None };
+        if let (Some(p), Some(years)) = (&proposal, input.lease.duration_years) {
+            // 145/1999. Korm. r. 18. §: the legal minimum use period
+            let min = crate::rules::min_use_years(&ptype.category, &ptype.code, p.kind == "renewal");
+            if (years as i64) < min && input.historical_folio.is_none() {
+                return Err(CoreError::new("lease_too_short", "shorter than the legal minimum use period").with("min", min).with("years", years));
+            }
+        }
 
         let tx = crate::db::tx(&self.conn)?;
         let deceased_id = match &input.deceased {
@@ -402,6 +409,23 @@ impl Store {
         if input.event_type == "urn_release" {
             non_empty("receiverName", &input.receiver_name)?; // JOG-15
         }
+        // opening a grave (exhumation, urn removal): the holder's consent, and
+        // for a coffin within 15 years the public health permit (145/1999. 35–36. §)
+        let mut legal_note = String::new();
+        if matches!(input.event_type.as_str(), "relocation" | "urn_removal") && input.historical_folio.is_none() {
+            if !input.holder_consent {
+                return Err(CoreError::validation("holderConsent", "the holder's consent is required").with("code", "consent_required"));
+            }
+            legal_note.push_str("A rendelkezési jogosult hozzájárult.");
+            let within_15 = date < crate::rules::add_years(parse_date(&src.event_date)?, 15);
+            if input.event_type == "relocation" && src.container == "coffin" && within_15 {
+                non_empty("permitNumber", &input.permit_number).map_err(|e| e.with("code", "permit_required"))?;
+            }
+            if !input.permit_number.trim().is_empty() {
+                legal_note.push_str(&format!(" Népegészségügyi engedély: {}.", input.permit_number.trim()));
+            }
+        }
+        let notes = [legal_note.as_str(), input.notes.trim()].iter().filter(|x| !x.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let mut target: Option<Plot> = None;
         if input.event_type == "relocation" {
             match &input.target_plot_id {
@@ -441,7 +465,7 @@ impl Store {
                 input.receiver_address.trim(),
                 input.destination.trim(),
                 src.id,
-                input.notes,
+                notes,
                 ts,
                 s.user_name
             ],

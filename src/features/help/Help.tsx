@@ -107,6 +107,16 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         ],
       },
       {
+        id: "exhumation",
+        title: "Exhumálás, áthelyezés, urnakiemelés",
+        steps: [
+          "A sírhely adatlapján válassza az Áthelyezés vagy az Urnakiemelés lehetőséget.",
+          "Jelölje, hogy a rendelkezési jogosult hozzájárult a sírnyitáshoz (145/1999. Korm. rendelet 35. § (2)). Az írásos hozzájárulást csatolja vagy őrizze meg.",
+          "Koporsós temetéstől számított 15 éven belül adja meg a népegészségügyi engedély számát (36. §). Enélkül a program nem rögzíti.",
+          "Az exhumálásról legalább 10 nappal előtte hirdetményt kell kifüggeszteni a temetőben (40. §).",
+        ],
+      },
+      {
         id: "offsite",
         title: "Urna hazavitele, szórás máshol",
         text: [
@@ -137,8 +147,11 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         steps: [
           "Lejáratok menü: állítsa be, hány napon belül lejárók látszódjanak.",
           "Jelölje ki a helyeket, majd nyomtasson értesítő levelet, sírcímkét vagy hirdetményt, vagy küldjön e-mailt.",
-          "Rögzítse az értesítést. A türelmi idő után a hely újraértékesíthetővé nyilvánítható.",
+          "Rögzítse az értesítést (levél, e-mail, címke).",
+          "Ha a jogosult nem váltja újra: rögzítsen „Hirdetmény (temető és honlap)” értesítést. Bekapcsolt nyilvános sírkeresőnél a hirdetmény magától megjelenik a honlapon is.",
+          "A hely újraértékesíthetővé nyilvánítható, ha a lejárat óta legalább egy év eltelt, és a hirdetmény legalább egy hónapja kint van (145/1999. Korm. rendelet 18. § (5a)). A program ezt ellenőrzi.",
         ],
+        tips: ["A legrövidebb használati idő: koporsós sír 25 év (újraváltás 10), sírbolt 60 év (újraváltás 30), urnafülke és urnasír 10 év, urnasírbolt 20 év (újraváltás 5). Rövidebbet a program nem enged."],
       },
       {
         id: "reminders",

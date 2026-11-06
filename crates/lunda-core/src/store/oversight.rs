@@ -455,6 +455,33 @@ impl Store {
         Ok(json!({ "cemetery": cemetery, "sections": sections, "plots": plots }))
     }
 
+    /// 145/1999. Korm. r. 18. § (5a): plots to be reused, announced on the
+    /// website. Identifier, expiry and the earliest reuse date; no names.
+    pub fn public_reuse_notices(&self) -> Result<Vec<Value>> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        json_rows(
+            &self.conn,
+            &format!(
+                "SELECT c.name AS cemetery, p.identifier, l.expiry_date, max(n.notice_date) AS notice_date,
+                        greatest(to_char(CAST(l.expiry_date AS DATE) + {reuse}, 'YYYY-MM-DD'),
+                                 to_char(CAST(max(n.notice_date) AS DATE) + {notice}, 'YYYY-MM-DD')) AS reuse_from
+                 FROM notices n
+                 JOIN plots p ON p.id = n.plot_id
+                 JOIN cemeteries c ON c.id = p.cemetery_id
+                 JOIN leases l ON l.plot_id = p.id AND l.status = 'active' AND l.voided_at IS NULL
+                 WHERE n.kind = 'board' AND n.voided_at IS NULL AND n.notice_date >= l.expiry_date
+                   AND p.voided_at IS NULL AND p.resale_ready_at IS NULL AND l.expiry_date < ?1
+                 GROUP BY c.name, p.identifier, l.expiry_date
+                 ORDER BY c.name, p.identifier",
+                reuse = crate::rules::REUSE_AFTER_DAYS,
+                notice = crate::rules::REUSE_NOTICE_DAYS
+            ),
+            vec![txt(fmt_date(today()))],
+        )
+    }
+
     /// FR-UGY-02: the family can ask that a deceased does not appear publicly.
     pub fn set_deceased_public(&self, s: &Session, deceased_id: &str, hidden: bool) -> Result<()> {
         s.require(Permission::RecordEvents)?;
@@ -527,6 +554,14 @@ mod tests {
         store.set_deceased_public(&s, &id, true).unwrap();
         let after = store.public_search("kovács").unwrap();
         assert_eq!(after.iter().filter(|h| h["name"] == name).count() + 1, hits.iter().filter(|h| h["name"] == name).count());
+        // a reuse notice (hirdetmény) appears publicly, without names
+        let plot: String =
+            store.conn.query_row("SELECT plot_id FROM leases WHERE status = 'active' AND expiry_date < '2020-01-01' LIMIT 1", [], |r| r.get(0)).unwrap();
+        store.record_notices(&s, std::slice::from_ref(&plot), "board", &fmt_date(today()), "hirdetmény").unwrap();
+        let notices = store.public_reuse_notices().unwrap();
+        assert_eq!(notices.len(), 1);
+        assert!(notices[0].get("holderName").is_none());
+        assert_eq!(notices[0]["reuseFrom"], fmt_date(today() + chrono::Duration::days(30)));
     }
 
     #[test]

@@ -354,7 +354,31 @@ pub fn compute_status(i: &StatusInputs, today: NaiveDate) -> PlotStatus {
 pub fn resale_allowed_from(lease_expiry: NaiveDate, last_notice: Option<NaiveDate>, grace_days: i64) -> Option<NaiveDate> {
     let notice = last_notice?;
     let base = lease_expiry.max(notice);
-    Some(base + chrono::Duration::days(grace_days))
+    // 145/1999. Korm. r. 18. § (5a): a plot may be reused one year after the
+    // right lapsed at the earliest, whatever the local grace period
+    Some((base + chrono::Duration::days(grace_days)).max(lease_expiry + chrono::Duration::days(REUSE_AFTER_DAYS)))
+}
+
+/// 145/1999. Korm. r. 18. § (5a): one year after the right lapsed.
+pub const REUSE_AFTER_DAYS: i64 = 365;
+/// … and the reuse is announced on the website and at the cemetery at least a month before.
+pub const REUSE_NOTICE_DAYS: i64 = 30;
+
+/// 145/1999. Korm. r. 18. § (1)–(2): the shortest use period of a plot type
+/// (purchase) and of a renewal. Coffin graves 25/10, crypts 60/30, urn
+/// niches and urn graves 10/5, urn crypts 20/5; scatter areas and common
+/// graves have none.
+pub fn min_use_years(category: &str, code: &str, renewal: bool) -> i64 {
+    match (category, renewal) {
+        ("scatter" | "common", _) => 0,
+        ("crypt", false) => 60,
+        ("crypt", true) => 30,
+        ("urn", false) if code == "urn_crypt" => 20,
+        ("urn", false) => 10,
+        ("urn", true) => 5,
+        (_, false) => 25,
+        (_, true) => 10,
+    }
 }
 
 #[cfg(test)]
@@ -600,6 +624,21 @@ mod tests {
     #[test]
     fn resale_date_after_grace() {
         assert_eq!(resale_allowed_from(d("2026-01-01"), None, 180), None);
-        assert_eq!(resale_allowed_from(d("2026-01-01"), Some(d("2026-02-01")), 30), Some(d("2026-03-03")));
+        // the legal one-year floor after the expiry wins over a short local grace period
+        assert_eq!(resale_allowed_from(d("2026-01-01"), Some(d("2026-02-01")), 30), Some(d("2027-01-01")));
+        // a long grace period counted from a late notice wins over the floor
+        assert_eq!(resale_allowed_from(d("2026-01-01"), Some(d("2026-10-01")), 180), Some(d("2027-03-30")));
+    }
+
+    #[test]
+    fn legal_minimum_use_periods() {
+        assert_eq!(min_use_years("grave", "single", false), 25);
+        assert_eq!(min_use_years("grave", "single", true), 10);
+        assert_eq!(min_use_years("crypt", "crypt", false), 60);
+        assert_eq!(min_use_years("crypt", "crypt", true), 30);
+        assert_eq!(min_use_years("urn", "urn_niche", false), 10);
+        assert_eq!(min_use_years("urn", "urn_crypt", false), 20);
+        assert_eq!(min_use_years("urn", "urn_niche", true), 5);
+        assert_eq!(min_use_years("scatter", "scatter", false), 0);
     }
 }

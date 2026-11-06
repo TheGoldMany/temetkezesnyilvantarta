@@ -500,6 +500,12 @@ pub struct RemovalInput {
     pub destination: String,
     /// target plot for relocation inside the cemetery
     pub target_plot_id: Option<String>,
+    /// 145/1999. Korm. r. 35. § (2): opening a grave needs the holder's consent
+    #[serde(default)]
+    pub holder_consent: bool,
+    /// 36. §: exhumation of a coffin within 15 years needs the public health permit
+    #[serde(default)]
+    pub permit_number: String,
     pub historical_folio: Option<i64>,
     #[serde(default)]
     pub notes: String,

@@ -254,6 +254,11 @@ impl Store {
         if !(1..=200).contains(&duration) {
             return Err(CoreError::validation("durationYears", "invalid duration"));
         }
+        let ptype = self.get_plot_type(&plot.plot_type_id)?;
+        let min = crate::rules::min_use_years(&ptype.category, &ptype.code, kind == "renewal");
+        if (duration as i64) < min {
+            return Err(CoreError::new("lease_too_short", "shorter than the legal minimum use period").with("min", min).with("years", duration));
+        }
         let start = parse_date(&proposal.start_date)?;
         let expiry = fmt_date(lease_expiry(start, duration));
         let fee = if proposal.fee_exempt { 0 } else { input.fee_huf.unwrap_or(proposal.fee_huf) };
@@ -492,11 +497,33 @@ impl Store {
         }
         let exp = inputs.lease_expiry.ok_or_else(|| CoreError::new("no_active_lease", "no lease"))?;
         let grace = settings::get_i64(&self.conn, "rules.grace_period_days", Some(&plot.cemetery_id), 180)?;
-        let allowed = resale_allowed_from(exp, inputs.last_notice, grace).ok_or_else(|| CoreError::new("not_notified", "no notice"))?;
+        // the grace period runs from the notice to the holder (letter, e-mail,
+        // label); the public reuse notice (board) is a separate step below
+        let holder_notice: Option<String> = self.conn.query_row(
+            "SELECT max(notice_date) FROM notices WHERE plot_id = ?1 AND kind <> 'board' AND voided_at IS NULL",
+            params![plot_id],
+            |r| r.get(0),
+        )?;
+        let holder_notice = holder_notice.as_deref().map(parse_date).transpose()?.or(inputs.last_notice);
+        let allowed = resale_allowed_from(exp, holder_notice, grace).ok_or_else(|| CoreError::new("not_notified", "no notice"))?;
         if today() < allowed || today() <= exp {
             return Err(
                 CoreError::new("grace_period_running", "grace period has not elapsed").with("from", fmt_date(allowed.max(exp + chrono::Duration::days(1))))
             );
+        }
+        // 145/1999. Korm. r. 18. § (5a): the reuse is announced on the website
+        // and at the cemetery (hirdetmény) at least a month before
+        let board: Option<String> = self.conn.query_row(
+            "SELECT max(notice_date) FROM notices WHERE plot_id = ?1 AND kind = 'board' AND voided_at IS NULL AND notice_date >= ?2",
+            params![plot_id, fmt_date(exp)],
+            |r| r.get(0),
+        )?;
+        let Some(board) = board else {
+            return Err(CoreError::new("public_notice_required", "post the reuse notice at the cemetery and on the website first"));
+        };
+        let posted_until = parse_date(&board)? + chrono::Duration::days(crate::rules::REUSE_NOTICE_DAYS);
+        if today() < posted_until {
+            return Err(CoreError::new("public_notice_running", "the reuse notice must be up for a month").with("from", fmt_date(posted_until)));
         }
         let tx = crate::db::tx(&self.conn)?;
         tx.execute(

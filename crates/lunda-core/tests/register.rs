@@ -328,6 +328,8 @@ fn urn_release_and_relocation() {
         target_plot_id: None,
         historical_folio: None,
         notes: String::new(),
+        holder_consent: false,
+        permit_number: String::new(),
     };
     assert_eq!(fx.store.record_removal(&fx.admin, &input).unwrap_err().params["field"], "receiverName");
     input.receiver_name = "Urna Ubulné".into();
@@ -337,26 +339,34 @@ fn urn_release_and_relocation() {
     // cannot release twice
     assert_eq!(fx.store.record_removal(&fx.admin, &input).unwrap_err().code, "not_active_placement");
 
-    // relocation of a coffin into another plot
+    // relocation of a coffin into another plot: the holder's consent (35. §)
     let c = fx.burial("A/2/5", "coffin_burial", "2000-01-01", "Költöző", "Kálmán").unwrap();
     let target = fx.plot("A/3/9");
-    let mv = fx
-        .store
-        .record_removal(
-            &fx.admin,
-            &RemovalInput {
-                event_type: "relocation".into(),
-                event_date: "2026-01-03".into(),
-                source_event_id: c.event.id.clone(),
-                receiver_name: String::new(),
-                receiver_address: String::new(),
-                destination: String::new(),
-                target_plot_id: Some(target.id.clone()),
-                historical_folio: None,
-                notes: String::new(),
-            },
-        )
-        .unwrap();
+    let mut reloc = RemovalInput {
+        event_type: "relocation".into(),
+        event_date: "2026-01-03".into(),
+        source_event_id: c.event.id.clone(),
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
+        target_plot_id: Some(target.id.clone()),
+        historical_folio: None,
+        notes: String::new(),
+        holder_consent: false,
+        permit_number: String::new(),
+    };
+    assert_eq!(fx.store.record_removal(&fx.admin, &reloc).unwrap_err().params["code"], "consent_required");
+    reloc.holder_consent = true;
+    let mv = fx.store.record_removal(&fx.admin, &reloc).unwrap();
+    assert!(mv.notes.contains("hozzájárult"));
+    // within 15 years of the burial a coffin needs the public health permit (36. §)
+    let young = fx.burial("A/2/6", "coffin_burial", "2020-01-01", "Fiatal", "Ferenc").unwrap();
+    let mut early =
+        RemovalInput { source_event_id: young.event.id.clone(), target_plot_id: None, destination: "Kisvölgyi köztemető".into(), ..reloc.clone() };
+    assert_eq!(fx.store.record_removal(&fx.admin, &early).unwrap_err().params["code"], "permit_required");
+    early.permit_number = "BK-NEF/123-2/2026".into();
+    let ex = fx.store.record_removal(&fx.admin, &early).unwrap();
+    assert!(ex.notes.contains("BK-NEF/123-2/2026"));
     assert_eq!(mv.plot_id.as_deref(), Some(target.id.as_str()));
     assert!(fx.store.occupants(&fx.plot("A/2/5").id).unwrap().is_empty());
     assert_eq!(fx.store.occupants(&target.id).unwrap().len(), 1);
@@ -429,6 +439,29 @@ fn holder_change_keeps_history() {
 }
 
 #[test]
+fn legal_minimum_use_period_is_enforced() {
+    let fx = fixture();
+    let p = fx.plot("A/1/9");
+    let person = PersonRef::New { person: Fx::person("Rövid", "Rezső") };
+    let lease = |years: i32| {
+        fx.store.create_lease(
+            &fx.admin,
+            &NewLeaseInput {
+                plot_id: p.id.clone(),
+                kind: "prepurchase".into(),
+                person: Some(person.clone()),
+                duration_years: Some(years),
+                ..Default::default()
+            },
+        )
+    };
+    let e = lease(20).unwrap_err();
+    assert_eq!(e.code, "lease_too_short");
+    assert_eq!(e.params["min"], "25");
+    lease(25).unwrap();
+}
+
+#[test]
 fn uc03_expiry_notice_and_resale() {
     let fx = fixture();
     fx.store.save_cemetery(&fx.admin, &fx.cemetery).unwrap();
@@ -463,8 +496,20 @@ fn uc03_expiry_notice_and_resale() {
     let list = fx.store.expiries(&fx.admin, &ExpiryFilter { within_days: 90, include_expired: true, only_not_notified: true, ..Default::default() }).unwrap();
     assert_eq!(list.len(), 1);
 
-    // reason (confirmation) required, then resellable
+    // reason (confirmation) required
     assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, None).unwrap_err().code, "reason_required");
+    // 145/1999. Korm. r. 18. § (5a): a public notice a month before the reuse
+    assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap_err().code, "public_notice_required");
+    let board = fmt_date(today() - chrono::Duration::days(10));
+    fx.store.record_notices(&fx.admin, std::slice::from_ref(&p7.id), "board", &board, "hirdetmény a temetőben és a honlapon").unwrap();
+    assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap_err().code, "public_notice_running");
+    fx.store
+        .conn
+        .execute(
+            "UPDATE notices SET notice_date = ?2 WHERE plot_id = ?1 AND kind = 'board'",
+            lunda_core::params![p7.id, fmt_date(today() - chrono::Duration::days(31))],
+        )
+        .unwrap();
     assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap(), PlotStatus::Resellable);
     // burial into resellable plot is blocked
     assert_eq!(fx.burial("A/1/7", "coffin_burial", &fmt_date(today()), "Új", "Ügyfél").unwrap_err().code, "burial_not_allowed");

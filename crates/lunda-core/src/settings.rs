@@ -18,8 +18,8 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("operator.logo", ""), // data URL (PNG/JPEG)
     ("signer.name", ""),
     ("signer.title", "temetőgondnok"),
-    ("regulation.name", ""), // e.g. "Lajosmizse Város Önkormányzatának 12/2020. (V. 28.) rendelete"
-    ("rules.grace_period_days", "180"),
+    ("regulation.name", ""),            // e.g. "Lajosmizse Város Önkormányzatának 12/2020. (V. 28.) rendelete"
+    ("rules.grace_period_days", "180"), // the legal one-year floor applies on top (rules::REUSE_AFTER_DAYS)
     ("rules.urn_rest_period_years", "0"),
     ("rules.expiry_warning_days", "90"),
     ("rules.rounding", "1"), // HUF

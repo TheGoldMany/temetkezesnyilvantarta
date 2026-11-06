@@ -155,7 +155,12 @@
     "bad_file": "a fájl nem olvasható",
     "no_email": "A vevőnek nincs e-mail-címe. Küldjön levelet, vagy adja meg a címet a számlán.",
     "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva.",
-    "booking_not_own": "Ezt az időpontot egy másik iroda rögzítette, csak ő módosíthatja. Keresse a temető ügyfélszolgálatát."
+    "booking_not_own": "Ezt az időpontot egy másik iroda rögzítette, csak ő módosíthatja. Keresse a temető ügyfélszolgálatát.",
+    "lease_too_short": "A használati idő legalább {{min}} év kell legyen (145/1999. Korm. rendelet 18. §).",
+    "public_notice_required": "Előbb tegyen közzé hirdetményt a temetőben és a honlapon (Lejáratok › Értesítés rögzítése, módja: Hirdetmény). Az újraértékesítés a közzététel után legalább egy hónappal lehetséges.",
+    "public_notice_running": "A hirdetménynek legalább egy hónapig ki kell lennie. Újraértékesíthető ettől: {{from}}.",
+    "consent_required": "A sírnyitáshoz a rendelkezési jogosult hozzájárulása kell.",
+    "permit_required": "15 éven belüli exhumáláshoz adja meg a népegészségügyi engedély számát."
   },
   "fields": {
     "familyName": "Családi név",
@@ -210,7 +215,9 @@
     "contractorId": "Vállalkozó",
     "plotId": "Sírhely",
     "workDate": "Munkavégzés napja",
-    "dueDate": "Határidő"
+    "dueDate": "Határidő",
+    "holderConsent": "Jogosult hozzájárulása",
+    "permitNumber": "Engedély száma"
   },
   "sex": {
     "": "–",
@@ -258,7 +265,7 @@
     "letter": "Levél",
     "email": "E-mail",
     "label": "Címke a síron",
-    "board": "Hirdetőtábla"
+    "board": "Hirdetmény (temető és honlap)"
   },
   "category": {
     "grave": "Sírhely",
@@ -574,7 +581,12 @@
     "targetPlot": "Új hely azonosítója",
     "targetOutside": "Temetőn kívülre / másik temetőbe",
     "submit": "Rögzítés",
-    "printReceipt": "Urna-átvételi elismervény"
+    "printReceipt": "Urna-átvételi elismervény",
+    "consent": "A rendelkezési jogosult hozzájárult a sírnyitáshoz",
+    "consentHint": "145/1999. Korm. rendelet 35. § (2): sírnyitáshoz a jogosult hozzájárulása kell. Az írásos hozzájárulást csatolja vagy őrizze meg.",
+    "permit": "Népegészségügyi engedély száma",
+    "permitHint": "Koporsós temetéstől számított 15 éven belüli exhumáláshoz kötelező (36. §).",
+    "noticeHint": "Az exhumálásról legalább 10 nappal előtte hirdetményt kell kifüggeszteni a temetőben (40. §)."
   },
   "persons": {
     "title": "Személyek",

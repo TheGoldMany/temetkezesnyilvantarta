@@ -93,6 +93,12 @@
         <p class="hint">Húzással mozgathatja, a gombokkal nagyíthatja a térképet.</p>
       </section>
 
+      <section id="noticebox" hidden>
+        <h2>Hirdetmény: lejárt használati idejű sírhelyek</h2>
+        <p class="hint">Az alábbi temetési helyek használati ideje lejárt. Ha a rendelkezési jogosult nem váltja meg újra, a hely a megadott naptól újra értékesíthető (145/1999. Korm. rendelet 18. § (5a)). Kérjük, keresse a temető ügyfélszolgálatát.</p>
+        <ol id="notices" aria-label="Hirdetmények"></ol>
+      </section>
+
       <footer>
         Csak azok az adatok látszanak, amelyeket a hozzátartozók nem kértek elrejteni. Hibát talált? Keresse a temető ügyfélszolgálatát.
         <br />Nyilvántartás: <a href="https://temisz.hu" target="_blank" rel="noopener">TEMISZ</a>
@@ -150,6 +156,21 @@
           if (cems.length) showMap(cems[0].id, null);
         });
         $("cem").addEventListener("change", function () { showMap(this.value, null); });
+
+        // ---- reuse notices (published on the website as the decree requires)
+        api("notices").then(function (r) {
+          if (!r.ok || !r.body.notices || !r.body.notices.length) return;
+          r.body.notices.forEach(function (n) {
+            var li = el("li", "hit");
+            var who = el("div");
+            who.appendChild(el("span", "plaque", n.identifier));
+            who.appendChild(document.createTextNode(" " + n.cemetery));
+            li.appendChild(who);
+            li.appendChild(el("span", "years", "Lejárt: " + n.expiryDate + " · újra értékesíthető: " + n.reuseFrom));
+            $("notices").appendChild(li);
+          });
+          $("noticebox").hidden = false;
+        });
 
         // ---- map
         function load(cid) {
