@@ -817,6 +817,43 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
             let (cols, rows) = store.asp_rows(&c)?;
             vec![("ASP tételek".into(), cols, rows)]
         }
+        "annual" => {
+            let year = args.get("year").and_then(|v| v.as_i64()).unwrap_or(chrono::Datelike::year(&crate::util::today()) as i64 - 1) as i32;
+            let r = store.annual_report(s, cem.as_deref(), year)?;
+            let rows = |key: &str, fields: &[&str]| -> Vec<Vec<Value>> {
+                r[key].as_array().cloned().unwrap_or_default().iter().map(|x| fields.iter().map(|f| x[*f].clone()).collect()).collect()
+            };
+            let cols = |c: &[&str]| c.iter().map(|x| x.to_string()).collect::<Vec<String>>();
+            let summary = vec![
+                vec![Value::from("Év"), Value::from(year)],
+                vec![Value::from("Temetések összesen"), r["burialsTotal"].clone()],
+                vec![Value::from("Szertartások (naptár)"), r["ceremonies"].clone()],
+                vec![Value::from("Számlázott bevétel (bruttó Ft)"), r["revenueGrossHuf"].clone()],
+                vec![Value::from("Ebből sztornó (bruttó Ft)"), r["reversedHuf"].clone()],
+                vec![Value::from("Befizetések (Ft)"), r["paymentsHuf"].clone()],
+                vec![Value::from("Kintlévőség (Ft)"), r["receivables"]["openHuf"].clone()],
+                vec![Value::from("Ebből lejárt (Ft)"), r["receivables"]["overdueHuf"].clone()],
+                vec![Value::from("Házipénztár bevétel (Ft)"), r["cash"]["inHuf"].clone()],
+                vec![Value::from("Házipénztár kiadás (Ft)"), r["cash"]["outHuf"].clone()],
+                vec![Value::from("Temetési helyek összesen"), r["plots"]["total"].clone()],
+            ]
+            .into_iter()
+            .chain(r["plots"]["byStatus"].as_object().cloned().unwrap_or_default().into_iter().map(|(k, v)| vec![Value::from(format!("Hely állapota: {k}")), v]))
+            .collect();
+            vec![
+                ("Összesítő".into(), cols(&["tétel", "érték"]), summary),
+                ("Temetések".into(), cols(&["esemény", "darab"]), rows("burials", &["eventType", "n"])),
+                ("Megváltások".into(), cols(&["fajta", "darab", "díj (Ft)"]), rows("leases", &["kind", "n", "feeHuf"])),
+                ("Bevétel jogcímenként".into(), cols(&["díjtétel", "főkönyvi szám", "nettó", "ÁFA", "bruttó"]), rows("revenue", &["feeKind", "ledgerCode", "netHuf", "vatHuf", "grossHuf"])),
+                ("Elvégzett munkák".into(), cols(&["munka", "darab"]), rows("workDone", &["kind", "n"])),
+                ("Ügyiratok".into(), cols(&["ügytípus", "darab", "jóváhagyva", "elutasítva", "folyamatban"]), rows("cases", &["kind", "n", "approved", "rejected", "pending"])),
+                (
+                    "Kapacitás".into(),
+                    cols(&["temető", "parcella", "összes hely", "szabad", "újraértékesíthető", "lejárt", "új temetés/év", "várható betelés (év)"]),
+                    rows("capacity", &["cemeteryName", "sectionCode", "total", "free", "resellable", "expired", "perYear", "yearsLeft"]),
+                ),
+            ]
+        }
         "report_yearly" => {
             let y = store.yearly_stats(cem.as_deref())?;
             let mut cols: Vec<String> = vec!["év".into()];

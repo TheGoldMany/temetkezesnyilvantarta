@@ -176,7 +176,7 @@ fn camelize(v: Value) -> Value {
 }
 
 /// Runs `sql` and returns each row as a camelCase JSON object.
-fn json_rows(conn: &crate::sql::Connection, sql: &str, p: Vec<SqlValue>) -> Result<Vec<Value>> {
+pub(crate) fn json_rows(conn: &crate::sql::Connection, sql: &str, p: Vec<SqlValue>) -> Result<Vec<Value>> {
     let mut st = conn.prepare(&format!("SELECT row_to_json(q)::text FROM ({sql}) q"))?;
     let rows = st.query_map(crate::sql::params_from_iter(p), |r| r.get::<_, String>(0))?;
     let mut out = Vec::new();

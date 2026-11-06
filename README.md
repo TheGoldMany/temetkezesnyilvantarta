@@ -1,6 +1,6 @@
 # TEMISZ
 
-**Temetőmenedzsment és Informatikai Szoftver.** Webes temetőnyilvántartó szolgáltatás önkormányzatoknak, egyházközségeknek és temetőüzemeltetőknek: nyilvántartó és sírbolt könyv, temetési helyek, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás, adatátvétel. Böngészőből működik, 30 napig ingyenes, utána temetőnként havi 45 000 Ft + ÁFA (vagy évi 450 000 Ft + ÁFA).
+**Temetőmenedzsment és Informatikai Szoftver.** Webes temetőnyilvántartó szolgáltatás önkormányzatoknak, egyházközségeknek és temetőüzemeltetőknek: nyilvántartó és sírbolt könyv, temetési helyek, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás, adatátvétel. Az üzemeltetéshez: pénzügy és házipénztár, számlázás (Számlázz.hu vagy ASP), temetési naptár, munkalapok, vállalkozók, ügyiratok, temetőbejárás, éves beszámoló a fenntartónak, e-mail értesítők és nyilvános sírkereső. Böngészőből működik, 30 napig ingyenes, utána temetőnként havi 45 000 Ft + ÁFA (vagy évi 450 000 Ft + ÁFA).
 
 A követelmények: [docs/FRS.md](docs/FRS.md) (nyilvántartás), [docs/FRS-UZEMELTETES.md](docs/FRS-UZEMELTETES.md) (fenntartói és üzemeltetői modulok). A webes átállás terve és állapota: [docs/PLAN-WEB.md](docs/PLAN-WEB.md). A felület egységes dizájnja: [docs/DESIGN.md](docs/DESIGN.md). Élesítés: [DEPLOY.md](DEPLOY.md).
 
@@ -22,11 +22,11 @@ A követelmények: [docs/FRS.md](docs/FRS.md) (nyilvántartás), [docs/FRS-UZEME
 | Vercel-függvény | `api/rpc.rs` (a gyökér `Cargo.toml` csomagja) | Ugyanaz a szerver Vercel-függvényként, a frankfurti régióban. |
 | Asztali mentés betöltése | `crates/temisz-desktop-import` | A régi asztali TEMISZ SQLCipher-mentéseit olvassa a helyreállító kulccsal. |
 | Felület | `src/` | React 19, TanStack Query, Tailwind v4, magyar szövegek a `src/i18n/hu.json`-ban. |
-| Weboldal | `website/` | Statikus nyitóoldal, árak, jogi szövegek. Élesben a gyökérben, a program a `/app/` alatt. |
+| Weboldal | `website/` | Statikus nyitóoldal, árak, jogi szövegek, a beágyazható sírkereső (`kereso.html`). Élesben a gyökérben, a program a `/app/` alatt. |
 
 **Adatbázis:** Postgres (élesben Neon, Frankfurt). Minden ügyfél saját sémát kap (`t_<azonosító>`), a kapcsolat `search_path`-ja mindig az aktuális ügyfélre mutat, így egy lekérdezés sem érhet el más ügyfél adatához. A központi adatok (ügyfelek, fiókok, munkamenetek, előfizetések, számlák) a `platform` sémában vannak.
 
-**Kommunikáció:** a felület `POST /rpc` kérésekkel beszél a szerverrel (`{cmd, args}`). A munkamenet HttpOnly süti; csak azonos eredetű JSON-kérést fogad el a szerver.
+**Kommunikáció:** a felület `POST /rpc` kérésekkel beszél a szerverrel (`{cmd, args}`). A munkamenet HttpOnly süti; csak azonos eredetű JSON-kérést fogad el a szerver. Egyetlen nyilvános végpont van: `GET /api/public/search?t=<token>&q=<név>`, a sírkereső. Csak akkor ad találatot, ha az üzemeltető közzétette, és percenként 60 kérésre korlátozott.
 
 ## Fejlesztői környezet
 
@@ -70,7 +70,7 @@ pnpm e2e
 ```
 
 - **Rust:** szabályok, változásnapló, import, Postgres-réteg, ügyfelek elkülönítése, TOTP, Számlázz.hu XML, Stripe-aláírás, adatexport és asztali mentés betöltése.
-- **E2E:** valódi böngésző, szerver és Postgres. Lefedi a temetés rögzítését, a rátemetést, a lejáratokat, az importot és a hiteles nyomtatást. Ugyanígy a regisztrációt, a meghívót, az elfelejtett jelszót, a kétlépcsős belépést, az előfizetést, a csak olvasható módot és a fiók megszüntetését.
+- **E2E:** valódi böngésző, szerver és Postgres. Lefedi a temetés rögzítését, a rátemetést, a lejáratokat, az importot és a hiteles nyomtatást. Ugyanígy a regisztrációt, a meghívót, az elfelejtett jelszót, a kétlépcsős belépést, az előfizetést, a csak olvasható módot és a fiók megszüntetését. Az üzemeltetésből: számla, készpénzes befizetés és pénztárzárás; foglalás ütközéssel, ismétlődő munkalap, iktatás és döntés, bejárás; éves beszámoló, e-mail értesítő és a nyilvános sírkereső.
 - **Teljesítmény:** 100 000 elhunyt és 50 000 sírhely mellett a keresés 300 ms alatt fut, futtatása: `cargo test -p lunda-core --release --test perf -- --ignored --nocapture`.
 
 ## Környezeti változók

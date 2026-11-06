@@ -5,6 +5,7 @@ mod events;
 pub mod finance;
 pub(crate) mod leases;
 pub mod operations;
+pub mod oversight;
 mod people;
 mod reports;
 mod search;
@@ -148,6 +149,7 @@ pub(crate) fn map_deceased(r: &Row) -> crate::sql::Result<Deceased> {
         authority_name: r.get("authority_name")?,
         case_number: r.get("case_number")?,
         notes: r.get("notes")?,
+        hide_public: r.get("hide_public")?,
         voided_at: r.get("voided_at")?,
     })
 }

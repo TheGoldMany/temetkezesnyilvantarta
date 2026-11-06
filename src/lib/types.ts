@@ -261,6 +261,7 @@ export interface Deceased {
   authorityName: string;
   caseNumber: string;
   notes: string;
+  hidePublic?: boolean;
   voidedAt?: string | null;
 }
 

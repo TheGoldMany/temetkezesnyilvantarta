@@ -212,6 +212,9 @@ pub struct Deceased {
     pub authority_name: String,
     pub case_number: String,
     pub notes: String,
+    /// FR-UGY-02: kept out of the public grave search at the family's request
+    #[serde(default)]
+    pub hide_public: bool,
     pub voided_at: Option<String>,
 }
 

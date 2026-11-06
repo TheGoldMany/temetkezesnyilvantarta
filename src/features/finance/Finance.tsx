@@ -41,6 +41,7 @@ export interface Invoice {
   hasPdf: boolean;
   daysOverdue: number | null;
   reminders: number;
+  buyerEmail: string;
 }
 interface CashEntry {
   id: string;
@@ -462,6 +463,11 @@ function InvoicesTab({ cemeteryId }: { cemeteryId: string }) {
                     {i.daysOverdue && (
                       <Button variant="quiet" onClick={() => act(() => api("invoices.reminder", { id: i.id, channel: "letter" }))}>
                         {t("finance.remind")}
+                      </Button>
+                    )}
+                    {i.daysOverdue && i.buyerEmail && (
+                      <Button variant="quiet" onClick={() => act(() => api("invoices.reminder", { id: i.id, channel: "email" }))}>
+                        {t("finance.remindEmail")}
                       </Button>
                     )}
                     {i.kind === "invoice" && i.status !== "storno" && i.paidHuf === 0 && (

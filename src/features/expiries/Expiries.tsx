@@ -10,6 +10,7 @@ import { fmtDate, todayIso } from "../../lib/format";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { useToast } from "../../app/toast";
 import { PrintButton } from "../prints/PrintButton";
+import { EmailLog, EmailNoticeButton } from "../notify/Email";
 
 /** FR-MEG-05..07, UC-03: expiry watcher with bulk notices. */
 export function Expiries() {
@@ -54,6 +55,7 @@ export function Expiries() {
           <PrintButton doc="expiry_notice" args={{ plotIds: ids }} label={t("expiries.printLetters")} />
           <PrintButton doc="grave_labels" args={{ plotIds: ids }} label={t("expiries.printLabels")} />
           <PrintButton doc="notice_board" args={{ plotIds: ids }} label={t("expiries.printBoard")} />
+          {can("record_leases") && <EmailNoticeButton plotIds={ids} onDone={() => setSelected(new Set())} />}
           {can("record_leases") && (
             <Button variant="primary" icon={<BellRing className="size-5" aria-hidden />} onClick={() => setNoticeOpen(true)}>
               {t("expiries.recordNotice")}
@@ -108,6 +110,11 @@ export function Expiries() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {can("record_leases") && (
+        <div className="mt-8">
+          <EmailLog />
         </div>
       )}
       {noticeOpen && <NoticeDialog plotIds={ids} onClose={(n) => (setNoticeOpen(false), n && setSelected(new Set()))} />}

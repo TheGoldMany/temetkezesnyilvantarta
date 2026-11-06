@@ -33,6 +33,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (2, include_str!("../migrations/0002_accounts.sql")),
     (3, include_str!("../migrations/0003_billing.sql")),
     (4, include_str!("../migrations/0004_lifecycle.sql")),
+    (5, include_str!("../migrations/0005_notices.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -116,6 +117,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Err(_) => Response::text(503, "database unavailable"),
         },
         ("POST", "/api/stripe/webhook") => stripe_webhook(store, req),
+        ("GET", "/api/public/search") | ("OPTIONS", "/api/public/search") => public_search(store, req),
         ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
             let secret = std::env::var("CRON_SECRET").unwrap_or_default();
             let ok = (!secret.is_empty() && req.header("authorization") == Some(&format!("Bearer {secret}"))) || cfg.dev_mode;
@@ -157,6 +159,78 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
         },
         _ => Response::text(405, "method not allowed"),
     }
+}
+
+/// FR-UGY-02: public grave search for the operator's website (CORS open,
+/// rate limited, only when the operator published it).
+fn public_search(store: &Store, req: &Request) -> Response {
+    let cors = |mut r: Response| {
+        r.headers.push(("Access-Control-Allow-Origin".into(), "*".into()));
+        r.headers.push(("Access-Control-Allow-Methods".into(), "GET".into()));
+        r
+    };
+    if req.method == "OPTIONS" {
+        return cors(Response::text(204, ""));
+    }
+    let query = req.path.split_once('?').map(|(_, q)| q).unwrap_or("");
+    let param = |k: &str| {
+        query.split('&').find_map(|kv| kv.split_once('=').filter(|(a, _)| *a == k).map(|(_, v)| url_decode(v))).unwrap_or_default()
+    };
+    let out = (|| -> Result<Value> {
+        accounts::rate_limit(&store.conn, &format!("public:{}", req.ip), 60, 1)?;
+        let token = param("t");
+        let row: Option<(String, String)> = store
+            .conn
+            .query_row(
+                "SELECT schema_name, name FROM platform.tenants WHERE public_token = ?1 AND status <> 'closed' AND deleted_at IS NULL",
+                params![token],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let Some((schema, name)) = row else { return Err(CoreError::new("not_found", "unknown search")) };
+        store.conn.use_schema(&schema)?;
+        let hits = store.public_search(&param("q"))?;
+        Ok(json!({ "operator": name, "results": hits }))
+    })();
+    let mut resp = match out {
+        Ok(v) => Response::json(&v),
+        Err(e) => {
+            let status = match e.code.as_str() {
+                "not_found" | "public_search_disabled" => 404,
+                "rate_limited" => 429,
+                _ => 500,
+            };
+            let mut r = Response::json(&json!({ "error": e.code }));
+            r.status = status;
+            r
+        }
+    };
+    resp.headers.retain(|(k, _)| k != "Cache-Control");
+    resp.headers.push(("Cache-Control".into(), "public, max-age=60".into()));
+    cors(resp)
+}
+
+fn url_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'+' => out.push(b' '),
+            b'%' if i + 2 < b.len() => {
+                match u8::from_str_radix(std::str::from_utf8(&b[i + 1..i + 3]).unwrap_or("zz"), 16) {
+                    Ok(v) => {
+                        out.push(v);
+                        i += 2;
+                    }
+                    Err(_) => out.push(b'%'),
+                }
+            }
+            c => out.push(c),
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
@@ -314,6 +388,53 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     }
                     "users.changePassword" if a["id"].as_str() != session.user_id.as_deref() => {
                         Err(CoreError::new("not_available", "send a password link instead"))
+                    }
+                    // FR-UGY-01: e-mail notices go out through the platform mailer
+                    "notices.email" => {
+                        let prep = call_api(store, &session, "notices.emailPrepare", a)?;
+                        let date = lunda_core::util::fmt_date(lunda_core::util::today());
+                        let mut sent = 0;
+                        for m in prep["mails"].as_array().cloned().unwrap_or_default() {
+                            let m: lunda_core::store::oversight::OutMail = serde_json::from_value(m)?;
+                            mail::send_for(&store.conn, Some(&c.tenant_id), &m.to, m.reply_to.as_deref(), &m.subject, &m.body, "expiry_notice")?;
+                            store.record_notices(&session, std::slice::from_ref(&m.ref_id), "email", &date, &format!("e-mail: {}", m.to))?;
+                            sent += 1;
+                        }
+                        Ok(json!({ "sent": sent, "withoutEmail": prep["withoutEmail"] }))
+                    }
+                    "invoices.reminder" if a["channel"].as_str() == Some("email") => {
+                        let m: lunda_core::store::oversight::OutMail = serde_json::from_value(call_api(store, &session, "invoices.reminderMail", a)?)?;
+                        mail::send_for(&store.conn, Some(&c.tenant_id), &m.to, m.reply_to.as_deref(), &m.subject, &m.body, "payment_reminder")?;
+                        call_api(store, &session, &method, a)
+                    }
+                    "emails.list" => {
+                        if !(session.can(lunda_core::auth::Permission::RecordLeases) || session.can(lunda_core::auth::Permission::RecordPayments)) {
+                            return Err(CoreError::forbidden("record_leases"));
+                        }
+                        let text: String = store.conn.query_row(
+                            "SELECT coalesce(json_agg(json_build_object('id', id, 'to', to_address, 'subject', subject, 'kind', kind, 'createdAt', created_at,
+                                                                  'sentAt', sent_at, 'error', error) ORDER BY created_at DESC), '[]')::text
+                             FROM (SELECT * FROM platform.emails WHERE tenant_id = ?1 ORDER BY created_at DESC LIMIT 200) e",
+                            params![c.tenant_id],
+                            |r| r.get(0),
+                        )?;
+                        Ok(serde_json::from_str(&text)?)
+                    }
+                    // FR-UGY-02: the embed code of the public grave search
+                    "public.embed" => {
+                        session.require(lunda_core::auth::Permission::ManageSettings)?;
+                        let token: String = store.conn.query_row(
+                            "UPDATE platform.tenants SET public_token = coalesce(public_token, replace(gen_random_uuid()::text, '-', '')) WHERE id = ?1 RETURNING public_token",
+                            params![c.tenant_id],
+                            |r| r.get(0),
+                        )?;
+                        let base = accounts::site_url(req);
+                        Ok(json!({
+                            "token": token,
+                            "enabled": store.public_search_enabled()?,
+                            "url": format!("{base}/kereso?t={token}"),
+                            "iframe": format!("<iframe src=\"{base}/kereso?t={token}\" title=\"Sírkereső\" style=\"width:100%;min-height:480px;border:0\" loading=\"lazy\"></iframe>"),
+                        }))
                     }
                     "cemeteries.save" | "records.void" => {
                         let v = call_api(store, &session, &method, a)?;
@@ -595,6 +716,12 @@ pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Resul
 fn serve_static(dir: &Path, path: &str) -> Response {
     let rel = path.trim_start_matches('/');
     let mut p = dir.join(if rel.is_empty() { "index.html" } else { rel });
+    // app-only build (development): website pages such as the grave search
+    // embed come from the website folder next to it
+    let site = dir.join("../website").join(if rel.contains('.') { rel.to_string() } else { format!("{rel}.html") });
+    if !rel.is_empty() && !rel.contains("..") && !p.is_file() && site.is_file() {
+        p = site;
+    }
     if rel.contains("..") || !p.is_file() {
         // single-page app: /app/… (assembled site) or the root (app only)
         let app = dir.join("app/index.html");

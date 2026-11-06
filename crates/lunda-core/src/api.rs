@@ -298,6 +298,15 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         "conditions.list" => ok(store.list_conditions(&arg::<String>(a, "cemeteryId")?, opt(a, "problemsOnly")?.unwrap_or(false))?),
         "conditions.plot" => ok(store.plot_conditions(&arg::<String>(a, "plotId")?)?),
         "operations.agenda" => ok(store.agenda(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        // ---- maintainer reports, notices, public search (W12)
+        "reports.annual" => ok(store.annual_report(s, opt::<String>(a, "cemeteryId")?.as_deref(), arg::<i32>(a, "year")?)?),
+        "reports.capacity" => ok(store.capacity(opt::<String>(a, "cemeteryId")?.as_deref())?),
+        "notices.emailPrepare" => ok(store.expiry_mails(s, &arg::<Vec<String>>(a, "plotIds")?)?),
+        "invoices.reminderMail" => ok(store.reminder_mail(s, &arg::<String>(a, "id")?)?),
+        "deceased.setPublic" => {
+            store.set_deceased_public(s, &arg::<String>(a, "id")?, arg::<bool>(a, "hidden")?)?;
+            ok(true)
+        }
         "audit.verify" => ok(audit::verify_chain(&store.conn)?),
         "sample.load" => {
             s.require(Permission::ManageSettings)?;

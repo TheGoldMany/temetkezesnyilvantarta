@@ -5,7 +5,7 @@ import { Pencil, Ban } from "lucide-react";
 import { useApp } from "../../app/context";
 import { api } from "../../lib/api";
 import type { Deceased, EventRow, InterEvent } from "../../lib/types";
-import { Button, DefinitionList, Dialog, ErrorAlert, PageHeader, Panel, Plaque, Spinner, TextField, cx } from "../../components/ui";
+import { Button, Checkbox, DefinitionList, Dialog, ErrorAlert, PageHeader, Panel, Plaque, Spinner, TextField, cx } from "../../components/ui";
 import { DeceasedForm, ReasonField } from "../../components/forms";
 import { fmtDate, fullName } from "../../lib/format";
 import { useInvalidate } from "../../lib/queries";
@@ -16,6 +16,7 @@ import { PrintButton } from "../prints/PrintButton";
 export function DeceasedView({ id }: { id: string }) {
   const { t } = useTranslation();
   const { nav, can } = useApp();
+  const invalidate = useInvalidate();
   const d = useQuery({ queryKey: ["deceased", id], queryFn: () => api<Deceased>("deceased.get", { id }) });
   const ev = useQuery({ queryKey: ["deceasedEvents", id], queryFn: () => api<EventRow[]>("deceased.events", { id }) });
   const [editing, setEditing] = useState(false);
@@ -62,6 +63,19 @@ export function DeceasedView({ id }: { id: string }) {
               ...(x.unknownIdentity ? ([[t("fields.authorityName"), x.authorityName], [t("fields.caseNumber"), x.caseNumber]] as [string, string][]) : []),
             ]}
           />
+          {can("record_events") && (
+            <div className="mt-4 border-t border-seam pt-4">
+              <Checkbox
+                label={t("publicSearch.hideDeceased")}
+                hint={t("publicSearch.hideDeceasedHint")}
+                checked={!!x.hidePublic}
+                onChange={async (hidden) => {
+                  await api("deceased.setPublic", { id, hidden });
+                  await invalidate();
+                }}
+              />
+            </div>
+          )}
         </Panel>
         <Panel title={t("plots.history")}>
           {!ev.data ? (

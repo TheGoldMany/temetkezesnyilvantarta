@@ -108,3 +108,21 @@ A webes alap (W1–W6) nagyjából 6–8 hét, a teljes üzemeltetői kör tová
 1. **Fenntartói modulok:** teljes-e az [FRS-UZEMELTETES.md](FRS-UZEMELTETES.md) listája, és mi a sorrend?
 2. **Az ügyfelek saját számlázása:** az önkormányzatok többsége a gazdálkodást az Önkormányzati ASP-ben végzi, és onnan számláz. Ott a TEMISZ a díjat előkészíti és exportálja, a számlát az ASP állítja ki. Egyházközségek és cégek a saját Számlázz.hu-fiókjukkal számlázhatnak közvetlenül a TEMISZ-ből. Ez így megfelel?
 3. **Jogi szövegek:** ki készíti, illetve nézi át őket?
+
+## 10. Állapot (2026. november)
+
+| Szakasz | Állapot |
+| --- | --- |
+| W1–W6 | Kész: Postgres, ügyfelenkénti séma, fiókok, kétlépcsős azonosítás, próbaidő és előfizetés (átutalás, kártya), Számlázz.hu, export és visszaállítás, asztali mentés betöltése, telefonos nézet, weboldal, Vercel-telepítés, jogi tervezetek. |
+| W7 | Kész: díjtételek, tételek, számla a temető saját Számlázz.hu-fiókjával vagy ASP-előkészítés, sztornó, befizetések, házipénztár hézagmentes bizonylatszámmal és napi zárással, banki CSV párosítás, kintlévőség, bevételi kimutatás, könyvelési és ASP-export, pénztáros szerepkör. |
+| W8–W11 | Kész: helyiségek és temetési naptár ütközésvizsgálattal, sírásási munkalap a foglalásból, ismétlődő munkalapok, temetői dolgozó szerepkör (telefonon lezárás fényképpel), vállalkozók engedélyekkel, munkavégzési bejelentés a temetőfenntartási hozzájárulással, ügyiratok hézagmentes iktatószámmal, határidővel, döntéssel, mellékletekkel és előzményekkel, temetőbejárás fényképpel, gondozatlan sírhely eljárása. |
+| W12 | Kész: éves beszámoló a fenntartónak (Excel is), kapacitás-előrejelzés, lejárati értesítő és fizetési emlékeztető e-mailben kézbesítési naplóval, nyilvános sírkereső beágyazó kóddal és az elhunytak elrejtésével. |
+
+**Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
+
+- FR-SZE-02: a foglalás adatainak átvétele a temetés rögzítésébe (a kapcsolat az adatbázisban megvan, a felületen még nincs).
+- FR-VAL-03: vállalkozónkénti forgalom és havi összesítő számla.
+- FR-ENG-01/04: ügytípusonkénti nyomtatványsablonok a temető fejlécével.
+- FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).
+- FR-UZE-04, FR-FEN-04, FR-UGY-03 („C”, később).
+

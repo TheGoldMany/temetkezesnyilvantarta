@@ -122,6 +122,12 @@ pub fn account_by_user(conn: &Connection, tenant_id: &str, user_id: &str) -> Res
 }
 
 /// Public address of the app for links in e-mails.
+/// The website root (the app lives under /app on it).
+pub fn site_url(req: &Request) -> String {
+    let b = base_url(req);
+    b.strip_suffix("/app").map(String::from).unwrap_or(b)
+}
+
 pub fn base_url(req: &Request) -> String {
     if let Ok(u) = std::env::var("PUBLIC_URL") {
         return u.trim_end_matches('/').to_string();

@@ -33,10 +33,11 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("ui.theme", "light"),
     ("ui.zoom", "100"),
     ("onboarding.completed", "false"),
+    ("public.search_enabled", "false"), // FR-UGY-02: opt-in public grave search
 ];
 
 /// Keys that only an administrator may change (security-relevant).
-const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup.", "update.", "finance.provider"];
+const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup.", "update.", "finance.provider", "public."];
 
 pub fn get(conn: &Connection, key: &str, cemetery_id: Option<&str>) -> Result<Option<String>> {
     if let Some(cid) = cemetery_id {
@@ -128,6 +129,9 @@ fn validate(key: &str, value: &str) -> Result<()> {
     ];
     if numeric.contains(&key) && value.trim().parse::<i64>().map(|n| n < 0).unwrap_or(true) {
         return Err(CoreError::validation(key, "must be a non-negative integer"));
+    }
+    if key == "public.search_enabled" && !matches!(value, "true" | "false") {
+        return Err(CoreError::validation(key, "true or false"));
     }
     if key == "finance.provider" && !matches!(value, "szamlazz" | "asp") {
         return Err(CoreError::validation(key, "szamlazz or asp"));

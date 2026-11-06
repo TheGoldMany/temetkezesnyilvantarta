@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarPlus, Check, ChevronLeft, ChevronRight, FilePlus2, Paperclip, Plus, X } from "lucide-react";
+import { CalendarPlus, Check, ChevronLeft, ChevronRight, FilePlus2, Paperclip, Plus, Printer, X } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApp } from "../../app/context";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
@@ -165,7 +165,11 @@ export function OperationsView() {
   return (
     <>
       <PageHeader title={t("ops.title")} subtitle={current.name} />
-      {tabs.length > 1 && <Tabs value={tab} onChange={setTab} items={tabs.map((x) => ({ value: x, label: t(`ops.tabs.${x}`) }))} />}
+      {tabs.length > 1 && (
+        <div className="no-print">
+          <Tabs value={tab} onChange={setTab} items={tabs.map((x) => ({ value: x, label: t(`ops.tabs.${x}`) }))} />
+        </div>
+      )}
       <div className="mt-6">
         {tab === "calendar" && <CalendarTab cemeteryId={current.id} />}
         {tab === "orders" && <OrdersTab cemeteryId={current.id} manage={full} />}
@@ -196,14 +200,17 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button aria-label={t("ops.prevWeek")} icon={<ChevronLeft className="size-5" aria-hidden />} onClick={() => setWeek(addDays(week, -7))} />
-          <Button onClick={() => setWeek(mondayOf(today))}>{t("ops.thisWeek")}</Button>
-          <Button aria-label={t("ops.nextWeek")} icon={<ChevronRight className="size-5" aria-hidden />} onClick={() => setWeek(addDays(week, 7))} />
+          <Button className="no-print" aria-label={t("ops.prevWeek")} icon={<ChevronLeft className="size-5" aria-hidden />} onClick={() => setWeek(addDays(week, -7))} />
+          <Button className="no-print" onClick={() => setWeek(mondayOf(today))}>{t("ops.thisWeek")}</Button>
+          <Button className="no-print" aria-label={t("ops.nextWeek")} icon={<ChevronRight className="size-5" aria-hidden />} onClick={() => setWeek(addDays(week, 7))} />
           <span className="ml-2 font-semibold tabular-nums">
             {fmtDate(week)} – {fmtDate(to)}
           </span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="no-print flex flex-wrap gap-2">
+          <Button icon={<Printer className="size-5" aria-hidden />} onClick={() => window.print()}>
+            {t("ops.print")}
+          </Button>
           <Button onClick={() => setFacilityDialog(true)}>{t("ops.facilities")}</Button>
           <Button variant="primary" icon={<CalendarPlus className="size-5" aria-hidden />} onClick={() => setEditing({ startsAt: `${today}T10:00`, endsAt: `${today}T11:00` })}>
             {t("ops.newBooking")}
@@ -551,7 +558,7 @@ function OrdersTab({ cemeteryId, manage }: { cemeteryId: string; manage: boolean
   const rows = q.data ?? [];
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2" role="group">
           {(["open", "done"] as const).map((s) => (
             <Button key={s} variant={show === s ? "primary" : "secondary"} onClick={() => setShow(s)} aria-pressed={show === s}>
@@ -559,11 +566,16 @@ function OrdersTab({ cemeteryId, manage }: { cemeteryId: string; manage: boolean
             </Button>
           ))}
         </div>
-        {manage && (
-          <Button variant="primary" icon={<Plus className="size-5" aria-hidden />} onClick={() => setEditing({ dueDate: today, kind: "maintenance", recurrence: "none" })}>
-            {t("ops.newOrder")}
+        <div className="flex flex-wrap gap-2">
+          <Button icon={<Printer className="size-5" aria-hidden />} onClick={() => window.print()}>
+            {t("ops.print")}
           </Button>
-        )}
+          {manage && (
+            <Button variant="primary" icon={<Plus className="size-5" aria-hidden />} onClick={() => setEditing({ dueDate: today, kind: "maintenance", recurrence: "none" })}>
+              {t("ops.newOrder")}
+            </Button>
+          )}
+        </div>
       </div>
       {!q.data ? (
         <Spinner />
@@ -596,7 +608,7 @@ function OrdersTab({ cemeteryId, manage }: { cemeteryId: string; manage: boolean
                     {t(`ops.orderStatus.${w.status}`)} {w.doneAt && fmtDateTime(w.doneAt)} {w.doneBy && `· ${w.doneBy}`} {w.doneNote && `· ${w.doneNote}`}
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="no-print flex flex-wrap gap-2">
                     <Button variant="primary" size="lg" icon={<Check className="size-5" aria-hidden />} onClick={() => setCompleting(w)}>
                       {t("ops.markDone")}
                     </Button>
@@ -1336,6 +1348,7 @@ function InspectionTab({ cemeteryId }: { cemeteryId: string }) {
   const [condition, setCondition] = useState<ConditionRow["condition"]>("neglected");
   const [note, setNote] = useState("");
   const [openCase, setOpenCase] = useState(true);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const counts = useMemo(() => {
@@ -1357,6 +1370,9 @@ function InspectionTab({ cemeteryId }: { cemeteryId: string }) {
           <Field label={t("common.notes")}>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} name="conditionNote" />
           </Field>
+          <Field label={t("ops.photo")} hint={t("ops.photoHint")}>
+            <input type="file" accept="image/*" capture="environment" key={saved ?? "new"} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+          </Field>
           {(condition === "neglected" || condition === "dangerous") && (
             <Checkbox label={t("ops.openNeglectCase")} hint={t("ops.openNeglectCaseHint")} checked={openCase} onChange={setOpenCase} />
           )}
@@ -1369,7 +1385,9 @@ function InspectionTab({ cemeteryId }: { cemeteryId: string }) {
               onClick={async () => {
                 setError(null);
                 try {
+                  if (photo && plotId) await uploadFile("plot", plotId, photo);
                   const r = await api<{ caseId: string | null }>("conditions.record", { condition: { plotId, condition, note, openCase } });
+                  setPhoto(null);
                   setSaved(r.caseId ? t("ops.conditionSavedCase") : t("ops.conditionSaved"));
                   setNote("");
                   await invalidate();

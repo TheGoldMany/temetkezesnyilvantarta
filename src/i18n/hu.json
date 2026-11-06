@@ -152,7 +152,9 @@
     "contractor_permit_expired": "{{name}} engedélye lejárt. Frissítse az engedély adatait, mielőtt munkát jelent be.",
     "fee_rate_missing": "A díjrendeletben nincs temetőfenntartási hozzájárulás. Vegye fel a Beállítások › Díjtételek alatt.",
     "file_too_large": "A fájl túl nagy. Legfeljebb {{maxMb}} MB-os fájlt csatolhat.",
-    "bad_file": "a fájl nem olvasható"
+    "bad_file": "a fájl nem olvasható",
+    "no_email": "A vevőnek nincs e-mail-címe. Küldjön levelet, vagy adja meg a címet a számlán.",
+    "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva."
   },
   "fields": {
     "familyName": "Családi név",
@@ -642,7 +644,8 @@
       "appearance": "Megjelenés",
       "about": "Névjegy és frissítés",
       "account": "Fiókom",
-      "subscription": "Előfizetés"
+      "subscription": "Előfizetés",
+      "public": "Sírkereső"
     },
     "operatorName": "Üzemeltető neve",
     "operatorAddress": "Címe",
@@ -1230,7 +1233,8 @@
       "EUFAD37": "EUFAD37",
       "KBAET": "KBAET",
       "ATK": "ÁFA tv. hatályán kívül (ATK)"
-    }
+    },
+    "remindEmail": "Emlékeztető e-mailben"
   },
   "ops": {
     "title": "Üzemeltetés",
@@ -1439,6 +1443,67 @@
     "conditionSaved": "Állapot rögzítve.",
     "conditionSavedCase": "Állapot rögzítve, az ügy iktatva.",
     "problemPlots": "Problémás sírhelyek",
-    "noProblems": "Nincs gondozatlan vagy veszélyes sírhely rögzítve."
+    "noProblems": "Nincs gondozatlan vagy veszélyes sírhely rögzítve.",
+    "print": "Nyomtatás"
+  },
+  "notify": {
+    "sendEmail": "Értesítés e-mailben",
+    "emailTitle": "E-mail értesítők",
+    "sent": "{{count}} e-mail elküldve, az értesítés rögzítve.",
+    "sent_one": "1 e-mail elküldve, az értesítés rögzítve.",
+    "sent_other": "{{count}} e-mail elküldve, az értesítés rögzítve.",
+    "withoutEmail": "{{count}} jogosultnak nincs e-mail-címe. Nekik nyomtasson levelet:",
+    "noHolder": "nincs jogosult",
+    "printLetters": "Levelek nyomtatása",
+    "log": "Kiküldött e-mailek",
+    "noMails": "Még nem küldött e-mailt a rendszerből.",
+    "when": "Időpont",
+    "to": "Címzett",
+    "subject": "Tárgy",
+    "delivered": "Kézbesítésre átadva",
+    "queued": "Naplózva",
+    "failed": "Sikertelen"
+  },
+  "annual": {
+    "title": "Éves beszámoló a fenntartónak",
+    "none": "Nincs adat.",
+    "burials": "Temetések",
+    "revenue": "Számlázott bevétel",
+    "payments": "Befizetések",
+    "receivables": "Kintlévőség",
+    "burialsByType": "Temetések fajtánként",
+    "leases": "Megváltások",
+    "leaseKinds": {
+      "purchase": "Megváltás",
+      "prepurchase": "Előre megváltás",
+      "renewal": "Újraváltás"
+    },
+    "revenueByFee": "Bevétel jogcímenként (bruttó)",
+    "otherFee": "Egyéb tétel",
+    "plots": "Temetési helyek (most)",
+    "work": "Elvégzett munkák",
+    "ceremonies": "Szertartások",
+    "cases": "Ügyiratok",
+    "caseCounts": "{{n}} db · {{approved}} jóváhagyva · {{pending}} folyamatban",
+    "moneyNote": "Sztornó számlák: {{reversed}}. Házipénztár: {{cashIn}} bevétel, {{cashOut}} kiadás. Lejárt kintlévőség ma: {{overdue}}.",
+    "capacity": "Kapacitás-előrejelzés",
+    "capacityHint": "Az elmúlt 5 év új temetései alapján: hány év múlva telik be a parcella a szabad és az újraértékesíthető helyekkel.",
+    "expired": "Lejárt",
+    "perYear": "Új temetés / év",
+    "yearsLeft": "Betelés",
+    "years": "{{n}} év"
+  },
+  "publicSearch": {
+    "title": "Nyilvános sírkereső",
+    "intro": "A hozzátartozók a temető vagy az önkormányzat honlapján megkereshetik, hol nyugszik az elhunyt. A kereső csak nevet, évszámokat, temetőt és sírhelyet mutat.",
+    "enable": "Sírkereső közzététele",
+    "enableHint": "Kikapcsolva a kereső nem ad találatot, a beágyazott oldal üzenetet mutat.",
+    "embedCode": "Beágyazó kód a honlapra",
+    "copy": "Kód másolása",
+    "copied": "Kimásolva",
+    "open": "Kereső megnyitása",
+    "privacy": "Akinek a hozzátartozója kéri, annak az elhunytnak az adatlapján kapcsolja ki a megjelenést. A kereső születési és halálozási dátumot, lakcímet és jogosultat nem mutat.",
+    "hideDeceased": "Ne jelenjen meg a nyilvános sírkeresőben",
+    "hideDeceasedHint": "A hozzátartozó kérésére."
   }
 }

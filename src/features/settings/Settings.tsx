@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PublicSearchTab } from "./PublicSearch";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
@@ -14,13 +15,13 @@ import { SecurityPanel } from "../account/Security";
 import { SubscriptionTab, huf } from "../account/Subscription";
 import { AuditTab } from "./AuditTab";
 
-type Tab = "operator" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "subscription" | "backup" | "audit" | "appearance" | "about";
+type Tab = "operator" | "public" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "subscription" | "backup" | "audit" | "appearance" | "about";
 
 export function SettingsView({ tab }: { tab?: string }) {
   const { t } = useTranslation();
   const { can } = useApp();
   const [current, setCurrent] = useState<Tab>((tab as Tab) ?? "operator");
-  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", ...(can("manage_settings") ? (["subscription"] as Tab[]) : []), "backup", "audit", "appearance", "about"];
+  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", ...(can("manage_settings") ? (["subscription", "public"] as Tab[]) : []), "backup", "audit", "appearance", "about"];
   return (
     <>
       <PageHeader title={t("settings.title")} />
@@ -33,6 +34,7 @@ export function SettingsView({ tab }: { tab?: string }) {
         {current === "rules" && <SettingsForm keys={RULE_KEYS} />}
         {current === "users" && <UsersTab />}
         {current === "subscription" && <SubscriptionTab />}
+        {current === "public" && <PublicSearchTab />}
         {current === "account" && (
           <div className="flex flex-col gap-6">
             <SecurityPanel />
