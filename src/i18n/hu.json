@@ -406,7 +406,10 @@
     "taskExpiring": "megváltás jár le a következő 90 napban",
     "taskNotified": "hely értesítve, a türelmi idő lejártára vár",
     "allEntries": "Összes bejegyzés",
-    "colName": "Elhunyt, esemény"
+    "colName": "Elhunyt, esemény",
+    "taskCertifiedNever": "Még nem készült hiteles másolat a nyilvántartó könyvről. Elektronikus vezetésnél ez kötelező (145/1999. Korm. rendelet 41. § (3)).",
+    "taskCertified": "{{days}} napja nem készült hiteles másolat a nyilvántartó könyvről. Javasolt havonta.",
+    "taskCertifiedAction": "Hiteles nyomtatás"
   },
   "search": {
     "placeholder": "Név, évszám vagy helyazonosító (pl. A/3/12)",
@@ -932,7 +935,8 @@
     "occupiedWithoutLease": "Foglalt helyek megváltás nélkül",
     "checkOk": "Nincs hiányosság.",
     "quickEntry": "Gyors bevitel papírkönyvből",
-    "quickEntryHint": "Billentyűzetről végig kezelhető űrlap: Enter a következő mezőre lép, Ctrl+Enter ment."
+    "quickEntryHint": "Billentyűzetről végig kezelhető űrlap: Enter a következő mezőre lép, Ctrl+Enter ment.",
+    "exportNori": "Nemzeti sírkert adatai a NÖRI-nek"
   },
   "quick": {
     "title": "Gyors bevitel papírkönyvből",

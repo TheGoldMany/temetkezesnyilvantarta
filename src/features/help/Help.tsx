@@ -130,6 +130,16 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         tips: ["Ha az urna egy sírból kerül ki, azt a sírhely adatlapján rögzítse (Urnakiadás)."],
       },
       {
+        id: "legal",
+        title: "Jogszabályi kötelezettségek, amelyekben a program segít",
+        text: [
+          "Elektronikus nyilvántartásnál hiteles biztonsági másolat kell (145/1999. Korm. rendelet 41. § (3)): a Nyomtatványok › Nyilvántartó könyv hiteles nyomtatása kötetazonosítóval és ellenőrzőkóddal készül, a Kezdőlap figyelmeztet, ha egy hónapja nem készült. A program naponta automatikus mentést is készít.",
+          "A nemzeti sírkert részét képező sírok adatait át kell adni a NÖRI-nek (1999. évi XLIII. törvény 18. § (9)): Import és export › Nemzeti sírkert adatai.",
+          "A temetőn kívül elhelyezett urnáról nyilatkozat kell, amelyet a temető fennállásáig meg kell őrizni (18. § (1a), (8)): az urna-átvételi elismervény ezt tartalmazza.",
+          "A temetőtérképet a bejáratnál ki kell függeszteni és évente frissíteni (17. §): Térkép › Térkép PDF-be.",
+        ],
+      },
+      {
         id: "correct",
         title: "Hibás bejegyzés javítása",
         text: [

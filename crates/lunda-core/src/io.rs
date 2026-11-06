@@ -821,6 +821,56 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
             let (cols, rows) = store.asp_rows(&c)?;
             vec![("ASP tételek".into(), cols, rows)]
         }
+        // Tv. 18. § (9): register data of the national cemetery graves for NÖRI
+        "nori" => {
+            s.require(Permission::ViewPersonal)?;
+            let mut st = store.conn.prepare(
+                "SELECT c.name, p.identifier, coalesce(p.protection_reason, ''), e.folio, e.event_type, e.event_date,
+                        trim(d.name_prefix || ' ' || d.family_name || ' ' || d.given_name), d.birth_name, d.birth_place, coalesce(d.birth_date, ''),
+                        d.mother_name, d.last_residence, coalesce(d.death_date, ''), d.death_place,
+                        coalesce((SELECT trim(pe.family_name || ' ' || pe.given_name) || ', ' || pe.address FROM plot_holders h JOIN persons pe ON pe.id = h.person_id
+                                   WHERE h.plot_id = p.id AND h.role = 'primary' AND h.end_date IS NULL AND h.voided_at IS NULL LIMIT 1), '')
+                 FROM plots p
+                 JOIN cemeteries c ON c.id = p.cemetery_id
+                 LEFT JOIN interment_events e ON e.plot_id = p.id AND e.voided_at IS NULL
+                 LEFT JOIN deceased d ON d.id = e.deceased_id
+                 WHERE p.voided_at IS NULL AND p.protected = 1 AND p.protection_kind = 'national' AND (?1::text IS NULL OR p.cemetery_id = ?1::text)
+                 ORDER BY c.name, p.identifier, e.event_date",
+            )?;
+            let rows: Vec<Vec<Value>> = st
+                .query_map(crate::params![cem], |r| {
+                    let mut v = vec![];
+                    for i in 0..15 {
+                        v.push(match i {
+                            3 => r.get::<_, Option<i64>>(i).map(|x| x.map(Value::from).unwrap_or(Value::Null))?,
+                            _ => Value::from(r.get::<_, Option<String>>(i)?.unwrap_or_default()),
+                        });
+                    }
+                    Ok(v)
+                })?
+                .collect::<std::result::Result<_, _>>()?;
+            let cols = [
+                "temető",
+                "temetési hely",
+                "védettség indoka",
+                "folyószám",
+                "esemény",
+                "temetés napja",
+                "elhunyt neve",
+                "születési név",
+                "születési hely",
+                "születési idő",
+                "anyja neve",
+                "legutolsó lakóhely",
+                "elhalálozás ideje",
+                "elhalálozás helye",
+                "rendelkezési jogosult",
+            ]
+            .iter()
+            .map(|x| x.to_string())
+            .collect();
+            vec![("Nemzeti sírkert".into(), cols, rows)]
+        }
         "annual" => {
             let year = args.get("year").and_then(|v| v.as_i64()).unwrap_or(chrono::Datelike::year(&crate::util::today()) as i64 - 1) as i32;
             let r = store.annual_report(s, cem.as_deref(), year)?;

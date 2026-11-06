@@ -791,4 +791,11 @@ fn urn_taken_home_and_ashes_scattered_elsewhere() {
     let dir = std::env::temp_dir().join(format!("reg-{}", lunda_core::util::new_id()));
     let f = lunda_core::pdf::generate(&fx.store, &fx.admin, "register", &serde_json::json!({ "cemeteryId": fx.cemetery.id }), &dir).unwrap();
     assert!(f.pages >= 1);
+    // the certified copy is now on record for the dashboard reminder
+    assert_eq!(fx.store.dashboard(None).unwrap().days_since_certified_copy, Some(0));
+    // the receipt and declaration for the urn taken home (Tv. 18. § (1a))
+    let r = lunda_core::pdf::generate(&fx.store, &fx.admin, "urn_receipt", &serde_json::json!({ "eventId": home.event.id }), &dir).unwrap();
+    assert_eq!(r.pages, 1);
+    // NÖRI export of national graves runs (none in the fixture)
+    lunda_core::io::export(&fx.store, &fx.admin, "nori", "xlsx", &serde_json::json!({ "cemeteryId": fx.cemetery.id }), &dir).unwrap();
 }

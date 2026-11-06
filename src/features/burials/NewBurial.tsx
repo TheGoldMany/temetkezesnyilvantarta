@@ -168,6 +168,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
             ]}
           />
           <div className="flex flex-wrap gap-3">
+            {offSite === "home" && <PrintButton doc="urn_receipt" args={{ eventId: result.event.id }} label={t("removal.printReceipt")} />}
             {result.lease && <PrintButton doc="lease_certificate" args={{ leaseId: result.lease.id }} label={t("wizard.printCertificate")} />}
             {result.lease && result.lease.feeHuf > 0 && <PrintButton doc="fee_request" args={{ leaseId: result.lease.id }} label={t("wizard.printFeeRequest")} />}
             {!offSite && <Button onClick={() => plotId && nav.go({ view: "plot", id: plotId })}>{t("wizard.openPlot")}</Button>}

@@ -44,6 +44,16 @@ export function Dashboard() {
   if (notified > 0) {
     tasks.push({ key: "notified", count: notified, text: t("dashboard.taskNotified"), action: t("dashboard.checkExpiries"), go: () => nav.go({ view: "expiries" }) });
   }
+  // 145/1999. Korm. r. 41. § (3): a certified copy of the electronic register
+  if (data && can("print") && (data.daysSinceCertifiedCopy === null || data.daysSinceCertifiedCopy === undefined || data.daysSinceCertifiedCopy > 31)) {
+    tasks.push({
+      key: "certified",
+      count: null,
+      text: data.daysSinceCertifiedCopy == null ? t("dashboard.taskCertifiedNever") : t("dashboard.taskCertified", { days: data.daysSinceCertifiedCopy }),
+      action: t("dashboard.taskCertifiedAction"),
+      go: () => nav.go({ view: "prints" }),
+    });
+  }
 
   return (
     <>

@@ -684,4 +684,9 @@ pub struct DashboardStats {
     pub expired: i64,
     pub deceased_total: i64,
     pub recent_events: Vec<EventRow>,
+    /// 145/1999. Korm. r. 41. § (3): days since the last authenticated print
+    /// of the register (the certified copy of the electronic register);
+    /// None when there has never been one
+    #[serde(default)]
+    pub days_since_certified_copy: Option<i64>,
 }

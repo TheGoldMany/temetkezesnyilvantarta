@@ -544,6 +544,7 @@ export interface DashboardStats {
   expired: number;
   deceasedTotal: number;
   recentEvents: EventRow[];
+  daysSinceCertifiedCopy?: number | null;
 }
 
 export interface AuditEntry {

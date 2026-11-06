@@ -870,28 +870,47 @@ fn notice_board(store: &Store, op: &Operator, plot_ids: &[String]) -> Result<(Ve
 fn urn_receipt(store: &Store, op: &Operator, event_id: &str) -> Result<(Vec<Page>, String, Option<(String, String)>)> {
     let e = store.get_event_row(event_id)?;
     let src = store.get_event(event_id)?;
+    let d = store.get_deceased(&src.deceased_id)?;
+    // straight after cremation there is no earlier place in the cemetery
     let from_plot = match &src.source_event_id {
-        Some(sid) => store.get_event_row(sid)?.plot_identifier.unwrap_or_default(),
-        None => String::new(),
+        Some(sid) => format!("{}, {}", e.cemetery_name, store.get_event_row(sid)?.plot_identifier.unwrap_or_default()),
+        None => "a hamvasztás után közvetlenül kiadva".to_string(),
     };
     let mut l = Layout::a4(false);
-    letterhead(&mut l, op, "Urna-átvételi elismervény");
+    letterhead(&mut l, op, "Urna-átvételi elismervény és nyilatkozat");
+    // Tv. 18. § (1a): identity data, last address, date of death, place, declarant
     l.fields(
         &[
             ("Folyószám", format!("{}.", e.folio)),
             ("Elhunyt neve", e.deceased_name.clone()),
+            ("Születési név", if d.birth_name.is_empty() { "–".into() } else { d.birth_name.clone() }),
+            ("Születési hely és idő", format!("{}, {}", d.birth_place, od(&d.birth_date))),
+            ("Anyja neve", d.mother_name.clone()),
+            ("Legutolsó lakóhely", d.last_residence.clone()),
             ("Elhalálozás ideje", od(&e.death_date)),
-            ("Korábbi elhelyezés", format!("{}, {}", e.cemetery_name, from_plot)),
+            ("Korábbi elhelyezés", from_plot),
             ("Kiadás napja", hu_date(&e.event_date)),
-            ("Átvevő neve", e.receiver_name.clone()),
+            ("Átvevő (nyilatkozó) neve", e.receiver_name.clone()),
             ("Átvevő lakcíme", src.receiver_address.clone()),
-            ("Elhelyezés helye", e.destination.clone()),
+            ("A hamvak elhelyezésének helye", e.destination.clone()),
         ],
         11.0,
     );
     l.gap(8.0);
-    l.paragraph(10.5, FontKind::Sans, "Alulírott átvevő aláírásommal igazolom, hogy a fenti elhunyt hamvait tartalmazó urnát sértetlen állapotban átvettem. Tudomásul veszem, hogy az urna temetőn kívüli elhelyezését a jogszabályok szerint be kell jelenteni.", BLACK);
-    l.signature(&place_date(op), &e.receiver_name, "átvevő");
+    l.paragraph(
+        10.5,
+        FontKind::Sans,
+        "Alulírott átvevő aláírásommal igazolom, hogy a fenti elhunyt hamvait tartalmazó urnát sértetlen állapotban átvettem, és nyilatkozom, hogy a hamvakat a fent megjelölt helyen helyezem el. Tudomásul veszem, hogy a temetőn kívüli elhelyezés helyének megváltozását be kell jelentenem.",
+        BLACK,
+    );
+    l.gap(4.0);
+    l.paragraph(
+        9.0,
+        FontKind::Sans,
+        "A nyilatkozatot az üzemeltető a temető fennállásáig megőrzi (a temetőkről és a temetkezésről szóló 1999. évi XLIII. törvény 18. § (8)).",
+        GREY,
+    );
+    l.signature(&place_date(op), &e.receiver_name, "átvevő, nyilatkozó");
     l.signature("", &op.signer, &op.signer_title);
     let mut pages = l.pages;
     add_footers(&mut pages, 18.0 * MM, &op.name);

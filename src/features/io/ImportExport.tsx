@@ -231,6 +231,7 @@ export function ImportExport() {
               <ExportButton kind="full" format="json" args={{}} label={`${t("io.exportFull")} (JSON)`} />
               <ExportButton kind="register" args={{ cemeteryId: current?.id }} label={t("io.exportRegister")} />
               <ExportButton kind="plots" args={{ cemeteryId: current?.id }} label={t("io.exportPlots")} />
+              <ExportButton kind="nori" args={{ cemeteryId: current?.id }} label={t("io.exportNori")} />
             </div>
           </Panel>
         )}
