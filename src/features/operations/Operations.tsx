@@ -221,7 +221,7 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
             {t("ops.print")}
           </Button>
           {manager && <Button onClick={() => setFacilityDialog(true)}>{t("ops.facilities")}</Button>}
-          <Button variant="primary" icon={<CalendarPlus className="size-5" aria-hidden />} onClick={() => setEditing({ startsAt: `${today}T10:00`, endsAt: `${today}T11:00` })}>
+          <Button variant="primary" icon={<CalendarPlus className="size-5" aria-hidden />} onClick={() => setEditing({ startsAt: `${today}T10:00`, endsAt: `${today}T11:00` })} data-tour="new-booking">
             {t("ops.newBooking")}
           </Button>
         </div>

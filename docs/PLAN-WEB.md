@@ -119,6 +119,8 @@ A webes alap (W1–W6) nagyjából 6–8 hét, a teljes üzemeltetői kör tová
 
 Később elkészült: a naptári foglalásból indítható temetésrögzítés (FR-SZE-02), a vállalkozónkénti forgalom és összesítő számla (FR-VAL-03), az ügyiratok nyomtatványai a temető fejlécével, a kiadott példány megőrzésével (FR-ENG-01/04).
 
+Az első próbák után hozzáadva: urna hazavitele és szórás máshol sírhely nélkül (folyószámmal), nyilvános térkép a sírkeresőben a nyitvatartással, automatikus lejárati e-mail emlékeztetők (fél évvel előtte, utána havonta, a nem reagálók listájával és heti összesítővel), közös temetési naptár a meghívott temetkezési irodákkal (saját szerepkör, csak a naptárhoz fér hozzá), interaktív bemutató és Súgó oldal.
+
 **Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
 
 - FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).

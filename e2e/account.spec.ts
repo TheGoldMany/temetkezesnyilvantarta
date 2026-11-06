@@ -17,6 +17,8 @@ async function finishOnboarding(page: Page) {
   await page.getByRole("button", { name: "Tovább" }).click();
   await page.getByRole("button", { name: /Kezdés üres|Üres nyilvántartással/ }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  // the guided tour opens after the first-run wizard
+  await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
 }
 
 const rpc = (page: Page, cmd: string, args: object = {}) =>

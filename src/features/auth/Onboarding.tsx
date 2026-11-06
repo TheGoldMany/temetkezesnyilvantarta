@@ -42,6 +42,8 @@ export function Onboarding() {
   const finish = () =>
     run(async () => {
       await api("settings.set", { values: { "onboarding.completed": "true" } });
+      // the guided tour starts on the first screen after the wizard
+      localStorage.setItem("temisz.tour", "start");
       await refresh();
     });
 

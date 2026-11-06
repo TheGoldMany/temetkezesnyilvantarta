@@ -195,7 +195,15 @@ fn daily_job_sends_expiry_reminders() {
     let sys = Session::system();
     api::dispatch(&store, &sys, "sample.load", &json!({})).unwrap();
     let in_100 = lunda_core::util::fmt_date(lunda_core::util::today() + chrono::Duration::days(100));
-    let plot: String = store.conn.query_row("SELECT plot_id FROM leases WHERE status = 'active' AND voided_at IS NULL LIMIT 1", [], |r| r.get(0)).unwrap();
+    let plot: String = store
+        .conn
+        .query_row(
+            "SELECT l.plot_id FROM leases l JOIN plot_holders h ON h.plot_id = l.plot_id AND h.role = 'primary' AND h.end_date IS NULL
+             WHERE l.status = 'active' AND l.voided_at IS NULL LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     store.conn.execute("UPDATE leases SET expiry_date = ?2 WHERE plot_id = ?1 AND status = 'active'", lunda_core::params![plot, in_100]).unwrap();
     let address = format!("jogosult-{}@pelda.hu", &tenant[..8]);
     store

@@ -182,7 +182,7 @@ function CemeteriesTab() {
           title={`${t("settings.sections")} – ${current.name}`}
           actions={
             can("manage_structure") && (
-              <Button variant="primary" icon={<Plus className="size-4" aria-hidden />} onClick={() => setBulk(true)}>
+              <Button variant="primary" icon={<Plus className="size-4" aria-hidden />} onClick={() => setBulk(true)} data-tour="bulk-create">
                 {t("settings.bulkCreate")}
               </Button>
             )

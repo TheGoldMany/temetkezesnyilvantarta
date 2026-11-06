@@ -16,6 +16,7 @@ pub fn daily(store: &Store) -> Result<Value> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<std::result::Result<_, _>>()?;
     let (mut sent, mut offices) = (0, 0);
+    let back = store.conn.schema();
     for (tenant, schema, billing_email) in tenants {
         store.conn.use_schema(&schema)?;
         if !store.auto_reminders_enabled()? {
@@ -24,6 +25,10 @@ pub fn daily(store: &Store) -> Result<Value> {
         let n = run_for_tenant(store, &tenant, &billing_email)?;
         sent += n;
         offices += 1;
+    }
+    // leave the connection where it was
+    if let Some(s) = back {
+        store.conn.use_schema(&s)?;
     }
     Ok(json!({ "reminders": sent, "offices": offices }))
 }

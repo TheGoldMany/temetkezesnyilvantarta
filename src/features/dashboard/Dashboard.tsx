@@ -52,7 +52,7 @@ export function Dashboard() {
         subtitle={current?.name}
         actions={
           can("record_events") && (
-            <Button variant="primary" size="lg" icon={<BookPlus className="size-5" aria-hidden />} onClick={() => nav.go({ view: "newBurial" })}>
+            <Button variant="primary" size="lg" icon={<BookPlus className="size-5" aria-hidden />} onClick={() => nav.go({ view: "newBurial" })} data-tour="new-burial">
               {t("dashboard.newBurial")}
             </Button>
           )

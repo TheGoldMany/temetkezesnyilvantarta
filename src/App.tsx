@@ -8,6 +8,7 @@ import { TotpRequired } from "./features/account/Security";
 import { PlatformAdmin } from "./features/account/PlatformAdmin";
 import { FinanceView } from "./features/finance/Finance";
 import { OperationsView } from "./features/operations/Operations";
+import { Help } from "./features/help/Help";
 import { shell } from "./lib/api";
 import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
@@ -88,6 +89,7 @@ export function App() {
       {r.view === "platform" && <PlatformAdmin />}
       {r.view === "finance" && <FinanceView />}
       {r.view === "operations" && <OperationsView />}
+      {r.view === "help" && <Help />}
     </Shell>
   );
 }
