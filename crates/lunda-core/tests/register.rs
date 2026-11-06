@@ -657,9 +657,9 @@ fn bulk_create_and_summaries() {
 #[test]
 fn users_login_lockout() {
     let fx = fixture();
-    fx.store.create_initial_admin("gondnok", "Gondnok Géza", "jelszo-1234").unwrap();
-    assert_eq!(fx.store.create_initial_admin("x", "X", "jelszo-1234").unwrap_err().code, "already_initialized");
-    let s = fx.store.login("gondnok", "jelszo-1234").unwrap();
+    fx.store.create_initial_admin("gondnok", "Gondnok Géza", "gondnok-titka-77").unwrap();
+    assert_eq!(fx.store.create_initial_admin("x", "X", "gondnok-titka-77").unwrap_err().code, "already_initialized");
+    let s = fx.store.login("gondnok", "gondnok-titka-77").unwrap();
     assert_eq!(s.role, Role::Admin);
     for i in 0..4 {
         let e = fx.store.login("gondnok", "rossz").unwrap_err();
@@ -667,9 +667,9 @@ fn users_login_lockout() {
     }
     assert_eq!(fx.store.login("gondnok", "rossz").unwrap_err().code, "user_locked");
     // even the right password is refused while locked
-    assert_eq!(fx.store.login("gondnok", "jelszo-1234").unwrap_err().code, "user_locked");
+    assert_eq!(fx.store.login("gondnok", "gondnok-titka-77").unwrap_err().code, "user_locked");
     fx.store.unlock_user(&s, &s.user_id.clone().unwrap()).unwrap();
-    assert!(fx.store.login("gondnok", "jelszo-1234").is_ok());
+    assert!(fx.store.login("gondnok", "gondnok-titka-77").is_ok());
     assert_eq!(fx.store.login("nincs", "akarmi").unwrap_err().code, "invalid_credentials");
     // last admin cannot be demoted
     let uid = s.user_id.clone().unwrap();

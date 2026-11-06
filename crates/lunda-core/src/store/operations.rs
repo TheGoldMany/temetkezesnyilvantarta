@@ -220,6 +220,44 @@ fn one_of(field: &str, v: &str, allowed: &[&str]) -> Result<String> {
     }
 }
 
+/// The type of an uploaded file from its first bytes (and, for the zip
+/// based office formats, its extension). None for anything else.
+pub fn sniff_file(data: &[u8], name: &str) -> Option<&'static str> {
+    let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+    let starts = |m: &[u8]| data.starts_with(m);
+    if starts(b"%PDF-") {
+        return Some("application/pdf");
+    }
+    if starts(&[0xFF, 0xD8, 0xFF]) {
+        return Some("image/jpeg");
+    }
+    if starts(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if starts(b"GIF87a") || starts(b"GIF89a") {
+        return Some("image/gif");
+    }
+    if data.len() > 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    if data.len() > 12 && &data[4..8] == b"ftyp" && matches!(&data[8..12], b"heic" | b"heix" | b"mif1" | b"msf1" | b"hevc") {
+        return Some("image/heic");
+    }
+    if starts(b"II*\0") || starts(b"MM\0*") {
+        return Some("image/tiff");
+    }
+    if starts(b"PK\x03\x04") {
+        return match ext.as_str() {
+            "docx" => Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "xlsx" => Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            "odt" => Some("application/vnd.oasis.opendocument.text"),
+            "ods" => Some("application/vnd.oasis.opendocument.spreadsheet"),
+            _ => None,
+        };
+    }
+    None
+}
+
 /// Next date of a recurring work order.
 pub fn next_due(d: NaiveDate, recurrence: &str) -> Option<NaiveDate> {
     match recurrence {
@@ -955,7 +993,7 @@ impl Store {
     // ---------------------------------------------------------------- attachments
 
     /// Stores a file for a case, a plot, a contractor or a work order.
-    pub fn add_attachment(&self, se: &Session, entity: &str, entity_id: &str, file_name: &str, mime: &str, content_b64: &str) -> Result<Value> {
+    pub fn add_attachment(&self, se: &Session, entity: &str, entity_id: &str, file_name: &str, _declared_mime: &str, content_b64: &str) -> Result<Value> {
         se.require(if entity == "work_order" { Permission::CompleteWork } else { Permission::Operations })?;
         let entity = one_of("entity", entity, &["case", "plot", "contractor", "work_order", "booking"])?;
         non_empty("fileName", file_name)?;
@@ -969,10 +1007,16 @@ impl Store {
         if data.len() > MAX_ATTACHMENT_BYTES {
             return Err(CoreError::new("file_too_large", "the file is too large").with("maxMb", MAX_ATTACHMENT_BYTES / 1024 / 1024));
         }
+        // only documents and photos, recognised by their content: no HTML,
+        // SVG or programs that could run in a browser or on a PC
+        let Some(detected) = sniff_file(&data, file_name) else {
+            return Err(CoreError::new("file_type", "only PDF, photos and office documents can be attached"));
+        };
+        let mime = detected;
         let id = new_id();
         let ts = now_ts();
         let name: String = file_name.trim().chars().filter(|c| !c.is_control() && *c != '/' && *c != '\\').take(200).collect();
-        let mime = if mime.trim().is_empty() { "application/octet-stream" } else { mime.trim() };
+        let _ = mime;
         let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "INSERT INTO attachments (id, entity, entity_id, file_name, mime_type, sha256, content, created_at, created_by, updated_at, updated_by)
@@ -1312,8 +1356,13 @@ mod tests {
         let id = a["id"].as_str().unwrap();
         use base64::Engine;
         let content = base64::engine::general_purpose::STANDARD.encode(b"%PDF-1.4 kerelem");
+        // HTML (and anything not a document or photo) is refused
+        let html = base64::engine::general_purpose::STANDARD.encode(b"<html><script>alert(1)</script></html>");
+        assert_eq!(store.add_attachment(&se, "case", id, "level.pdf", "application/pdf", &html).unwrap_err().code, "file_type");
         store.add_attachment(&se, "case", id, "kérelem.pdf", "application/pdf", &content).unwrap();
-        let too_big = base64::engine::general_purpose::STANDARD.encode(vec![0u8; MAX_ATTACHMENT_BYTES + 1]);
+        let mut big = b"%PDF-".to_vec();
+        big.resize(MAX_ATTACHMENT_BYTES + 1, 0);
+        let too_big = base64::engine::general_purpose::STANDARD.encode(big);
         assert_eq!(store.add_attachment(&se, "case", id, "nagy.bin", "", &too_big).unwrap_err().code, "file_too_large");
         let err = store.update_case(&se, id, &CaseUpdate { status: Some("approved".into()), ..Default::default() }).unwrap_err();
         assert_eq!(err.code, "validation");

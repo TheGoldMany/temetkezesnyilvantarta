@@ -69,7 +69,11 @@ impl Response {
     pub fn json(v: &Value) -> Self {
         Self {
             status: 200,
-            headers: vec![("Content-Type".into(), "application/json; charset=utf-8".into()), ("Cache-Control".into(), "no-store".into())],
+            headers: vec![
+                ("Content-Type".into(), "application/json; charset=utf-8".into()),
+                ("Cache-Control".into(), "no-store".into()),
+                ("X-Content-Type-Options".into(), "nosniff".into()),
+            ],
             body: v.to_string().into_bytes(),
         }
     }
@@ -670,7 +674,7 @@ pub fn register(store: &Store, organization: &str, name: &str, email: &str, pass
     if !valid_email(&email) {
         return Err(CoreError::validation("email", "invalid e-mail address").with("code", "email_invalid"));
     }
-    lunda_core::auth::validate_password(password)?;
+    lunda_core::auth::validate_password_for(password, &[&email, name, organization])?;
     let taken: Option<i64> = store.conn.query_row("SELECT 1 FROM platform.accounts WHERE lower(email) = ?1", params![email], |r| r.get(0)).optional()?;
     if taken.is_some() {
         return Err(CoreError::new("email_taken", "an account already exists for this e-mail address"));
@@ -721,6 +725,9 @@ pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Resul
 
 // ---------------------------------------------------------------- static files
 
+/// Content Security Policy of the app (also set by vercel.json in production).
+pub const APP_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
 fn serve_static(dir: &Path, path: &str) -> Response {
     let rel = path.trim_start_matches('/');
     let mut p = dir.join(if rel.is_empty() { "index.html" } else { rel });
@@ -746,7 +753,23 @@ fn serve_static(dir: &Path, path: &str) -> Response {
         Some("json") => "application/json",
         _ => "application/octet-stream",
     };
+    // the app page gets the same security headers as on Vercel (vercel.json)
+    // (recognised by its mount point, so a stale build folder does not matter)
+    let is_app = |b: &[u8]| {
+        const ROOT: &[u8] = b"<div id=\"root\"";
+        ct.starts_with("text/html") && b.windows(ROOT.len()).any(|w| w == ROOT)
+    };
     match std::fs::read(&p) {
+        Ok(b) if is_app(&b) => Response {
+            status: 200,
+            headers: vec![
+                ("Content-Type".into(), ct.into()),
+                ("Content-Security-Policy".into(), APP_CSP.into()),
+                ("Permissions-Policy".into(), "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()".into()),
+                ("X-Content-Type-Options".into(), "nosniff".into()),
+            ],
+            body: b,
+        },
         Ok(b) => Response { status: 200, headers: vec![("Content-Type".into(), ct.into())], body: b },
         Err(_) => Response::text(404, "not found"),
     }

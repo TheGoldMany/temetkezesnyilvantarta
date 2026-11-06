@@ -80,7 +80,7 @@
     "user_locked": "A fiók túl sok sikertelen belépés miatt zárolva van {{until}}-ig. A rendszergazda azonnal feloldhatja.",
     "user_inactive": "Ez a felhasználói fiók ki van kapcsolva.",
     "session_expired": "Biztonsági okból kijelentkeztettük. Lépjen be újra.",
-    "password_too_short": "A jelszó legalább 8 karakter legyen.",
+    "password_too_short": "A jelszó legalább {{min}} karakter legyen. Jó választás egy hosszabb, könnyen megjegyezhető mondat.",
     "burial_not_allowed": "A temetés nem engedélyezhető.",
     "folio_taken": "A(z) {{folio}}. folyószám már foglalt.",
     "folio_scope_locked": "A folyószámozás módja csak addig módosítható, amíg a temetőben nincs bejegyzés.",
@@ -160,7 +160,11 @@
     "public_notice_required": "Előbb tegyen közzé hirdetményt a temetőben és a honlapon (Lejáratok › Értesítés rögzítése, módja: Hirdetmény). Az újraértékesítés a közzététel után legalább egy hónappal lehetséges.",
     "public_notice_running": "A hirdetménynek legalább egy hónapig ki kell lennie. Újraértékesíthető ettől: {{from}}.",
     "consent_required": "A sírnyitáshoz a rendelkezési jogosult hozzájárulása kell.",
-    "permit_required": "15 éven belüli exhumáláshoz adja meg a népegészségügyi engedély számát."
+    "permit_required": "15 éven belüli exhumáláshoz adja meg a népegészségügyi engedély számát.",
+    "password_common": "Ez a jelszó túl könnyen kitalálható. Válasszon hosszabbat, például néhány szóból álló mondatot.",
+    "password_personal": "A jelszó ne a saját nevéből vagy e-mail-címéből álljon.",
+    "file_type": "Csak PDF, fénykép (JPG, PNG, HEIC, WEBP) vagy Office-dokumentum csatolható.",
+    "gps_invalid": "Érvénytelen GPS-pozíció."
   },
   "fields": {
     "familyName": "Családi név",
@@ -597,7 +601,9 @@
     "new": "Új személy",
     "plots": "Helyek",
     "masked": "A személyes adatokat az Ön szerepköre nem látja.",
-    "empty": "Nincs találat."
+    "empty": "Nincs találat.",
+    "gdpr": "Adatkiadás (GDPR)",
+    "gdprHint": "Az érintett kérésére kiadja a róla tárolt összes adatot (GDPR 15. cikk). A kiadást a változásnapló rögzíti."
   },
   "expiries": {
     "title": "Lejáratok",
@@ -1560,5 +1566,19 @@
     "privacy": "Akinek a hozzátartozója kéri, annak az elhunytnak az adatlapján kapcsolja ki a megjelenést. A kereső születési és halálozási dátumot, lakcímet és jogosultat nem mutat.",
     "hideDeceased": "Ne jelenjen meg a nyilvános sírkeresőben",
     "hideDeceasedHint": "A hozzátartozó kérésére."
+  },
+  "place": {
+    "title": "Helyszín, fényképek",
+    "coords": "GPS: {{lat}}, {{lon}}",
+    "accuracy": "Pontosság: kb. {{m}} m",
+    "none": "Ehhez a sírhelyhez még nincs GPS-pozíció. A sír mellett állva telefonon rögzítheti.",
+    "route": "Útvonal a sírhoz",
+    "here": "Itt állok – pozíció mentése",
+    "hereHint": "Álljon a sír mellé, és nyomja meg a gombot telefonon. A pozíció alapján a látogatók a nyilvános sírkeresőből útvonalat kérhetnek a sírhoz.",
+    "files": "Fényképek és dokumentumok",
+    "noFiles": "Még nincs fénykép vagy dokumentum.",
+    "addPhoto": "Fénykép vagy dokumentum hozzáadása",
+    "noGps": "A készülék nem adott pozíciót. Próbálja szabad ég alatt, bekapcsolt helymeghatározással.",
+    "denied": "A böngésző nem kapott engedélyt a helymeghatározáshoz. Engedélyezze a beállításokban."
   }
 }

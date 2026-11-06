@@ -4,6 +4,13 @@ import { login } from "./helpers";
 // The guided tour visits every module and ends on the Súgó page; the help
 // page explains how to create a parcel.
 test("bemutató végig, súgó keresés", async ({ page }) => {
+  // the strict Content Security Policy must not block anything the app does
+  const violations: string[] = [];
+  page.on("console", (m) => {
+    if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text());
+  });
+  const res = await page.goto("/");
+  expect(res?.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
   await login(page);
   await page.getByRole("button", { name: "Súgó" }).click();
   await page.getByRole("button", { name: "Bemutató indítása" }).click();
@@ -25,4 +32,5 @@ test("bemutató végig, súgó keresés", async ({ page }) => {
   await page.getByPlaceholder(/Keresés a súgóban/).fill("parcella");
   await expect(page.getByText("Új parcella létrehozása")).toBeVisible();
   await expect(page.getByText(/Parcellák és sorok létrehozása/).first()).toBeVisible();
+  expect(violations).toEqual([]);
 });

@@ -228,6 +228,7 @@ pub fn set_password_with_token(store: &Store, token: &str, kind: &str, password:
     let t = db::tx(&store.conn)?;
     let acc_id = use_token(&t, token, kind)?;
     let acc = account_by_id(&t, &acc_id)?;
+    lunda_core::auth::validate_password_for(password, &[&acc.email, display_name.unwrap_or("")])?;
     t.use_schema(&acc.schema)?;
     store.set_password_system(&acc.user_id, password, display_name)?;
     // the link proves access to the mailbox

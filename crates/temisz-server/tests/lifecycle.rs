@@ -160,9 +160,11 @@ fn bank_statement_settles_proformas() {
         )
         .unwrap();
     let code = &tenant[..8];
+    // unique per run: the statement lines are kept between test runs
+    let gift: String = lunda_core::util::new_id().chars().filter(|c| c.is_ascii_alphabetic()).take(6).collect();
     // a line for someone else, and the customer's transfer with the customer code
     let csv = format!(
-        "Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.05;12 000;Valaki Más;ajándék\n2026.11.06;{gross};BANKFALVA KÖZSÉG ÖNK;TEMISZ {code}\n"
+        "Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.05;12 000;Valaki Más;ajándék {gift}\n2026.11.06;{gross};BANKFALVA KÖZSÉG ÖNK;TEMISZ {code}\n"
     );
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD.encode(csv.as_bytes());
@@ -180,10 +182,10 @@ fn bank_statement_settles_proformas() {
     assert_eq!(again["added"], 0);
     // the unrelated line stays for a decision, without a suggestion
     let lines = billing::bank_lines(&store.conn).unwrap();
-    let other = lines.iter().find(|l| l["partner"] == "Valaki Más").unwrap();
+    let other = lines.iter().find(|l| l["reference"].as_str().unwrap_or("").ends_with(&gift)).unwrap();
     assert!(other["suggestedId"].is_null());
     billing::resolve_line(&store.conn, other["id"].as_str().unwrap(), None, "admin").unwrap();
-    assert!(billing::bank_lines(&store.conn).unwrap().iter().all(|l| l["partner"] != "Valaki Más"));
+    assert!(billing::bank_lines(&store.conn).unwrap().iter().all(|l| !l["reference"].as_str().unwrap_or("").ends_with(&gift)));
 }
 
 /// The daily job e-mails holders whose lease expires within half a year,
