@@ -655,6 +655,38 @@ impl Store {
         )
     }
 
+    /// FR-VAL-03: a contractor's turnover by month, the open items that can go
+    /// on one summary invoice, and what is invoiced but not yet paid.
+    pub fn contractor_account(&self, se: &Session, contractor_id: &str) -> Result<Value> {
+        se.require(Permission::Operations)?;
+        let p = || vec![s(contractor_id)];
+        let months = json_rows(
+            &self.conn,
+            "SELECT substr(n.work_date, 1, 7) AS month, count(*) AS notices, coalesce(sum(ch.gross_huf) FILTER (WHERE ch.status <> 'void'), 0) AS gross_huf
+             FROM work_notices n LEFT JOIN charges ch ON ch.id = n.charge_id
+             WHERE n.contractor_id = ?1 AND n.voided_at IS NULL AND n.work_date >= to_char(current_date - interval '12 months', 'YYYY-MM')
+             GROUP BY 1 ORDER BY 1 DESC",
+            p(),
+        )?;
+        let open = json_rows(
+            &self.conn,
+            "SELECT ch.id, ch.cemetery_id, ch.payer_name, ch.person_id, ch.description, ch.quantity, ch.unit, ch.unit_net_huf, ch.vat_rate,
+                    ch.net_huf, ch.gross_huf, ch.status, ch.created_at
+             FROM charges ch JOIN work_notices n ON n.charge_id = ch.id
+             WHERE n.contractor_id = ?1 AND ch.status = 'open' ORDER BY ch.created_at",
+            p(),
+        )?;
+        let (invoiced, unpaid): (i64, i64) = self.conn.query_row(
+            "SELECT coalesce(sum(i.gross_huf), 0), coalesce(sum(i.gross_huf - i.paid_huf) FILTER (WHERE i.status IN ('issued', 'partially_paid', 'pending_asp')), 0)
+             FROM invoices i WHERE i.kind = 'invoice' AND i.status <> 'storno'
+               AND i.id IN (SELECT ch.invoice_id FROM charges ch JOIN work_notices n ON n.charge_id = ch.id WHERE n.contractor_id = ?1)",
+            params![contractor_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let open_huf: i64 = open.iter().map(|c| c["grossHuf"].as_i64().unwrap_or(0)).sum();
+        Ok(json!({ "months": months, "openCharges": open, "openHuf": open_huf, "invoicedHuf": invoiced, "unpaidHuf": unpaid }))
+    }
+
     // ---------------------------------------------------------------- work orders (FR-SZE-03, FR-UZE-01)
 
     fn insert_work_order(&self, conn: &crate::sql::Connection, se: &Session, w: &WorkOrderInput) -> Result<String> {
@@ -1245,6 +1277,15 @@ mod tests {
         let (name, _, bytes) = store.get_attachment(d["attachments"][0]["id"].as_str().unwrap()).unwrap();
         assert_eq!(name, "kérelem.pdf");
         assert_eq!(bytes, b"%PDF-1.4 kerelem");
+        // FR-ENG-04: the issued decision is kept with the case
+        let dir = std::env::temp_dir().join(format!("case-doc-{}", new_id()));
+        let f = crate::pdf::generate(&store, &se, "case_document", &json!({ "caseId": id }), &dir).unwrap();
+        assert!(f.file_name.starts_with("hatarozat"), "{}", f.file_name);
+        let atts = store.list_attachments("case", id).unwrap();
+        assert_eq!(atts.len(), 2);
+        let (_, mime, pdf) = store.get_attachment(atts[1]["id"].as_str().unwrap()).unwrap();
+        assert_eq!(mime, "application/pdf");
+        assert!(pdf.starts_with(b"%PDF"));
     }
 
     #[test]
@@ -1295,6 +1336,10 @@ mod tests {
             .unwrap();
         assert_eq!(store.add_work_notice(&se, &WorkNoticeInput { charge: false, ..notice }).unwrap_err().code, "contractor_permit_expired");
         assert_eq!(store.list_contractors(false).unwrap()[0]["permitExpired"], true);
+        let acc = store.contractor_account(&se, &cid).unwrap();
+        assert_eq!(acc["openHuf"], 10_160);
+        assert_eq!(acc["openCharges"].as_array().unwrap().len(), 1);
+        assert_eq!(acc["months"][0]["month"], "2026-04");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { login, nav } from "./helpers";
+import { login, nav, openedPdf } from "./helpers";
 
 // W8–W11: chapel booking with conflict check, recurring work order, case file, inspection.
 test("üzemeltetés: foglalás ütközéssel, munkalap, ügyirat, bejárás", async ({ page }) => {
@@ -59,6 +59,9 @@ test("üzemeltetés: foglalás ütközéssel, munkalap, ügyirat, bejárás", as
   await page.locator("textarea[name=decision]").fill("A terv szerint engedélyezve.");
   await page.getByRole("dialog").getByRole("button", { name: "Mentés" }).click();
   await expect(page.getByRole("dialog").getByText("Módosítva")).toBeVisible();
+  // the decision is issued on the letterhead and kept with the case
+  expect(await openedPdf(page, () => page.getByRole("dialog").getByRole("button", { name: "Irat kiadása (PDF)" }).click())).toBe("%PDF-");
+  await expect(page.getByRole("dialog").getByRole("button", { name: /^hatarozat.*\.pdf$/ })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Bezárás" }).last().click();
   await expect(page.getByTestId("cases").getByRole("row").filter({ hasText: "Teszt Ügyfél" })).toContainText("Jóváhagyva");
 

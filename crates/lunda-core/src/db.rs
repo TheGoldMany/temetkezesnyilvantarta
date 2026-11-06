@@ -50,7 +50,14 @@ pub fn tenant_schema(tenant_id: &str) -> Result<String> {
 
 /// Points the connection at a tenant schema, creating and migrating it when needed.
 pub fn open_tenant(conn: &Connection, schema: &str) -> Result<()> {
-    conn.execute_batch("CREATE EXTENSION IF NOT EXISTS pg_trgm")?;
+    // CREATE EXTENSION IF NOT EXISTS is not safe against concurrent runs on a
+    // fresh database (parallel tests, several cold-started functions): serialise it
+    let exists: bool = conn.query_row("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm')", [], |r| r.get(0))?;
+    if !exists {
+        let t = tx(conn)?;
+        t.execute_batch("SELECT pg_advisory_xact_lock(7381003); CREATE EXTENSION IF NOT EXISTS pg_trgm")?;
+        t.commit()?;
+    }
     conn.execute_batch(&format!("CREATE SCHEMA IF NOT EXISTS \"{schema}\""))?;
     conn.use_schema(schema)?;
     migrate(conn)

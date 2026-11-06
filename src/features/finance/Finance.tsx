@@ -279,7 +279,7 @@ function ChargeDialog({ cemeteryId, onClose }: { cemeteryId: string; onClose: ()
   );
 }
 
-function InvoiceDialog({ cemeteryId, charges, onClose }: { cemeteryId: string; charges: Charge[]; onClose: (done: boolean) => void }) {
+export function InvoiceDialog({ cemeteryId, charges, onClose }: { cemeteryId: string; charges: Charge[]; onClose: (done: boolean) => void }) {
   const { t } = useTranslation();
   const invalidate = useInvalidate();
   const status = useQuery({ queryKey: ["finance-status"], queryFn: () => api<FinanceStatus>("finance.status") });

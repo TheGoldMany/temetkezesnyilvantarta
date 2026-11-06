@@ -70,7 +70,7 @@ export function App() {
     <Shell>
       {r.view === "dashboard" && <Dashboard />}
       {r.view === "burials" && <BurialsList />}
-      {r.view === "newBurial" && <NewBurial key={(r.plotId ?? "") + (r.eventType ?? "")} plotId={r.plotId} eventType={r.eventType} />}
+      {r.view === "newBurial" && <NewBurial key={(r.plotId ?? "") + (r.eventType ?? "") + (r.bookingId ?? "")} plotId={r.plotId} eventType={r.eventType} bookingId={r.bookingId} />}
       {r.view === "deceased" && <DeceasedView key={r.id} id={r.id} />}
       {r.view === "plots" && <PlotsList sectionId={r.sectionId} />}
       {r.view === "plot" && <PlotDetailView key={r.id} id={r.id} />}

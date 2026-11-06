@@ -1292,7 +1292,7 @@
     "digOrderHint": "A szertartás napjára munkalap készül a kiválasztott sírhelyhez.",
     "close": "Lezárás",
     "closeAs": "A szertartás",
-    "doneHint": "Megtörtént. A temetést a Temetések menüben rögzítse.",
+    "doneHint": "Megtörtént. Ha a temetést innen rögzíti, a foglalás magától lezárul.",
     "cancelHint": "Elmaradt. A hozzá tartozó munkalapok is lezárulnak.",
     "bookingStatus": {
       "planned": "Tervezett",
@@ -1387,7 +1387,8 @@
       "create": "Iktatva",
       "update": "Módosítva",
       "attach": "Melléklet csatolva",
-      "void": "Érvénytelenítve"
+      "void": "Érvénytelenítve",
+      "issue": "Irat kiadva"
     },
     "contractors": "Vállalkozók",
     "newContractor": "Új vállalkozó",
@@ -1444,7 +1445,18 @@
     "conditionSavedCase": "Állapot rögzítve, az ügy iktatva.",
     "problemPlots": "Problémás sírhelyek",
     "noProblems": "Nincs gondozatlan vagy veszélyes sírhely rögzítve.",
-    "print": "Nyomtatás"
+    "print": "Nyomtatás",
+    "recordBurial": "Temetés rögzítése",
+    "account": "Forgalom és tartozás",
+    "openItems": "Számlázatlan tételek",
+    "invoiced": "Számlázva",
+    "unpaid": "Kifizetetlen",
+    "month": "Hónap",
+    "summaryInvoice_one": "Összesítő számla (1 tétel)",
+    "summaryInvoice_other": "Összesítő számla ({{count}} tétel)",
+    "summaryInvoice": "Összesítő számla ({{count}} tétel)",
+    "issueDocument": "Irat kiadása (PDF)",
+    "documentHint": "Az irat az ügy állapotához igazodik: átvételi elismervény, hiánypótlási felhívás, határozat vagy felszólítás. A kiadott példány változatlanul a mellékletek közé kerül. Előbb mentse a változásokat."
   },
   "notify": {
     "sendEmail": "Értesítés e-mailben",

@@ -8,7 +8,7 @@ import type { AppStatus, Permission } from "../lib/types";
 export type Route =
   | { view: "dashboard" }
   | { view: "burials" }
-  | { view: "newBurial"; plotId?: string; eventType?: string }
+  | { view: "newBurial"; plotId?: string; eventType?: string; bookingId?: string }
   | { view: "plots"; sectionId?: string }
   | { view: "plot"; id: string }
   | { view: "map"; plotId?: string }

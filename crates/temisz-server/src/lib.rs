@@ -91,10 +91,14 @@ pub struct Config {
 
 /// Creates/updates the platform schema. Safe to run at every start.
 pub fn migrate_platform(conn: &Connection) -> Result<()> {
-    conn.execute_batch("CREATE SCHEMA IF NOT EXISTS platform; CREATE TABLE IF NOT EXISTS platform.schema_version (version BIGINT NOT NULL)")?;
-    // several server instances may start at once: one migrates, the others wait
+    // several server instances may start at once: one migrates, the others
+    // wait (CREATE … IF NOT EXISTS is not safe against concurrent runs either)
     let t = db::tx(conn)?;
-    t.execute_batch("SELECT pg_advisory_xact_lock(7381001)")?;
+    t.execute_batch(
+        "SELECT pg_advisory_xact_lock(7381001);
+         CREATE SCHEMA IF NOT EXISTS platform;
+         CREATE TABLE IF NOT EXISTS platform.schema_version (version BIGINT NOT NULL)",
+    )?;
     let current: i64 = t.query_row("SELECT coalesce(max(version), 0) FROM platform.schema_version", [], |r| r.get(0))?;
     for (v, sql) in PLATFORM_MIGRATIONS {
         if *v <= current {

@@ -37,7 +37,7 @@ export async function openGenerated(f: GeneratedFile) {
 }
 
 /** Generates a document on the Rust side (FR-NYO) and opens it. */
-export function PrintButton({ doc, args, label, variant = "secondary" }: { doc: string; args: Record<string, unknown>; label: string; variant?: "primary" | "secondary" | "quiet" }) {
+export function PrintButton({ doc, args, label, variant = "secondary", onDone }: { doc: string; args: Record<string, unknown>; label: string; variant?: "primary" | "secondary" | "quiet"; onDone?: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -53,6 +53,7 @@ export function PrintButton({ doc, args, label, variant = "secondary" }: { doc: 
           const f = await api<GeneratedFile>("print.document", { doc, args });
           await openGenerated(f);
           toast(t("prints.generated", { path: f.fileName }));
+          onDone?.();
         } catch (e) {
           toast(errText(e), "error");
         } finally {

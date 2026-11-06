@@ -8,7 +8,8 @@ import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
 import { Alert, Button, Checkbox, Dialog, Empty, ErrorAlert, Field, PageHeader, Panel, Plaque, RadioGroup, Select, Spinner, Tabs, TextField, Textarea, cx } from "../../components/ui";
 import { PlotPicker, ReasonField } from "../../components/forms";
-import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
+import { PrintButton, openGenerated, type GeneratedFile } from "../prints/PrintButton";
+import { InvoiceDialog, type Charge } from "../finance/Finance";
 
 // ---------------------------------------------------------------- types (JSON from Postgres, camelCase)
 
@@ -185,6 +186,7 @@ export function OperationsView() {
 
 function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
   const { t } = useTranslation();
+  const { can, nav } = useApp();
   const [week, setWeek] = useState(() => mondayOf(todayIso()));
   const to = addDays(week, 6);
   const agenda = useQuery({ queryKey: ["agenda", cemeteryId, week], queryFn: () => api<Agenda>("operations.agenda", { cemeteryId, from: week, to }) });
@@ -298,9 +300,16 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
                     <td className={td}>{t(`ops.bookingStatus.${b.status}`)}</td>
                     <td className={cx(td, "text-right")}>
                       {b.status === "planned" && (
-                        <Button size="md" onClick={() => setClosing(b)}>
-                          {t("ops.close")}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {can("record_events") && (
+                            <Button size="md" variant="primary" onClick={() => nav.go({ view: "newBurial", plotId: b.plotId ?? undefined, bookingId: b.id })}>
+                              {t("ops.recordBurial")}
+                            </Button>
+                          )}
+                          <Button size="md" onClick={() => setClosing(b)}>
+                            {t("ops.close")}
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -973,6 +982,7 @@ function CaseDialog({ id, onClose }: { id: string; onClose: () => void }) {
       footer={
         <>
           <Button onClick={onClose}>{t("common.close")}</Button>
+          {c && <PrintButton doc="case_document" args={{ caseId: id }} label={t("ops.issueDocument")} onDone={() => void invalidate()} />}
           {!closed && form && (
             <Button
               variant="primary"
@@ -1030,6 +1040,7 @@ function CaseDialog({ id, onClose }: { id: string; onClose: () => void }) {
               </Field>
               <TextField label={t("ops.deadline")} type="date" value={form.deadline} onChange={(x) => setV({ ...form, deadline: x })} />
             </div>
+            <p className="text-sm text-granite">{t("ops.documentHint")}</p>
             <Field label={t("ops.decision")} hint={t("ops.decisionHint")}>
               <Textarea value={form.decision} disabled={closed} onChange={(e) => setV({ ...form, decision: e.target.value })} rows={4} name="decision" />
             </Field>
@@ -1187,13 +1198,13 @@ function ContractorsTab({ cemeteryId }: { cemeteryId: string }) {
           </table>
         )}
       </Panel>
-      {editing && <ContractorDialog contractor={editing} onClose={() => setEditing(null)} />}
+      {editing && <ContractorDialog cemeteryId={cemeteryId} contractor={editing} onClose={() => setEditing(null)} />}
       {notice && <NoticeDialog cemeteryId={cemeteryId} contractors={q.data ?? []} onClose={() => setNotice(false)} />}
     </div>
   );
 }
 
-function ContractorDialog({ contractor, onClose }: { contractor: Partial<Contractor>; onClose: () => void }) {
+function ContractorDialog({ cemeteryId, contractor, onClose }: { cemeteryId: string; contractor: Partial<Contractor>; onClose: () => void }) {
   const { t } = useTranslation();
   const invalidate = useInvalidate();
   const [v, setV] = useState({
@@ -1266,7 +1277,72 @@ function ContractorDialog({ contractor, onClose }: { contractor: Partial<Contrac
       <div className="mt-4">
         <ErrorAlert error={error} />
       </div>
+      {contractor.id && <ContractorAccount cemeteryId={cemeteryId} contractorId={contractor.id} />}
     </Dialog>
+  );
+}
+
+interface ContractorAccountData {
+  months: { month: string; notices: number; grossHuf: number }[];
+  openCharges: (Charge & { cemeteryId: string })[];
+  openHuf: number;
+  invoicedHuf: number;
+  unpaidHuf: number;
+}
+
+/** FR-VAL-03: turnover, debt and a summary invoice of the open contributions. */
+function ContractorAccount({ cemeteryId, contractorId }: { cemeteryId: string; contractorId: string }) {
+  const { t } = useTranslation();
+  const { can } = useApp();
+  const q = useQuery({ queryKey: ["contractorAccount", contractorId], queryFn: () => api<ContractorAccountData>("contractors.account", { id: contractorId }) });
+  const [invoicing, setInvoicing] = useState(false);
+  const a = q.data;
+  if (!a) return null;
+  const here = a.openCharges.filter((c) => c.cemeteryId === cemeteryId);
+  return (
+    <section className="mt-6 border-t border-seam pt-5" data-testid="contractor-account">
+      <h3 className="mb-3 text-lg">{t("ops.account")}</h3>
+      <dl className="mb-4 grid gap-4 sm:grid-cols-3">
+        <div>
+          <dt className="text-sm text-granite">{t("ops.openItems")}</dt>
+          <dd className="text-xl font-semibold tabular-nums">{fmtHuf(a.openHuf)}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-granite">{t("ops.invoiced")}</dt>
+          <dd className="text-xl font-semibold tabular-nums">{fmtHuf(a.invoicedHuf)}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-granite">{t("ops.unpaid")}</dt>
+          <dd className={cx("text-xl font-semibold tabular-nums", a.unpaidHuf > 0 && "text-warn")}>{fmtHuf(a.unpaidHuf)}</dd>
+        </div>
+      </dl>
+      {a.months.length > 0 && (
+        <table className="mb-4 w-full max-w-md">
+          <thead>
+            <tr className="border-b border-seam">
+              <th className={th}>{t("ops.month")}</th>
+              <th className={cx(th, "text-right")}>{t("ops.noticesCount")}</th>
+              <th className={cx(th, "text-right")}>{t("ops.contribution")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {a.months.map((m) => (
+              <tr key={m.month} className="border-b border-seam last:border-0">
+                <td className={cx(td, "tabular-nums")}>{m.month.replace("-", ". ")}.</td>
+                <td className={cx(td, "text-right tabular-nums")}>{m.notices}</td>
+                <td className={cx(td, "text-right tabular-nums")}>{fmtHuf(m.grossHuf)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {can("record_payments") && here.length > 0 && (
+        <Button variant="primary" onClick={() => setInvoicing(true)}>
+          {t("ops.summaryInvoice", { count: here.length })}
+        </Button>
+      )}
+      {invoicing && <InvoiceDialog cemeteryId={cemeteryId} charges={here} onClose={() => setInvoicing(false)} />}
+    </section>
   );
 }
 

@@ -245,11 +245,13 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         }
         "contractors.list" => ok(store.list_contractors(opt(a, "includeVoided")?.unwrap_or(false))?),
         "contractors.save" => ok(store.save_contractor(s, &arg(a, "contractor")?)?),
+        "contractors.account" => ok(store.contractor_account(s, &arg::<String>(a, "id")?)?),
         "contractors.void" => {
             store.void_contractor(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
             ok(true)
         }
         "bookings.list" => ok(store.list_bookings(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "bookings.get" => ok(store.get_booking(&arg::<String>(a, "id")?)?),
         "bookings.save" => ok(store.save_booking(s, &arg(a, "booking")?)?),
         "bookings.status" => ok(store.set_booking_status(
             s,
