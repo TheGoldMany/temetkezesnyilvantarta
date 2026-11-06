@@ -10,8 +10,8 @@ use lunda_core::util::new_id;
 use lunda_core::{CoreError, Result, Store};
 use serde_json::{json, Value};
 
-use crate::szamlazz::{self, Document, Line, Party};
 use crate::{mail, stripe};
+use lunda_core::szamlazz::{self, Document, Line, Party};
 
 pub const MONTHLY_NET: i64 = 45_000;
 pub const YEARLY_NET: i64 = 450_000;
@@ -154,7 +154,19 @@ pub fn is_read_method(m: &str) -> bool {
         ".verify",
         ".propose",
     ];
-    SUFFIXES.iter().any(|s| m.ends_with(s)) || matches!(m, "search.quick" | "dashboard" | "print.document" | "export.file" | "import.check")
+    SUFFIXES.iter().any(|s| m.ends_with(s))
+        || matches!(
+            m,
+            "search.quick"
+                | "dashboard"
+                | "print.document"
+                | "export.file"
+                | "import.check"
+                | "cash.day"
+                | "finance.status"
+                | "finance.revenue"
+                | "invoices.pdf"
+        )
 }
 
 /// Session limited to reading (keeps viewing, printing, exporting).

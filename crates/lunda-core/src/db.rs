@@ -11,7 +11,7 @@ use crate::util::{new_id, now_ts};
 pub use crate::sql::{tx, Tx};
 
 /// Ordered list of tenant-schema migrations. Never edit a released migration – add a new one.
-pub const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/pg/0001_initial.sql"))];
+pub const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/pg/0001_initial.sql")), (2, include_str!("../migrations/pg/0002_finance.sql"))];
 
 /// Hungarian collation for ORDER BY (ICU).
 pub const HU: &str = "\"hu-x-icu\"";

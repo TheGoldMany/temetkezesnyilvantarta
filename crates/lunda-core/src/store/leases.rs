@@ -10,26 +10,32 @@ use crate::rules::{lease_expiry, pro_rata_refund, resale_allowed_from, PlotStatu
 use crate::settings;
 use crate::util::{fmt_date, new_id, now_ts, parse_date, today};
 
+pub(crate) fn map_fee_rate(r: &crate::sql::Row) -> crate::sql::Result<FeeRate> {
+    Ok(FeeRate {
+        id: r.get(0)?,
+        cemetery_id: r.get(1)?,
+        plot_type_id: r.get(2)?,
+        fee_kind: r.get(3)?,
+        amount_huf: r.get(4)?,
+        valid_from: r.get(5)?,
+        valid_to: r.get(6)?,
+        voided_at: r.get(7)?,
+        name: r.get(8)?,
+        unit: r.get(9)?,
+        vat_rate: r.get(10)?,
+        ledger_code: r.get(11)?,
+    })
+}
+
 impl Store {
     // ---------------------------------------------------------------- fee rates
 
     pub fn list_fee_rates(&self, cemetery_id: &str) -> Result<Vec<FeeRate>> {
         let mut st = self.conn.prepare(
-            "SELECT id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, voided_at FROM fee_rates
+            "SELECT id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, voided_at, name, unit, vat_rate, ledger_code FROM fee_rates
              WHERE cemetery_id=?1 ORDER BY fee_kind, plot_type_id, valid_from DESC",
         )?;
-        let rows = st.query_map([cemetery_id], |r| {
-            Ok(FeeRate {
-                id: r.get(0)?,
-                cemetery_id: r.get(1)?,
-                plot_type_id: r.get(2)?,
-                fee_kind: r.get(3)?,
-                amount_huf: r.get(4)?,
-                valid_from: r.get(5)?,
-                valid_to: r.get(6)?,
-                voided_at: r.get(7)?,
-            })
-        })?;
+        let rows = st.query_map([cemetery_id], map_fee_rate)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
@@ -51,9 +57,24 @@ impl Store {
         )?;
         let id = new_id();
         tx.execute(
-            "INSERT INTO fee_rates (id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, created_at, created_by, updated_at, updated_by)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?8,?9)",
-            params![id, r.cemetery_id, r.plot_type_id, r.fee_kind, r.amount_huf, r.valid_from, opt_s(&r.valid_to), ts, s.user_name],
+            "INSERT INTO fee_rates (id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, created_at, created_by, updated_at, updated_by,
+                                    name, unit, vat_rate, ledger_code)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?8,?9,?10,?11,?12,?13)",
+            params![
+                id,
+                r.cemetery_id,
+                r.plot_type_id,
+                r.fee_kind,
+                r.amount_huf,
+                r.valid_from,
+                opt_s(&r.valid_to),
+                ts,
+                s.user_name,
+                r.name.trim(),
+                if r.unit.trim().is_empty() { "db" } else { r.unit.trim() },
+                crate::store::finance::check_vat(&r.vat_rate)?,
+                r.ledger_code.trim()
+            ],
         )?;
         let out = FeeRate { id: id.clone(), ..r.clone() };
         audit::record(&tx, s, "fee_rate", &id, "create", None::<&()>, Some(&out), None)?;
@@ -67,23 +88,12 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, voided_at FROM fee_rates
+                "SELECT id, cemetery_id, plot_type_id, fee_kind, amount_huf, valid_from, valid_to, voided_at, name, unit, vat_rate, ledger_code FROM fee_rates
                  WHERE cemetery_id=?1 AND fee_kind=?3 AND (plot_type_id=?2 OR plot_type_id IS NULL) AND voided_at IS NULL
                    AND valid_from <= ?4 AND (valid_to IS NULL OR valid_to >= ?4)
                  ORDER BY plot_type_id IS NULL, valid_from DESC LIMIT 1",
                 params![cemetery_id, plot_type_id, kind, d],
-                |r| {
-                    Ok(FeeRate {
-                        id: r.get(0)?,
-                        cemetery_id: r.get(1)?,
-                        plot_type_id: r.get(2)?,
-                        fee_kind: r.get(3)?,
-                        amount_huf: r.get(4)?,
-                        valid_from: r.get(5)?,
-                        valid_to: r.get(6)?,
-                        voided_at: r.get(7)?,
-                    })
-                },
+                map_fee_rate,
             )
             .optional()?)
     }

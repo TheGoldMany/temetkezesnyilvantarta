@@ -19,6 +19,7 @@ pub mod sample;
 pub mod settings;
 pub mod sql;
 pub mod store;
+pub mod szamlazz;
 pub mod text;
 pub mod util;
 

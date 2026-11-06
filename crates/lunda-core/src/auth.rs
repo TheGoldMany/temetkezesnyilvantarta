@@ -17,6 +17,8 @@ pub enum Role {
     Finance,
     /// Olvasó
     Reader,
+    /// Pénztáros (csak a házipénztár)
+    Cashier,
 }
 
 impl Role {
@@ -26,6 +28,7 @@ impl Role {
             Role::Clerk => "clerk",
             Role::Finance => "finance",
             Role::Reader => "reader",
+            Role::Cashier => "cashier",
         }
     }
     pub fn parse(s: &str) -> Result<Self> {
@@ -34,6 +37,7 @@ impl Role {
             "clerk" => Role::Clerk,
             "finance" => Role::Finance,
             "reader" => Role::Reader,
+            "cashier" => Role::Cashier,
             _ => return Err(CoreError::validation("role", format!("unknown role {s}"))),
         })
     }
@@ -48,6 +52,7 @@ impl Role {
                 RecordEvents,
                 RecordLeases,
                 RecordPayments,
+                CashDesk,
                 CorrectEntries,
                 VoidEntries,
                 ViewPersonal,
@@ -58,8 +63,10 @@ impl Role {
                 EditMap,
                 OverrideChecks,
             ],
-            Role::Clerk => &[ManageStructure, RecordEvents, RecordLeases, RecordPayments, ViewPersonal, Print, Export, Import, EditMap, Backup],
-            Role::Finance => &[RecordPayments, ViewPersonal, Print, Export],
+            Role::Clerk => &[ManageStructure, RecordEvents, RecordLeases, RecordPayments, CashDesk, ViewPersonal, Print, Export, Import, EditMap, Backup],
+            Role::Finance => &[RecordPayments, CashDesk, ViewPersonal, Print, Export],
+            // FR-PEN-10: the cash desk only
+            Role::Cashier => &[CashDesk, Print],
             Role::Reader => &[Print, Export],
         }
     }
@@ -74,6 +81,8 @@ pub enum Permission {
     RecordEvents,
     RecordLeases,
     RecordPayments,
+    /// házipénztár (FR-PEN-06)
+    CashDesk,
     /// bejegyzés javítása (FR-JOG-03)
     CorrectEntries,
     /// érvénytelenítés (FR-NAP-02)
@@ -98,6 +107,7 @@ impl Permission {
             Permission::RecordEvents => "record_events",
             Permission::RecordLeases => "record_leases",
             Permission::RecordPayments => "record_payments",
+            Permission::CashDesk => "cash_desk",
             Permission::CorrectEntries => "correct_entries",
             Permission::VoidEntries => "void_entries",
             Permission::ViewPersonal => "view_personal",

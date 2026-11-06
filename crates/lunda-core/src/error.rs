@@ -49,7 +49,10 @@ impl From<crate::sql::Error> for CoreError {
         if msg.contains("physical delete forbidden") {
             return CoreError::new("delete_forbidden", msg);
         }
-        if msg.contains("append-only") || msg.contains("immutable") || msg.contains("voided record is final") {
+        if msg.contains("cash day is closed") {
+            return CoreError::new("cash_day_closed", msg);
+        }
+        if msg.contains("cash closing is final") || msg.contains("immutable") || msg.contains("voided record is final") {
             return CoreError::new("immutable", msg);
         }
         if e.sqlstate() == Some("23505") {

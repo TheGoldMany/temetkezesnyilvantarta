@@ -6,7 +6,7 @@
 //! Without SZAMLAZZ_AGENT_KEY nothing is sent: a local TESZT-… number is
 //! returned so every flow can be tried before the account is connected.
 
-use lunda_core::{CoreError, Result};
+use crate::{CoreError, Result};
 
 pub struct Party {
     pub name: String,
@@ -131,18 +131,54 @@ fn tag<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
     Some(&xml[a..b])
 }
 
-/// Issues the document. `seq` numbers local test documents.
+/// Issues the document with TEMISZ's own Számla Agent key (SZAMLAZZ_AGENT_KEY).
+/// `seq` numbers local test documents.
 pub fn issue(d: &Document, seq: i64) -> Result<Issued> {
-    let Ok(key) = std::env::var("SZAMLAZZ_AGENT_KEY") else {
+    issue_with(std::env::var("SZAMLAZZ_AGENT_KEY").ok().as_deref(), d, seq)
+}
+
+/// Issues the document with the given agent key (an operator's own Számlázz.hu
+/// account); without a key a local TESZT-… number is returned.
+pub fn issue_with(key: Option<&str>, d: &Document, seq: i64) -> Result<Issued> {
+    let Some(key) = key.map(str::trim).filter(|k| !k.is_empty()) else {
         let prefix = if d.proforma { "TESZT-D" } else { "TESZT-S" };
         return Ok(Issued { number: format!("{prefix}-{}-{seq:05}", &d.issue_date[..4]), pdf: None, log: "test mode: SZAMLAZZ_AGENT_KEY not set".into() });
     };
-    let xml = build_xml(&key, d);
-    let boundary = format!("----temisz{}", lunda_core::util::new_id().replace('-', ""));
+    post(&build_xml(key, d), "action-xmlagentxmlfile")
+}
+
+/// Storno (reversal) of an issued invoice through the Számla Agent
+/// (`action-szamla_agent_st`, xmlszamlast schema).
+pub fn storno_with(key: Option<&str>, number: &str, date: &str) -> Result<Issued> {
+    let Some(key) = key.map(str::trim).filter(|k| !k.is_empty()) else {
+        return Ok(Issued { number: format!("TESZT-ST-{number}"), pdf: None, log: "test mode: no agent key".into() });
+    };
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<xmlszamlast xmlns="http://www.szamlazz.hu/xmlszamlast" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.szamlazz.hu/xmlszamlast https://www.szamlazz.hu/szamla/docs/xsds/agentst/xmlszamlast.xsd">
+  <beallitasok>
+    <szamlaagentkulcs>{}</szamlaagentkulcs>
+    <eszamla>true</eszamla>
+    <szamlaLetoltes>true</szamlaLetoltes>
+  </beallitasok>
+  <fejlec>
+    <szamlaszam>{}</szamlaszam>
+    <keltDatum>{date}</keltDatum>
+    <tipus>SS</tipus>
+  </fejlec>
+</xmlszamlast>
+"#,
+        esc(key),
+        esc(number)
+    );
+    post(&xml, "action-szamla_agent_st")
+}
+
+fn post(xml: &str, field: &str) -> Result<Issued> {
+    let boundary = format!("----temisz{}", crate::util::new_id().replace('-', ""));
     let mut body = Vec::new();
     body.extend_from_slice(
-        format!("--{boundary}\r\nContent-Disposition: form-data; name=\"action-xmlagentxmlfile\"; filename=\"temisz.xml\"\r\nContent-Type: text/xml\r\n\r\n")
-            .as_bytes(),
+        format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{field}\"; filename=\"temisz.xml\"\r\nContent-Type: text/xml\r\n\r\n").as_bytes(),
     );
     body.extend_from_slice(xml.as_bytes());
     body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
@@ -152,9 +188,18 @@ pub fn issue(d: &Document, seq: i64) -> Result<Issued> {
         .map_err(|e| CoreError::new("invoicing_failed", e.to_string()))?;
     let header_number = resp.headers().get("szlahu_szamlaszam").and_then(|v| v.to_str().ok()).map(String::from);
     let header_error = resp.headers().get("szlahu_error").and_then(|v| v.to_str().ok()).map(String::from);
-    let text = resp.into_body().read_to_string().map_err(|e| CoreError::new("invoicing_failed", e.to_string()))?;
-    if let Some(err) = header_error.or_else(|| tag(&text, "hibauzenet").map(String::from)) {
+    let bytes = resp.into_body().read_to_vec().map_err(|e| CoreError::new("invoicing_failed", e.to_string()))?;
+    if let Some(err) = header_error {
         return Err(CoreError::new("invoicing_failed", err));
+    }
+    // the storno answer is the PDF itself; the invoice answer is XML (valaszVerzio 2)
+    if bytes.starts_with(b"%PDF") {
+        let number = header_number.ok_or_else(|| CoreError::new("invoicing_failed", "no invoice number in the answer"))?;
+        return Ok(Issued { number, pdf: Some(bytes), log: "issued via Számla Agent".into() });
+    }
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    if let Some(err) = tag(&text, "hibauzenet") {
+        return Err(CoreError::new("invoicing_failed", err.to_string()));
     }
     let number = header_number
         .or_else(|| tag(&text, "szamlaszam").map(String::from))

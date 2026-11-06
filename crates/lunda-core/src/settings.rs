@@ -36,7 +36,7 @@ pub const DEFAULTS: &[(&str, &str)] = &[
 ];
 
 /// Keys that only an administrator may change (security-relevant).
-const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup.", "update."];
+const ADMIN_ONLY_PREFIXES: &[&str] = &["security.", "backup.", "update.", "finance.provider"];
 
 pub fn get(conn: &Connection, key: &str, cemetery_id: Option<&str>) -> Result<Option<String>> {
     if let Some(cid) = cemetery_id {
@@ -128,6 +128,15 @@ fn validate(key: &str, value: &str) -> Result<()> {
     ];
     if numeric.contains(&key) && value.trim().parse::<i64>().map(|n| n < 0).unwrap_or(true) {
         return Err(CoreError::validation(key, "must be a non-negative integer"));
+    }
+    if key == "finance.provider" && !matches!(value, "szamlazz" | "asp") {
+        return Err(CoreError::validation(key, "szamlazz or asp"));
+    }
+    if key == "finance.payment_due_days" && value.trim().parse::<i64>().map(|n| !(0..=90).contains(&n)).unwrap_or(true) {
+        return Err(CoreError::validation(key, "0–90 days"));
+    }
+    if key == "finance.default_vat" {
+        crate::store::finance::check_vat(value)?;
     }
     if key == "update.endpoint" && !value.trim().is_empty() && !value.trim().starts_with("https://") {
         return Err(CoreError::validation(key, "the update server must use https"));

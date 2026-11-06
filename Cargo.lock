@@ -998,6 +998,7 @@ name = "lunda-core"
 version = "0.1.2"
 dependencies = [
  "argon2",
+ "base64 0.22.1",
  "bytes",
  "calamine",
  "chrono",
@@ -1016,6 +1017,7 @@ dependencies = [
  "thiserror",
  "tokio-postgres-rustls",
  "ttf-parser",
+ "ureq",
  "uuid",
  "webpki-roots",
 ]

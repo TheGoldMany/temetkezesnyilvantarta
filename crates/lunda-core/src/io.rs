@@ -203,6 +203,11 @@ pub fn guess_mapping(headers: &[String]) -> BTreeMap<String, usize> {
 }
 
 /// Parses Hungarian date notations; year-only values map to January 1.
+/// Date only (bank statements and other imports).
+pub fn parse_date_loose(s: &str) -> Option<NaiveDate> {
+    parse_hu_date(s).map(|(d, _)| d)
+}
+
 pub fn parse_hu_date(s: &str) -> Option<(NaiveDate, bool)> {
     let t = s.trim().trim_end_matches('.');
     if t.is_empty() {
@@ -798,6 +803,19 @@ pub fn export(store: &Store, s: &Session, kind: &str, format: &str, args: &Value
                 })
                 .collect();
             vec![("Kihasználtság".into(), cols, rows)]
+        }
+        "ledger" => {
+            s.require(Permission::RecordPayments)?;
+            let from = args.get("from").and_then(|v| v.as_str()).unwrap_or("1900-01-01").to_string();
+            let to = args.get("to").and_then(|v| v.as_str()).unwrap_or("2999-12-31").to_string();
+            let (cols, rows) = store.ledger_rows(cem.as_deref(), &from, &to)?;
+            vec![("Könyvelés".into(), cols, rows)]
+        }
+        "asp" => {
+            s.require(Permission::RecordPayments)?;
+            let c = cem.clone().ok_or_else(|| CoreError::new("bad_request", "cemeteryId"))?;
+            let (cols, rows) = store.asp_rows(&c)?;
+            vec![("ASP tételek".into(), cols, rows)]
         }
         "report_yearly" => {
             let y = store.yearly_stats(cem.as_deref())?;

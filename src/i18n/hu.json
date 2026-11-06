@@ -16,7 +16,8 @@
     "settings": "Beállítások",
     "logout": "Kijelentkezés",
     "back": "Vissza",
-    "platform": "Ügyfelek"
+    "platform": "Ügyfelek",
+    "finance": "Pénzügy"
   },
   "common": {
     "save": "Mentés",
@@ -125,7 +126,17 @@
     "tax_number_invalid": "Az adószám formátuma: 12345678-1-23.",
     "invoice_not_open": "Ez a díjbekérő már nem nyitott.",
     "import_not_empty": "A régi mentés csak üres fiókba tölthető be. Ebben a fiókban már van temető.",
-    "backup_version": "Ez a mentés egy újabb programváltozatból származik. Kérjen segítséget az ügyfélszolgálattól."
+    "backup_version": "Ez a mentés egy újabb programváltozatból származik. Kérjen segítséget az ügyfélszolgálattól.",
+    "charge_not_open": "Ez a tétel már számlázva vagy érvénytelenítve van.",
+    "cash_day_closed": "Ez a pénztárnap már le van zárva, nem módosítható.",
+    "cash_difference": "A megszámolt és a könyvelt összeg eltér ({{difference}} Ft). Írja be az eltérés okát.",
+    "invoice_not_pending": "Ennek a számlának már van sorszáma.",
+    "invoice_not_stornoable": "Csak kiállított számla sztornózható.",
+    "invoice_paid": "Befizetett számla nem sztornózható. Előbb a befizetést érvénytelenítse.",
+    "proforma_unavailable": "ASP-s számlázásnál a díjbekérőt az ASP-ben állítják ki.",
+    "bank_columns": "A kivonatban nem találom a(z) {{column}} oszlopot.",
+    "bank_already_matched": "Ezt a jóváírást már feldolgozták.",
+    "vat_invalid": "Ismeretlen ÁFA-kód."
   },
   "fields": {
     "familyName": "Családi név",
@@ -232,7 +243,8 @@
     "admin": "Rendszergazda",
     "clerk": "Ügyintéző",
     "finance": "Pénzügyes",
-    "reader": "Olvasó"
+    "reader": "Olvasó",
+    "cashier": "Pénztáros"
   },
   "permission": {
     "manage_users": "Felhasználók kezelése",
@@ -249,7 +261,8 @@
     "import": "Import",
     "backup": "Mentés",
     "edit_map": "Térkép szerkesztése",
-    "override_checks": "Temetési tiltás felülbírálása"
+    "override_checks": "Temetési tiltás felülbírálása",
+    "cash_desk": "Házipénztár"
   },
   "burialCheck": {
     "allowed": "A temetés engedélyezhető.",
@@ -658,7 +671,9 @@
       "renewal": "Újraváltás",
       "opening": "Sírnyitás",
       "chapel": "Ravatalozó-használat",
-      "maintenance": "Fenntartási hozzájárulás"
+      "maintenance": "Fenntartási hozzájárulás",
+      "cooling": "Hűtés",
+      "monument_permit": "Síremlék-állítási engedély"
     },
     "amount": "Összeg (Ft)",
     "validFrom": "Érvényes ettől",
@@ -689,7 +704,10 @@
     "sendInvite": "Meghívó küldése",
     "inviteIntro": "A kolléga e-mailben kap egy meghívót, abban állítja be a saját jelszavát.",
     "sendLink": "Jelszóbeállító levél küldése",
-    "linkSent": "Elküldtük."
+    "linkSent": "Elküldtük.",
+    "feeName": "Megnevezés a számlán",
+    "feeNameHint": "Üresen a díj fajtája.",
+    "feeUnit": "Mértékegység"
   },
   "backup": {
     "dir": "Mentési mappa",
@@ -1026,5 +1044,164 @@
       "trial": "Próbaidő"
     },
     "extendTrial": "Próbaidő +14 nap"
+  },
+  "finance": {
+    "title": "Pénzügy",
+    "tabs": {
+      "charges": "Tételek",
+      "invoices": "Számlák",
+      "cash": "Házipénztár",
+      "bank": "Bank",
+      "receivables": "Kintlévőségek",
+      "report": "Kimutatás",
+      "setup": "Beállítás"
+    },
+    "openCharges": "Számlázandó tételek",
+    "newCharge": "Új tétel",
+    "invoiceSelected_one": "Számla ({{count}} tétel)",
+    "invoiceSelected_other": "Számla ({{count}} tétel)",
+    "onePayer": "Egy számlára csak ugyanannak a befizetőnek a tételei kerülhetnek.",
+    "noCharges": "Nincs számlázandó tétel. A megváltások díja automatikusan ide kerül, más díjat az Új tétel gombbal vehet fel.",
+    "payer": "Befizető",
+    "buyer": "Vevő",
+    "item": "Tétel",
+    "net": "Nettó",
+    "gross": "Bruttó",
+    "vat": "ÁFA",
+    "quantity": "Mennyiség",
+    "unitNet": "Nettó egységár (Ft)",
+    "fromDecree": "A díjrendelet szerint: {{amount}}",
+    "feeItem": "Díjtétel",
+    "customItem": "Egyedi tétel",
+    "invoiceTitle": "Számla kiállítása",
+    "itemsTotal_one": "{{count}} tétel, összesen:",
+    "itemsTotal_other": "{{count}} tétel, összesen:",
+    "emailHint": "Ha megadja, a Számlázz.hu e-számlaként elküldi.",
+    "proforma": "Díjbekérő (a befizetés után számla készül)",
+    "issueInvoice": "Számla kiállítása",
+    "issueProforma": "Díjbekérő kiállítása",
+    "prepareAsp": "Előkészítés az ASP-hez",
+    "aspHint": "A számlát az Önkormányzati ASP állítja ki. A tételeket a Kimutatás › ASP-export fájlban találja, a kapott számlaszámot utána rögzítse.",
+    "testMode": "Nincs megadva Számlázz.hu Számla Agent kulcs (Beállítás fül), ezért TESZT sorszámú, ki nem állított bizonylat készül.",
+    "method": {
+      "transfer": "Átutalás",
+      "cash": "Készpénz",
+      "card": "Bankkártya"
+    },
+    "filter": "Szűrés",
+    "filters": {
+      "all": "Mind",
+      "open": "Fizetendők",
+      "overdue": "Lejártak",
+      "pending_asp": "ASP-re várók"
+    },
+    "noInvoices": "Nincs számla.",
+    "noNumber": "(nincs még sorszám)",
+    "kind": {
+      "invoice": "Számla",
+      "proforma": "Díjbekérő",
+      "storno": "Sztornó"
+    },
+    "issued": "Kelt",
+    "due": "Határidő",
+    "paidSoFar": "befizetve: {{amount}}",
+    "overdue_one": "{{count}} napja lejárt",
+    "overdue_other": "{{count}} napja lejárt",
+    "status": {
+      "pending_asp": "ASP-re vár",
+      "issued": "Fizetendő",
+      "paid": "Kifizetve",
+      "partially_paid": "Részben fizetve",
+      "storno": "Sztornózva"
+    },
+    "reminders_one": "{{count}} felszólítás",
+    "reminders_other": "{{count}} felszólítás",
+    "recordPayment": "Befizetés",
+    "aspNumber": "ASP-számlaszám",
+    "aspNumberPrompt": "Az ASP-ben kapott számlaszám:",
+    "remind": "Felszólítás",
+    "storno": "Sztornó",
+    "stornoPrompt": "A sztornó oka:",
+    "amount": "Összeg (Ft)",
+    "reference": "Bizonylat / közlemény",
+    "cashReceipt": "Készpénznél a házipénztárba automatikusan bevételi pénztárbizonylat kerül.",
+    "cashDate": "Nap",
+    "cash": {
+      "opening": "Nyitó egyenleg",
+      "in": "Bevétel",
+      "out": "Kiadás",
+      "closing": "Záró egyenleg",
+      "inDoc": "Bevételi bizonylat",
+      "outDoc": "Kiadási bizonylat"
+    },
+    "cashNew": "Új pénztárbizonylat",
+    "cashKind": "Fajta",
+    "partner": "Befizető / kedvezményezett",
+    "cashBook": "Rögzítés",
+    "cashBookTitle": "Pénztárnapló",
+    "cashEmpty": "Ezen a napon nincs pénztármozgás.",
+    "cashClose": "Napi zárás",
+    "counted": "Megszámolt készpénz (Ft)",
+    "expected": "A napló szerint: {{amount}}",
+    "differenceNote": "Eltérés oka",
+    "closeDay": "Nap lezárása",
+    "cashClosed": "A nap lezárva. Megszámolt készpénz: {{amount}} ({{by}}).",
+    "bankImport": "Bankszámlakivonat betöltése",
+    "bankIntro": "Töltse le az internetbankból a kivonatot CSV-ben vagy Excelben, és töltse be ide. A program a közlemény, az összeg és a név alapján megkeresi a hozzá tartozó számlát.",
+    "bankPick": "Kivonat kiválasztása",
+    "bankResult": "{{added}} új tétel, {{skipped}} már korábban betöltve vagy nem értelmezhető.",
+    "bankUnmatched": "Párosításra váró jóváírások",
+    "bankNone": "Nincs párosításra váró tétel.",
+    "matchTo": "Számla",
+    "chooseInvoice": "Válasszon számlát",
+    "suggested": "Javaslat: {{number}}",
+    "match": "Párosítás",
+    "ignore": "Nem befizetés",
+    "receivablesTitle": "Kintlévőség: {{total}}, ebből lejárt: {{overdue}}",
+    "noReceivables": "Nincs kintlévőség.",
+    "invoiceCount": "Számlák",
+    "open": "Nyitott",
+    "overdueAmount": "Lejárt",
+    "oldestDue": "Legrégebbi határidő",
+    "from": "Ettől",
+    "to": "Eddig",
+    "exportLedger": "Könyvelési export",
+    "exportAsp": "ASP-export",
+    "totals": {
+      "netHuf": "Nettó bevétel",
+      "vatHuf": "ÁFA",
+      "grossHuf": "Bruttó bevétel",
+      "paidHuf": "Befizetések"
+    },
+    "byItem": "Bevétel jogcímenként",
+    "noRevenue": "Ebben az időszakban nincs számlázott bevétel.",
+    "ledger": "Főkönyvi szám",
+    "vatSummary": "ÁFA-összesítő",
+    "netAmount": "nettó {{amount}}",
+    "vatAmount": "ÁFA {{amount}}",
+    "setupTitle": "Számlázás",
+    "provider": "Számlázás módja",
+    "providers": {
+      "szamlazz": "Saját Számlázz.hu-fiókból",
+      "asp": "Önkormányzati ASP-ben"
+    },
+    "providerSzamlazzHint": "A TEMISZ a Számla Agent kulccsal közvetlenül kiállítja és e-mailben elküldi a számlát.",
+    "providerAspHint": "A TEMISZ előkészíti a tételeket, a számlát az ASP-ben állítják ki, a sorszámot utána rögzítik.",
+    "agentKey": "Számla Agent kulcs",
+    "agentKeySet": "Kulcs beállítva. Új kulcs megadásával lecserélheti.",
+    "agentKeyMissing": "Számlázz.hu › Beállítások › Számla Agent kulcsok.",
+    "dueDays": "Fizetési határidő (nap)",
+    "feeHint": "A díjtételeket (ár, ÁFA, főkönyvi szám) a Beállítások › Díjtételek oldalon adhatja meg.",
+    "vatCodes": {
+      "27": "27%",
+      "18": "18%",
+      "5": "5%",
+      "0": "0%",
+      "AAM": "Alanyi adómentes (AAM)",
+      "TAM": "Tárgyi adómentes (TAM)",
+      "EUFAD37": "EUFAD37",
+      "KBAET": "KBAET",
+      "ATK": "ÁFA tv. hatályán kívül (ATK)"
+    }
   }
 }

@@ -476,7 +476,7 @@ function FeesTab() {
   const { current } = useCurrentCemetery();
   const types = usePlotTypes();
   const fees = useQuery({ queryKey: ["fees", current?.id], queryFn: () => api<FeeRate[]>("feeRates.list", { cemeteryId: current?.id }), enabled: !!current });
-  const [v, setV] = useState({ feeKind: "purchase", plotTypeId: "", amountHuf: "", validFrom: todayIso() });
+  const [v, setV] = useState({ feeKind: "purchase", plotTypeId: "", amountHuf: "", validFrom: todayIso(), name: "", unit: "db", vatRate: "27", ledgerCode: "" });
   const [error, setError] = useState<unknown>(null);
   const invalidate = useInvalidate();
   const typeName = (id: string | null) => types.data?.find((x) => x.id === id)?.name ?? t("settings.anyType");
@@ -485,10 +485,10 @@ function FeesTab() {
       <Alert>{t("settings.feeHint")}</Alert>
       {can("manage_settings") && current && (
         <Panel title={t("settings.addFee")}>
-          <div className="grid items-end gap-4 md:grid-cols-5">
+          <div className="grid items-end gap-4 md:grid-cols-4">
             <Field label={t("settings.feeKind")}>
               <Select value={v.feeKind} onChange={(e) => setV({ ...v, feeKind: e.target.value })}>
-                {["purchase", "renewal", "opening", "chapel", "maintenance"].map((k) => (
+                {["purchase", "renewal", "opening", "chapel", "cooling", "maintenance", "monument_permit"].map((k) => (
                   <option key={k} value={k}>
                     {t(`settings.feeKinds.${k}`)}
                   </option>
@@ -507,12 +507,24 @@ function FeesTab() {
             </Field>
             <TextField label={t("settings.amount")} type="number" value={v.amountHuf} onChange={(x) => setV({ ...v, amountHuf: x })} />
             <TextField label={t("settings.validFrom")} type="date" value={v.validFrom} onChange={(x) => setV({ ...v, validFrom: x })} />
+            <TextField label={t("settings.feeName")} value={v.name} onChange={(x) => setV({ ...v, name: x })} hint={t("settings.feeNameHint")} />
+            <Field label={t("finance.vat")}>
+              <Select value={v.vatRate} onChange={(e) => setV({ ...v, vatRate: e.target.value })}>
+                {["27", "18", "5", "0", "AAM", "TAM"].map((x) => (
+                  <option key={x} value={x}>
+                    {t(`finance.vatCodes.${x}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <TextField label={t("settings.feeUnit")} value={v.unit} onChange={(x) => setV({ ...v, unit: x })} />
+            <TextField label={t("finance.ledger")} value={v.ledgerCode} onChange={(x) => setV({ ...v, ledgerCode: x })} />
             <Button
               variant="primary"
               disabled={!v.amountHuf}
               onClick={async () => {
                 try {
-                  await api("feeRates.add", { rate: { cemeteryId: current.id, plotTypeId: v.plotTypeId || null, feeKind: v.feeKind, amountHuf: Number(v.amountHuf), validFrom: v.validFrom, validTo: null } });
+                  await api("feeRates.add", { rate: { cemeteryId: current.id, plotTypeId: v.plotTypeId || null, feeKind: v.feeKind, amountHuf: Number(v.amountHuf), validFrom: v.validFrom, validTo: null, name: v.name, unit: v.unit, vatRate: v.vatRate, ledgerCode: v.ledgerCode } });
                   setV({ ...v, amountHuf: "" });
                   await invalidate();
                 } catch (e) {
@@ -535,6 +547,7 @@ function FeesTab() {
               <th className="py-2">{t("settings.feeKind")}</th>
               <th className="py-2">{t("fields.plotType")}</th>
               <th className="py-2">{t("settings.amount")}</th>
+              <th className="py-2">{t("finance.vat")}</th>
               <th className="py-2">{t("settings.validFrom")}</th>
               <th className="py-2">{t("settings.validTo")}</th>
             </tr>
@@ -542,9 +555,13 @@ function FeesTab() {
           <tbody>
             {(fees.data ?? []).map((f) => (
               <tr key={f.id} className="border-t border-seam">
-                <td className="py-2">{t(`settings.feeKinds.${f.feeKind}`, { defaultValue: f.feeKind })}</td>
+                <td className="py-2">
+                  {f.name || t(`settings.feeKinds.${f.feeKind}`, { defaultValue: f.feeKind })}
+                  {f.ledgerCode && <span className="block text-sm text-granite">{f.ledgerCode}</span>}
+                </td>
                 <td className="py-2">{typeName(f.plotTypeId)}</td>
                 <td className="py-2 font-semibold">{fmtHuf(f.amountHuf)}</td>
+                <td className="py-2">{t(`finance.vatCodes.${f.vatRate}`, { defaultValue: f.vatRate })}</td>
                 <td className="py-2">{fmtDate(f.validFrom)}</td>
                 <td className="py-2">{fmtDate(f.validTo)}</td>
               </tr>
@@ -646,7 +663,7 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
           <TextField label={t("fields.email")} type="email" value={v.username} onChange={(x) => setV({ ...v, username: x })} required inputProps={{ disabled: !!user, name: "email" }} />
           <Field label={t("fields.role")}>
             <Select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as User["role"] })}>
-              {["admin", "clerk", "finance", "reader"].map((r) => (
+              {["admin", "clerk", "finance", "cashier", "reader"].map((r) => (
                 <option key={r} value={r}>
                   {t(`role.${r}`)}
                 </option>

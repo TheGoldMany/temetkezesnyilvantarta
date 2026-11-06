@@ -11,7 +11,6 @@ pub mod billing;
 pub mod lifecycle;
 pub mod mail;
 pub mod stripe;
-pub mod szamlazz;
 pub mod tenant_data;
 pub mod totp;
 

@@ -2,7 +2,8 @@
 //! writes the change and its audit entry in one transaction.
 
 mod events;
-mod leases;
+pub mod finance;
+pub(crate) mod leases;
 mod people;
 mod reports;
 mod search;
