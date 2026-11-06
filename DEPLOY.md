@@ -10,9 +10,9 @@ A lépések sorrendje fontos. A `main` ágra csak akkor kerüljön a webes vált
 
 ## 2. Adatbázis (Neon)
 
-1. Vercel › Storage › Create › **Neon**. Régió: **Frankfurt (eu-central-1)**. Csomag: kezdetben a legkisebb fizetős (a napi mentés és az időponthoz visszaállítás miatt).
-2. Kösse a projekthez. A Vercel beállítja a `DATABASE_URL` változót.
-3. A TEMISZ a **közvetlen (nem pooled)** kapcsolatot használja, mert ügyfelenként sémát vált: ha van `DATABASE_URL_UNPOOLED`, azt választja, és ezt a Neon-integráció beállítja.
+1. Vercel › Integrations › **Neon** (vagy Storage › Create › Neon). Régió: **Frankfurt, Germany (West)**. Az **Auth** és a **Realtime** kapcsolója legyen kikapcsolva (a TEMISZ-nek saját belépése van). Csomag: induláskor a Free elég; fizetős ügyfeleknél a napi mentés, az időponthoz visszaállítás és a folyamatosan ébren lévő adatbázis miatt fizetős csomag ajánlott.
+2. Connect a Project: a `temetkezesnyilvantarta` projekt, **Production és Preview** környezet. Database branch: a **Preview** legyen bejelölve (minden előnézet saját adatbázis-másolatot kap), a Production ne.
+3. **Custom Prefix: `DATABASE`** (nem az alapértelmezett `STORAGE`). Így jön létre a `DATABASE_URL` és a `DATABASE_URL_UNPOOLED`. A TEMISZ a **közvetlen (nem pooled)** kapcsolatot használja, mert ügyfelenként sémát vált, ezért a `DATABASE_URL_UNPOOLED`-et választja. A változók csak az ezután készülő telepítésekben élnek: a bekötés után telepítsen újra.
 4. A sémát a szerver első indításkor maga hozza létre (platform séma, majd ügyfelenként a saját séma).
 
 ## 3. E-mail (Resend)
