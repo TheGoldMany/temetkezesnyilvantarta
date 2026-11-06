@@ -24,7 +24,7 @@ pub fn send_for(conn: &Connection, tenant_id: Option<&str>, to: &str, reply_to: 
         }
         return Ok(());
     };
-    let from = std::env::var("MAIL_FROM").unwrap_or_else(|_| "TEMISZ <noreply@temisz.hu>".into());
+    let from = std::env::var("MAIL_FROM").unwrap_or_else(|_| "TEMISZ <info@lundasoftware.hu>".into());
     let mut payload = serde_json::json!({ "from": from, "to": [to], "subject": subject, "text": body });
     if let Some(r) = reply_to {
         payload["reply_to"] = serde_json::json!(r);
