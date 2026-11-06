@@ -8,6 +8,7 @@ import { TotpRequired } from "./features/account/Security";
 import { PlatformAdmin } from "./features/account/PlatformAdmin";
 import { FinanceView } from "./features/finance/Finance";
 import { OperationsView } from "./features/operations/Operations";
+import { Help } from "./features/help/Help";
 import { shell } from "./lib/api";
 import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
@@ -60,6 +61,14 @@ export function App() {
   if (status.account?.totpRequired) return <TotpRequired />;
   if (status.settings["onboarding.completed"] !== "true") return <Onboarding />;
   const r = nav.route;
+  // an invited funeral office works only in the shared calendar
+  if (status.session.role === "undertaker") {
+    return (
+      <Shell>
+        <OperationsView />
+      </Shell>
+    );
+  }
   return (
     <Shell>
       {r.view === "dashboard" && <Dashboard />}
@@ -80,6 +89,7 @@ export function App() {
       {r.view === "platform" && <PlatformAdmin />}
       {r.view === "finance" && <FinanceView />}
       {r.view === "operations" && <OperationsView />}
+      {r.view === "help" && <Help />}
     </Shell>
   );
 }

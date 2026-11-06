@@ -182,7 +182,7 @@ function CemeteriesTab() {
           title={`${t("settings.sections")} – ${current.name}`}
           actions={
             can("manage_structure") && (
-              <Button variant="primary" icon={<Plus className="size-4" aria-hidden />} onClick={() => setBulk(true)}>
+              <Button variant="primary" icon={<Plus className="size-4" aria-hidden />} onClick={() => setBulk(true)} data-tour="bulk-create">
                 {t("settings.bulkCreate")}
               </Button>
             )
@@ -665,7 +665,7 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
           <TextField label={t("fields.email")} type="email" value={v.username} onChange={(x) => setV({ ...v, username: x })} required inputProps={{ disabled: !!user, name: "email" }} />
           <Field label={t("fields.role")}>
             <Select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as User["role"] })}>
-              {["admin", "clerk", "finance", "cashier", "worker", "reader"].map((r) => (
+              {["admin", "clerk", "finance", "cashier", "worker", "undertaker", "reader"].map((r) => (
                 <option key={r} value={r}>
                   {t(`role.${r}`)}
                 </option>

@@ -18,8 +18,8 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("operator.logo", ""), // data URL (PNG/JPEG)
     ("signer.name", ""),
     ("signer.title", "temetőgondnok"),
-    ("regulation.name", ""), // e.g. "Lajosmizse Város Önkormányzatának 12/2020. (V. 28.) rendelete"
-    ("rules.grace_period_days", "180"),
+    ("regulation.name", ""),            // e.g. "Lajosmizse Város Önkormányzatának 12/2020. (V. 28.) rendelete"
+    ("rules.grace_period_days", "180"), // the legal one-year floor applies on top (rules::REUSE_AFTER_DAYS)
     ("rules.urn_rest_period_years", "0"),
     ("rules.expiry_warning_days", "90"),
     ("rules.rounding", "1"), // HUF
@@ -34,6 +34,7 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("ui.zoom", "100"),
     ("onboarding.completed", "false"),
     ("public.search_enabled", "false"), // FR-UGY-02: opt-in public grave search
+    ("notify.auto_expiry", "false"),    // automatic expiry reminders by e-mail
 ];
 
 /// Keys that only an administrator may change (security-relevant).
@@ -130,7 +131,7 @@ fn validate(key: &str, value: &str) -> Result<()> {
     if numeric.contains(&key) && value.trim().parse::<i64>().map(|n| n < 0).unwrap_or(true) {
         return Err(CoreError::validation(key, "must be a non-negative integer"));
     }
-    if key == "public.search_enabled" && !matches!(value, "true" | "false") {
+    if matches!(key, "public.search_enabled" | "notify.auto_expiry") && !matches!(value, "true" | "false") {
         return Err(CoreError::validation(key, "true or false"));
     }
     if key == "finance.provider" && !matches!(value, "szamlazz" | "asp") {

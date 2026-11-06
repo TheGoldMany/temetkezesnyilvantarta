@@ -97,6 +97,10 @@ impl Fx {
                 historical_folio: None,
                 override_reason: None,
                 notes: String::new(),
+                cemetery_id: None,
+                receiver_name: String::new(),
+                receiver_address: String::new(),
+                destination: String::new(),
             },
         )
     }

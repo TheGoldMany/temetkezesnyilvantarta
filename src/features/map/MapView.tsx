@@ -319,7 +319,7 @@ export function MapView({ plotId }: { plotId?: string }) {
           <>
             {current && <PrintButton doc="map" args={{ cemeteryId: current.id, paper: "A3" }} label={t("map.export")} />}
             {can("edit_map") && (
-              <Button variant={editing ? "primary" : "secondary"} icon={<Pencil className="size-5" aria-hidden />} onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
+              <Button variant={editing ? "primary" : "secondary"} icon={<Pencil className="size-5" aria-hidden />} onClick={() => setEditing((e) => !e)} aria-pressed={editing} data-tour="map-edit">
                 {t("map.edit")}
               </Button>
             )}

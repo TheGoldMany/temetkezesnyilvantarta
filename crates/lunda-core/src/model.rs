@@ -471,6 +471,18 @@ pub struct BurialInput {
     pub override_reason: Option<String>,
     #[serde(default)]
     pub notes: String,
+    /// without a plot (urn taken home, ashes scattered elsewhere): the
+    /// cemetery whose register keeps the entry
+    #[serde(default)]
+    pub cemetery_id: Option<String>,
+    /// urn taken home: who received it (JOG-15)
+    #[serde(default)]
+    pub receiver_name: String,
+    #[serde(default)]
+    pub receiver_address: String,
+    /// ashes scattered elsewhere, urn taken abroad, …
+    #[serde(default)]
+    pub destination: String,
 }
 
 /// Urn release / urn removal / relocation / ash scattering from an existing placement.
@@ -488,6 +500,12 @@ pub struct RemovalInput {
     pub destination: String,
     /// target plot for relocation inside the cemetery
     pub target_plot_id: Option<String>,
+    /// 145/1999. Korm. r. 35. § (2): opening a grave needs the holder's consent
+    #[serde(default)]
+    pub holder_consent: bool,
+    /// 36. §: exhumation of a coffin within 15 years needs the public health permit
+    #[serde(default)]
+    pub permit_number: String,
     pub historical_folio: Option<i64>,
     #[serde(default)]
     pub notes: String,
@@ -666,4 +684,9 @@ pub struct DashboardStats {
     pub expired: i64,
     pub deceased_total: i64,
     pub recent_events: Vec<EventRow>,
+    /// 145/1999. Korm. r. 41. § (3): days since the last authenticated print
+    /// of the register (the certified copy of the electronic register);
+    /// None when there has never been one
+    #[serde(default)]
+    pub days_since_certified_copy: Option<i64>,
 }

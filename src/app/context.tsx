@@ -23,7 +23,8 @@ export type Route =
   | { view: "settings"; tab?: string }
   | { view: "platform" }
   | { view: "finance" }
-  | { view: "operations" };
+  | { view: "operations" }
+  | { view: "help" };
 
 interface Nav {
   route: Route;

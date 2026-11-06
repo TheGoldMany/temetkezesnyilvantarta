@@ -99,7 +99,10 @@ impl Store {
             order: Some("date_desc".into()),
             ..Default::default()
         })?;
+        let last_copy: Option<String> = self.conn.query_row("SELECT max(ts) FROM print_log WHERE document IN ('register', 'crypt_book')", [], |r| r.get(0))?;
+        let days_since_certified_copy = last_copy.and_then(|ts| crate::util::parse_date(&ts[..10.min(ts.len())]).ok()).map(|d| (t - d).num_days());
         Ok(DashboardStats {
+            days_since_certified_copy,
             plots_total: plots.total,
             by_status: counts.into_iter().collect(),
             events_this_year,

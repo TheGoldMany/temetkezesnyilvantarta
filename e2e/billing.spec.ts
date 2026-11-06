@@ -13,6 +13,7 @@ async function registerAndStart(page: Page, email: string, org: string) {
   await page.getByRole("button", { name: "Tovább" }).click();
   await page.getByRole("button", { name: /Üres nyilvántartással/ }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
 }
 
 const rpc = (page: Page, cmd: string, args: object = {}) =>

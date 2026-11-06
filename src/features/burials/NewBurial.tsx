@@ -38,6 +38,11 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
   const [leaseYears, setLeaseYears] = useState<string>("");
   const [leaseFee, setLeaseFee] = useState<string>("");
   const [notes, setNotes] = useState("");
+  // no plot: urn taken home, or ashes scattered somewhere else
+  const [offSite, setOffSite] = useState<"" | "home" | "elsewhere">("");
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverAddress, setReceiverAddress] = useState("");
+  const [destination, setDestination] = useState("");
   const [override, setOverride] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -94,9 +99,13 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
       eventDate,
       container: effectiveContainer,
       deceased: existingDeceasedId ? { mode: "existing", id: existingDeceasedId } : { mode: "new", deceased: { ...deceased, birthDate: deceased.birthDate || null, deathDate: deceased.deathDate || null } },
-      plotId,
+      plotId: offSite ? null : plotId,
       cryptSlotId: slotId || null,
-      arranger,
+      arranger: offSite && arranger && arranger.mode === "new" && !arranger.person.familyName ? null : arranger,
+      cemeteryId: current?.id ?? null,
+      receiverName,
+      receiverAddress,
+      destination,
       holder: needsHolder && !holderSame ? holder : null,
       holderRelation: relation || null,
       lease: { create: leaseCreate && !!preview.data?.lease, durationYears: leaseYears ? Number(leaseYears) : null, feeHuf: leaseFee !== "" ? Number(leaseFee) : null },
@@ -104,7 +113,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
       overrideReason: override.trim() || null,
       notes,
     }),
-    [eventType, eventDate, effectiveContainer, existingDeceasedId, deceased, plotId, slotId, arranger, needsHolder, holderSame, holder, relation, leaseCreate, preview.data?.lease, leaseYears, leaseFee, override, notes],
+    [eventType, eventDate, effectiveContainer, existingDeceasedId, deceased, plotId, slotId, arranger, needsHolder, holderSame, holder, relation, leaseCreate, preview.data?.lease, leaseYears, leaseFee, override, notes, offSite, current?.id, receiverName, receiverAddress, destination],
   );
 
   const errorField = error instanceof ApiError && error.code === "validation" ? error.params.field : null;
@@ -113,7 +122,10 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
 
   const canNext = (): boolean => {
     if (step === "deceased") return !!existingDeceasedId || ignoreSimilar || (similar.data?.length ?? 0) === 0 || !similar.isFetched;
+    if (step === "place" && offSite === "home") return !!eventDate && receiverName.trim().length > 1;
+    if (step === "place" && offSite === "elsewhere") return !!eventDate && destination.trim().length > 2;
     if (step === "place") return !!plotId && !!eventDate && (!blocked || can("override_checks"));
+    if (step === "people" && offSite) return true;
     if (step === "people") return !!arranger && (arranger.mode === "existing" ? !!arranger.id : !!arranger.person.familyName) && (!needsHolder || holderSame || !!holder);
     return true;
   };
@@ -156,9 +168,10 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
             ]}
           />
           <div className="flex flex-wrap gap-3">
+            {offSite === "home" && <PrintButton doc="urn_receipt" args={{ eventId: result.event.id }} label={t("removal.printReceipt")} />}
             {result.lease && <PrintButton doc="lease_certificate" args={{ leaseId: result.lease.id }} label={t("wizard.printCertificate")} />}
             {result.lease && result.lease.feeHuf > 0 && <PrintButton doc="fee_request" args={{ leaseId: result.lease.id }} label={t("wizard.printFeeRequest")} />}
-            <Button onClick={() => plotId && nav.go({ view: "plot", id: plotId })}>{t("wizard.openPlot")}</Button>
+            {!offSite && <Button onClick={() => plotId && nav.go({ view: "plot", id: plotId })}>{t("wizard.openPlot")}</Button>}
             <Button variant="quiet" onClick={() => nav.go({ view: "newBurial" })}>
               {t("wizard.another")}
             </Button>
@@ -222,12 +235,30 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
           <>
             {!isReburial && (
               <Field label={t("wizard.eventKind")}>
-                <Select value={eventType} onChange={(e) => setEventType(e.target.value as EventType)}>
+                <Select
+                  value={offSite ? `off_${offSite}` : eventType}
+                  name="eventKind"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "off_home") {
+                      setOffSite("home");
+                      setEventType("urn_release");
+                    } else if (v === "off_elsewhere") {
+                      setOffSite("elsewhere");
+                      setEventType("ash_scattering");
+                    } else {
+                      setOffSite("");
+                      setEventType(v as EventType);
+                    }
+                  }}
+                >
                   {(["coffin_burial", "urn_placement", "ash_scattering", "common_grave"] as EventType[]).map((et) => (
                     <option key={et} value={et}>
                       {t(`eventType.${et}`)}
                     </option>
                   ))}
+                  <option value="off_home">{t("wizard.offHome")}</option>
+                  <option value="off_elsewhere">{t("wizard.offElsewhere")}</option>
                 </Select>
               </Field>
             )}
@@ -240,7 +271,21 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
               </Field>
             )}
             <TextField label={t("fields.eventDate")} type="date" value={eventDate} onChange={setEventDate} required />
-            {!presetPlot && (
+            {offSite === "home" && (
+              <>
+                <Alert>{t("wizard.offHomeHint")}</Alert>
+                <TextField label={t("fields.receiverName")} value={receiverName} onChange={setReceiverName} required inputProps={{ name: "receiverName" }} />
+                <TextField label={t("fields.receiverAddress")} value={receiverAddress} onChange={setReceiverAddress} inputProps={{ name: "receiverAddress" }} />
+                <TextField label={t("wizard.offHomeWhere")} value={destination} onChange={setDestination} hint={t("wizard.offHomeWhereHint")} />
+              </>
+            )}
+            {offSite === "elsewhere" && (
+              <>
+                <Alert>{t("wizard.offElsewhereHint")}</Alert>
+                <TextField label={t("wizard.scatterPlace")} value={destination} onChange={setDestination} required hint={t("wizard.destinationHint")} inputProps={{ name: "destination" }} />
+              </>
+            )}
+            {!presetPlot && !offSite && (
               <>
                 <p className="text-granite">{t("wizard.onlyFreeShown")}</p>
                 <PlotPicker cemeteryId={current?.id ?? null} value={plotId} onChange={(id) => setPlotId(id)} allowed={eventType === "ash_scattering" || eventType === "common_grave" ? undefined : ["free", "reserved"]} />
@@ -258,7 +303,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
                 </Select>
               </Field>
             )}
-            <VerdictView verdict={preview.data?.verdict} />
+            {!offSite && <VerdictView verdict={preview.data?.verdict} />}
             {blocked && can("override_checks") && (
               <div className="rounded-md border border-alert/40 p-4">
                 <p className="font-semibold">{t("burialCheck.overrideTitle")}</p>
@@ -271,8 +316,9 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
 
         {step === "people" && (
           <>
+            {offSite && <Alert>{t("wizard.offPeopleHint")}</Alert>}
             <PersonPicker label={t("wizard.arranger")} value={arranger} onChange={setArranger} />
-            {hasHolder ? (
+            {offSite ? null : hasHolder ? (
               <Alert>{t("wizard.holderExisting", { name: holderName ?? "" })}</Alert>
             ) : (
               needsHolder && (
@@ -286,7 +332,8 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
           </>
         )}
 
-        {step === "lease" && (
+        {step === "lease" && offSite && <Alert>{t("wizard.offNoLease")}</Alert>}
+        {step === "lease" && !offSite && (
           <>
             {preview.data?.lease ? (
               <>
@@ -331,14 +378,18 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
                 [t("fields.birthDate"), fmtDate(deceased.birthDate || null)],
                 [t("fields.deathDate"), fmtDate(deceased.deathDate || null)],
                 [t("fields.motherName"), deceased.motherName],
-                [t("fields.eventType"), t(`eventType.${eventType}`)],
+                [t("fields.eventType"), offSite ? t(offSite === "home" ? "wizard.offHome" : "wizard.offElsewhere") : t(`eventType.${eventType}`)],
                 [t("fields.eventDate"), fmtDate(eventDate)],
-                [t("fields.plot"), <Plaque key="p" identifier={plot.data?.plot.identifier} />],
-                [t("fields.arranger"), arranger?.mode === "new" ? fullName(arranger.person) : "✓"],
+                ...(offSite === "home"
+                  ? ([[t("fields.receiverName"), `${receiverName}${receiverAddress ? `, ${receiverAddress}` : ""}`]] as [string, string][])
+                  : offSite === "elsewhere"
+                    ? ([[t("wizard.scatterPlace"), destination]] as [string, string][])
+                    : ([[t("fields.plot"), <Plaque key="p" identifier={plot.data?.plot.identifier} />]] as [string, React.ReactNode][])),
+                [t("fields.arranger"), arranger?.mode === "new" ? fullName(arranger.person) || "–" : arranger ? "✓" : "–"],
                 ...(preview.data?.lease && leaseCreate ? ([[t(`leaseKind.${preview.data.lease.kind}`), `${leaseYears} év, ${fmtHuf(Number(leaseFee || 0))}`]] as [string, string][]) : []),
               ]}
             />
-            <VerdictView verdict={preview.data?.verdict} />
+            {!offSite && <VerdictView verdict={preview.data?.verdict} />}
             <Alert>{t("wizard.reviewFolio")}</Alert>
           </>
         )}

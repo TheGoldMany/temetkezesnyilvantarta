@@ -44,6 +44,16 @@ export function Dashboard() {
   if (notified > 0) {
     tasks.push({ key: "notified", count: notified, text: t("dashboard.taskNotified"), action: t("dashboard.checkExpiries"), go: () => nav.go({ view: "expiries" }) });
   }
+  // 145/1999. Korm. r. 41. § (3): a certified copy of the electronic register
+  if (data && can("print") && (data.daysSinceCertifiedCopy === null || data.daysSinceCertifiedCopy === undefined || data.daysSinceCertifiedCopy > 31)) {
+    tasks.push({
+      key: "certified",
+      count: null,
+      text: data.daysSinceCertifiedCopy == null ? t("dashboard.taskCertifiedNever") : t("dashboard.taskCertified", { days: data.daysSinceCertifiedCopy }),
+      action: t("dashboard.taskCertifiedAction"),
+      go: () => nav.go({ view: "prints" }),
+    });
+  }
 
   return (
     <>
@@ -52,7 +62,7 @@ export function Dashboard() {
         subtitle={current?.name}
         actions={
           can("record_events") && (
-            <Button variant="primary" size="lg" icon={<BookPlus className="size-5" aria-hidden />} onClick={() => nav.go({ view: "newBurial" })}>
+            <Button variant="primary" size="lg" icon={<BookPlus className="size-5" aria-hidden />} onClick={() => nav.go({ view: "newBurial" })} data-tour="new-burial">
               {t("dashboard.newBurial")}
             </Button>
           )

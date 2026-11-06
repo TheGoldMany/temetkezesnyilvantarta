@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { PlotPlace } from "./PlotPlace";
 import { useQuery } from "@tanstack/react-query";
 import { BookPlus, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { useApp } from "../../app/context";
@@ -284,6 +285,8 @@ export function PlotDetailView({ id }: { id: string }) {
               </Button>
             )}
           </Panel>
+
+          <PlotPlace plotId={p.id} lat={p.gpsLat} lon={p.gpsLon} />
 
           {d.notices.length > 0 && (
             <Panel title={t("plots.notices")}>

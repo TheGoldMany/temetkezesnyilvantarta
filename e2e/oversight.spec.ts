@@ -53,9 +53,13 @@ test("fenntartói beszámoló, e-mail értesítő, nyilvános sírkereső", asyn
   await page.getByRole("button", { name: "Keresés" }).click();
   await expect(page.getByRole("status")).toContainText("találat");
   await expect(page.getByRole("list", { name: "Találatok" }).getByRole("listitem").first()).toContainText("Kovács");
+  // opening hours and the public map with the plot highlighted
+  await expect(page.getByRole("list", { name: "Temetők" })).toContainText("Nyitvatartás:");
+  await page.getByRole("list", { name: "Találatok" }).getByRole("button", { name: "Térképen" }).first().click();
+  await expect(page.locator("#map rect.hl")).toHaveCount(1);
   // the public endpoint gives no birth dates or personal data
   const res = await page.request.get(`/api/public/search${url.search}&q=Kov%C3%A1cs`);
   expect(res.headers()["access-control-allow-origin"]).toBe("*");
   const body = await res.json();
-  expect(Object.keys(body.results[0]).sort()).toEqual(["birthYear", "cemetery", "deathYear", "name", "plot"]);
+  expect(Object.keys(body.results[0]).sort()).toEqual(["birthYear", "cemetery", "cemeteryId", "deathYear", "lat", "lon", "name", "plot"]);
 });

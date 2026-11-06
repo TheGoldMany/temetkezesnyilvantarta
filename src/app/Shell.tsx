@@ -18,6 +18,7 @@ import {
   Building2,
   Wallet,
   ClipboardList,
+  CircleHelp,
 } from "lucide-react";
 import { useApp, type Route } from "./context";
 import { api, shell } from "../lib/api";
@@ -25,6 +26,7 @@ import type { SearchHit } from "../lib/types";
 import { cx, Plaque } from "../components/ui";
 import { useCurrentCemetery } from "../lib/queries";
 import { AccountBanners } from "../features/account/Security";
+import { Tour } from "../features/help/Tour";
 
 const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "dashboard", key: "nav.dashboard", icon: Home },
@@ -106,9 +108,23 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           )}
           <div className="ml-auto flex min-w-0 flex-1 justify-end">
-            <QuickSearch />
+            {status?.session?.role !== "undertaker" && (
+              <div data-tour="search" className="flex min-w-0 flex-1 justify-end">
+                <QuickSearch />
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-3 border-l border-seam pl-5">
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm text-granite hover:bg-limestone hover:text-slate"
+              onClick={() => nav.go({ view: "help" })}
+              title={t("nav.help")}
+              data-tour="help-button"
+            >
+              <CircleHelp className="size-5" aria-hidden />
+              <span className="sr-only">{t("nav.help")}</span>
+            </button>
             <span className="hidden text-right leading-tight lg:block">
               <span className="block text-sm font-semibold">{status?.session?.displayName}</span>
               <span className="block text-sm text-granite">{status?.session ? t(`role.${status.session.role}`) : ""}</span>
@@ -126,9 +142,9 @@ export function Shell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
-        <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4">
+        <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4" data-tour="nav">
           <ul className="flex min-w-max">
-            {[...NAV.filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
+            {[...NAV.filter((n) => status?.session?.role !== "undertaker" || n.view === "operations").filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work") || can("calendar"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
               return (
@@ -136,6 +152,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => nav.go({ view: n.view } as Route)}
+                    data-tour={`nav-${n.view}`}
                     aria-current={on ? "page" : undefined}
                     className={cx(
                       "flex h-12 items-center gap-2 px-3 text-[0.9375rem] font-medium whitespace-nowrap shadow-[inset_0_-3px_0_transparent] transition-colors",
@@ -154,6 +171,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <AccountBanners />
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
         <div className="mx-auto max-w-[1320px]">{children}</div>
+        <Tour />
       </main>
     </div>
   );

@@ -137,6 +137,9 @@ impl Store {
     /// UC-01 / UC-02: records a burial-type event with folio, holder, lease and audit in one transaction.
     pub fn record_burial(&self, s: &Session, input: &BurialInput) -> Result<BurialResult> {
         s.require(Permission::RecordEvents)?;
+        if input.plot_id.is_none() && matches!(input.event_type.as_str(), "urn_release" | "ash_scattering") {
+            return self.record_without_plot(s, input);
+        }
         check_event_type(&input.event_type, &["coffin_burial", "urn_placement", "reburial", "common_grave", "ash_scattering"])?;
         let date = parse_date(&input.event_date)?;
         if date > crate::util::today() + chrono::Duration::days(30) {
@@ -177,6 +180,13 @@ impl Store {
             }
         };
         let proposal = if input.lease.create { self.lease_proposal_for_burial(&plot, date, container)? } else { None };
+        if let (Some(p), Some(years)) = (&proposal, input.lease.duration_years) {
+            // 145/1999. Korm. r. 18. §: the legal minimum use period
+            let min = crate::rules::min_use_years(&ptype.category, &ptype.code, p.kind == "renewal");
+            if (years as i64) < min && input.historical_folio.is_none() {
+                return Err(CoreError::new("lease_too_short", "shorter than the legal minimum use period").with("min", min).with("years", years));
+            }
+        }
 
         let tx = crate::db::tx(&self.conn)?;
         let deceased_id = match &input.deceased {
@@ -306,6 +316,74 @@ impl Store {
         Ok(BurialResult { folio: event.folio, event, lease, verdict })
     }
 
+    /// An urn handed to the family straight after cremation, or ashes
+    /// scattered somewhere else: no plot, but the register keeps the entry
+    /// with a folio, the receiver (JOG-15) or the place.
+    fn record_without_plot(&self, s: &Session, input: &BurialInput) -> Result<BurialResult> {
+        let date = parse_date(&input.event_date)?;
+        if date > crate::util::today() + chrono::Duration::days(30) {
+            return Err(CoreError::validation("eventDate", "event date too far in the future").with("code", "date_in_future"));
+        }
+        let cemetery_id = input
+            .cemetery_id
+            .clone()
+            .filter(|c| !c.is_empty())
+            .ok_or_else(|| CoreError::validation("cemeteryId", "cemetery required").with("code", "required"))?;
+        let (container, destination) = if input.event_type == "urn_release" {
+            non_empty("receiverName", &input.receiver_name)?;
+            ("urn", if input.destination.trim().is_empty() { "hazavitték".to_string() } else { input.destination.trim().to_string() })
+        } else {
+            non_empty("destination", &input.destination)?;
+            ("none", input.destination.trim().to_string())
+        };
+        let tx = crate::db::tx(&self.conn)?;
+        let deceased_id = match &input.deceased {
+            DeceasedRef::Existing { id } => {
+                let placed: i64 =
+                    tx.query_row(&format!("SELECT count(*) FROM interment_events e WHERE e.deceased_id=?1 AND {ACTIVE_PLACEMENT_SQL}"), [id], |r| r.get(0))?;
+                if placed > 0 {
+                    return Err(CoreError::new("already_placed", "the deceased already has an active placement; use urn release from the plot"));
+                }
+                id.clone()
+            }
+            DeceasedRef::New { deceased } => self.insert_deceased(&tx, s, deceased, true)?.id,
+        };
+        let arranger_id = match &input.arranger {
+            Some(r) => Some(self.resolve_person(&tx, s, r)?),
+            None => None,
+        };
+        let (scope_key, folio) = allocate_folio(&tx, &cemetery_id, date, input.historical_folio)?;
+        let event_id = new_id();
+        let ts = now_ts();
+        tx.execute(
+            "INSERT INTO interment_events (id, cemetery_id, scope_key, folio, historical, event_type, container, event_date, deceased_id, plot_id,
+                arranger_id, receiver_name, receiver_address, destination, notes, created_at, created_by, updated_at, updated_by)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,NULL,?10,?11,?12,?13,?14,?15,?16,?15,?16)",
+            params![
+                event_id,
+                cemetery_id,
+                scope_key,
+                folio,
+                input.historical_folio.is_some(),
+                input.event_type,
+                container,
+                input.event_date,
+                deceased_id,
+                arranger_id,
+                input.receiver_name.trim(),
+                input.receiver_address.trim(),
+                destination,
+                input.notes,
+                ts,
+                s.user_name
+            ],
+        )?;
+        let event = tx.query_row("SELECT * FROM interment_events WHERE id=?1", [&event_id], map_event)?;
+        audit::record(&tx, s, "event", &event_id, "create", None::<&()>, Some(&event), None)?;
+        tx.commit()?;
+        Ok(BurialResult { folio: event.folio, event, lease: None, verdict: Verdict { allowed: true, blockers: vec![], warnings: vec![] } })
+    }
+
     /// Urn release, urn removal, relocation (FR-ELH-02, JOG-15).
     pub fn record_removal(&self, s: &Session, input: &RemovalInput) -> Result<InterEvent> {
         s.require(Permission::RecordEvents)?;
@@ -331,6 +409,23 @@ impl Store {
         if input.event_type == "urn_release" {
             non_empty("receiverName", &input.receiver_name)?; // JOG-15
         }
+        // opening a grave (exhumation, urn removal): the holder's consent, and
+        // for a coffin within 15 years the public health permit (145/1999. 35–36. §)
+        let mut legal_note = String::new();
+        if matches!(input.event_type.as_str(), "relocation" | "urn_removal") && input.historical_folio.is_none() {
+            if !input.holder_consent {
+                return Err(CoreError::validation("holderConsent", "the holder's consent is required").with("code", "consent_required"));
+            }
+            legal_note.push_str("A rendelkezési jogosult hozzájárult.");
+            let within_15 = date < crate::rules::add_years(parse_date(&src.event_date)?, 15);
+            if input.event_type == "relocation" && src.container == "coffin" && within_15 {
+                non_empty("permitNumber", &input.permit_number).map_err(|e| e.with("code", "permit_required"))?;
+            }
+            if !input.permit_number.trim().is_empty() {
+                legal_note.push_str(&format!(" Népegészségügyi engedély: {}.", input.permit_number.trim()));
+            }
+        }
+        let notes = [legal_note.as_str(), input.notes.trim()].iter().filter(|x| !x.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let mut target: Option<Plot> = None;
         if input.event_type == "relocation" {
             match &input.target_plot_id {
@@ -370,7 +465,7 @@ impl Store {
                 input.receiver_address.trim(),
                 input.destination.trim(),
                 src.id,
-                input.notes,
+                notes,
                 ts,
                 s.user_name
             ],

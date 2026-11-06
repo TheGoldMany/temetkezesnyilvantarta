@@ -220,6 +220,44 @@ fn one_of(field: &str, v: &str, allowed: &[&str]) -> Result<String> {
     }
 }
 
+/// The type of an uploaded file from its first bytes (and, for the zip
+/// based office formats, its extension). None for anything else.
+pub fn sniff_file(data: &[u8], name: &str) -> Option<&'static str> {
+    let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+    let starts = |m: &[u8]| data.starts_with(m);
+    if starts(b"%PDF-") {
+        return Some("application/pdf");
+    }
+    if starts(&[0xFF, 0xD8, 0xFF]) {
+        return Some("image/jpeg");
+    }
+    if starts(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if starts(b"GIF87a") || starts(b"GIF89a") {
+        return Some("image/gif");
+    }
+    if data.len() > 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    if data.len() > 12 && &data[4..8] == b"ftyp" && matches!(&data[8..12], b"heic" | b"heix" | b"mif1" | b"msf1" | b"hevc") {
+        return Some("image/heic");
+    }
+    if starts(b"II*\0") || starts(b"MM\0*") {
+        return Some("image/tiff");
+    }
+    if starts(b"PK\x03\x04") {
+        return match ext.as_str() {
+            "docx" => Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "xlsx" => Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            "odt" => Some("application/vnd.oasis.opendocument.text"),
+            "ods" => Some("application/vnd.oasis.opendocument.spreadsheet"),
+            _ => None,
+        };
+    }
+    None
+}
+
 /// Next date of a recurring work order.
 pub fn next_due(d: NaiveDate, recurrence: &str) -> Option<NaiveDate> {
     match recurrence {
@@ -419,7 +457,14 @@ impl Store {
     /// Creates or moves a booking. A facility or a plot can hold one planned
     /// booking at a time; an overlap is refused with `booking_conflict`.
     pub fn save_booking(&self, se: &Session, b: &BookingInput) -> Result<Value> {
-        se.require(Permission::Operations)?;
+        let manager = se.can(Permission::Operations);
+        if !manager {
+            se.require(Permission::Calendar)?;
+        }
+        // an invited office changes only its own bookings
+        if let (Some(id), false) = (&b.id, manager) {
+            self.require_own_booking(se, id)?;
+        }
         non_empty("cemeteryId", &b.cemetery_id)?;
         non_empty("title", &b.title)?;
         let start = parse_local("startsAt", &b.starts_at)?;
@@ -455,6 +500,7 @@ impl Store {
             }
         }
         let ts = now_ts();
+        let contractor = if manager { opt_s(&b.contractor_id) } else { None };
         let tx = crate::db::tx(&self.conn)?;
         let id = b.id.clone().unwrap_or_else(new_id);
         if b.id.is_some() {
@@ -462,20 +508,7 @@ impl Store {
                 "UPDATE bookings SET title=?2, starts_at=?3, ends_at=?4, facility_id=?5, plot_id=?6, contractor_id=?7, deceased_name=?8,
                         container=?9, notes=?10, updated_at=?11, updated_by=?12
                  WHERE id=?1 AND status = 'planned'",
-                params![
-                    id,
-                    b.title.trim(),
-                    start,
-                    end,
-                    facility,
-                    plot,
-                    opt_s(&b.contractor_id),
-                    b.deceased_name.trim(),
-                    container,
-                    b.notes.trim(),
-                    ts,
-                    se.user_name
-                ],
+                params![id, b.title.trim(), start, end, facility, plot, contractor, b.deceased_name.trim(), container, b.notes.trim(), ts, se.user_name],
             )?;
             if n == 0 {
                 return Err(CoreError::new("booking_closed", "only planned bookings can be changed"));
@@ -493,7 +526,7 @@ impl Store {
                     end,
                     facility,
                     plot,
-                    opt_s(&b.contractor_id),
+                    contractor,
                     b.deceased_name.trim(),
                     container,
                     b.notes.trim(),
@@ -501,7 +534,7 @@ impl Store {
                     se.user_name
                 ],
             )?;
-            if b.dig_order {
+            if b.dig_order && manager {
                 if let Some(p) = &plot {
                     let details = match container.as_str() {
                         "urn" => "Urna",
@@ -530,6 +563,15 @@ impl Store {
         self.get_booking(&id)
     }
 
+    fn require_own_booking(&self, se: &Session, id: &str) -> Result<()> {
+        let owner: Option<Option<String>> = self.conn.query_row("SELECT created_by FROM bookings WHERE id = ?1", params![id], |r| r.get(0)).optional()?;
+        match owner {
+            None => Err(CoreError::not_found("booking", id)),
+            Some(o) if o.as_deref() == Some(se.user_name.as_str()) => Ok(()),
+            Some(_) => Err(CoreError::new("booking_not_own", "only the office that booked it can change this booking")),
+        }
+    }
+
     pub fn get_booking(&self, id: &str) -> Result<Value> {
         json_row(&self.conn, &format!("{BOOKING_SELECT} WHERE b.id = ?1"), vec![s(id)], "booking", id)
     }
@@ -547,8 +589,14 @@ impl Store {
 
     /// done | cancelled (cancelling needs a reason); linking the recorded burial.
     pub fn set_booking_status(&self, se: &Session, id: &str, status: &str, reason: Option<&str>, event_id: Option<&str>) -> Result<Value> {
-        se.require(Permission::Operations)?;
         let status = one_of("status", status, &["done", "cancelled"])?;
+        let manager = se.can(Permission::Operations);
+        if !manager && !(status == "cancelled" && se.can(Permission::Calendar)) && !(status == "done" && se.can(Permission::RecordEvents)) {
+            return Err(CoreError::forbidden("operations"));
+        }
+        if !manager && status == "cancelled" {
+            self.require_own_booking(se, id)?;
+        }
         let reason = if status == "cancelled" { Some(require_reason(reason)?) } else { None };
         let tx = crate::db::tx(&self.conn)?;
         let n = tx.execute(
@@ -945,7 +993,7 @@ impl Store {
     // ---------------------------------------------------------------- attachments
 
     /// Stores a file for a case, a plot, a contractor or a work order.
-    pub fn add_attachment(&self, se: &Session, entity: &str, entity_id: &str, file_name: &str, mime: &str, content_b64: &str) -> Result<Value> {
+    pub fn add_attachment(&self, se: &Session, entity: &str, entity_id: &str, file_name: &str, _declared_mime: &str, content_b64: &str) -> Result<Value> {
         se.require(if entity == "work_order" { Permission::CompleteWork } else { Permission::Operations })?;
         let entity = one_of("entity", entity, &["case", "plot", "contractor", "work_order", "booking"])?;
         non_empty("fileName", file_name)?;
@@ -959,10 +1007,16 @@ impl Store {
         if data.len() > MAX_ATTACHMENT_BYTES {
             return Err(CoreError::new("file_too_large", "the file is too large").with("maxMb", MAX_ATTACHMENT_BYTES / 1024 / 1024));
         }
+        // only documents and photos, recognised by their content: no HTML,
+        // SVG or programs that could run in a browser or on a PC
+        let Some(detected) = sniff_file(&data, file_name) else {
+            return Err(CoreError::new("file_type", "only PDF, photos and office documents can be attached"));
+        };
+        let mime = detected;
         let id = new_id();
         let ts = now_ts();
         let name: String = file_name.trim().chars().filter(|c| !c.is_control() && *c != '/' && *c != '\\').take(200).collect();
-        let mime = if mime.trim().is_empty() { "application/octet-stream" } else { mime.trim() };
+        let _ = mime;
         let tx = crate::db::tx(&self.conn)?;
         tx.execute(
             "INSERT INTO attachments (id, entity, entity_id, file_name, mime_type, sha256, content, created_at, created_by, updated_at, updated_by)
@@ -1105,9 +1159,13 @@ impl Store {
     // ---------------------------------------------------------------- agenda
 
     /// Everything due in a day range: bookings, open work orders and case deadlines.
-    pub fn agenda(&self, cemetery_id: &str, from: &str, to: &str) -> Result<Value> {
+    pub fn agenda(&self, se: &Session, cemetery_id: &str, from: &str, to: &str) -> Result<Value> {
         let f = fmt_date(parse_date(from)?);
         let t = fmt_date(parse_date(to)?);
+        if !se.can(Permission::Operations) {
+            se.require(Permission::Calendar)?;
+            return Ok(json!({ "bookings": self.list_bookings(cemetery_id, &f, &t)?, "workOrders": [], "caseDeadlines": [], "today": fmt_date(today()) }));
+        }
         let orders = json_rows(
             &self.conn,
             &format!("{ORDER_SELECT} WHERE w.cemetery_id = ?1 AND w.status = 'open' AND w.due_date <= ?3 ORDER BY w.due_date"),
@@ -1208,6 +1266,43 @@ mod tests {
     }
 
     #[test]
+    fn invited_office_books_and_changes_only_its_own() {
+        let (store, se, cem, _) = setup();
+        let chapel = store.save_facility(&se, &FacilityInput { cemetery_id: cem.clone(), name: "Ravatalozó".into(), ..Default::default() }).unwrap();
+        let fid = chapel["id"].as_str().unwrap().to_string();
+        let office = |name: &str| Session::for_role(None, name, name, Role::Undertaker, &[]);
+        let (a, b) = (office("kegyelet@pelda.hu"), office("vegtisztesseg@pelda.hu"));
+        let mk = |s: &Session, title: &str, h: u32| {
+            store.save_booking(
+                s,
+                &BookingInput {
+                    cemetery_id: cem.clone(),
+                    title: title.into(),
+                    starts_at: format!("2026-12-01T{h:02}:00"),
+                    ends_at: format!("2026-12-01T{:02}:00", h + 1),
+                    facility_id: Some(fid.clone()),
+                    dig_order: true,
+                    ..Default::default()
+                },
+            )
+        };
+        let own = mk(&a, "Kegyelet: Szabó Béla", 9).unwrap();
+        // the other office sees it and cannot book over it
+        assert_eq!(mk(&b, "Végtisztesség: Kiss Anna", 9).unwrap_err().code, "booking_conflict");
+        let other = mk(&b, "Végtisztesség: Kiss Anna", 11).unwrap();
+        let agenda = store.agenda(&b, &cem, "2026-12-01", "2026-12-01").unwrap();
+        assert_eq!(agenda["bookings"].as_array().unwrap().len(), 2);
+        assert!(agenda["workOrders"].as_array().unwrap().is_empty());
+        // offices do not create work orders, and change only their own bookings
+        assert!(store.list_work_orders(&cem, None, None).unwrap().is_empty());
+        let id = own["id"].as_str().unwrap().to_string();
+        assert_eq!(store.set_booking_status(&b, &id, "cancelled", Some("tévedés"), None).unwrap_err().code, "booking_not_own");
+        store.set_booking_status(&a, &id, "cancelled", Some("a család kérte"), None).unwrap();
+        assert_eq!(store.set_booking_status(&a, other["id"].as_str().unwrap(), "done", None, None).unwrap_err().code, "forbidden");
+        assert!(store.save_facility(&a, &FacilityInput { cemetery_id: cem.clone(), name: "X".into(), ..Default::default() }).is_err());
+    }
+
+    #[test]
     fn recurring_work_order_and_worker_role() {
         let (store, se, cem, _) = setup();
         let w = store
@@ -1261,8 +1356,13 @@ mod tests {
         let id = a["id"].as_str().unwrap();
         use base64::Engine;
         let content = base64::engine::general_purpose::STANDARD.encode(b"%PDF-1.4 kerelem");
+        // HTML (and anything not a document or photo) is refused
+        let html = base64::engine::general_purpose::STANDARD.encode(b"<html><script>alert(1)</script></html>");
+        assert_eq!(store.add_attachment(&se, "case", id, "level.pdf", "application/pdf", &html).unwrap_err().code, "file_type");
         store.add_attachment(&se, "case", id, "kérelem.pdf", "application/pdf", &content).unwrap();
-        let too_big = base64::engine::general_purpose::STANDARD.encode(vec![0u8; MAX_ATTACHMENT_BYTES + 1]);
+        let mut big = b"%PDF-".to_vec();
+        big.resize(MAX_ATTACHMENT_BYTES + 1, 0);
+        let too_big = base64::engine::general_purpose::STANDARD.encode(big);
         assert_eq!(store.add_attachment(&se, "case", id, "nagy.bin", "", &too_big).unwrap_err().code, "file_too_large");
         let err = store.update_case(&se, id, &CaseUpdate { status: Some("approved".into()), ..Default::default() }).unwrap_err();
         assert_eq!(err.code, "validation");
@@ -1359,7 +1459,7 @@ mod tests {
         store.record_condition(&se, &ConditionInput { plot_id: plot.clone(), condition: "ok".into(), ..Default::default() }).unwrap();
         assert!(store.list_conditions(&cem, true).unwrap().is_empty());
         assert_eq!(store.plot_conditions(&plot).unwrap().len(), 3);
-        let agenda = store.agenda(&cem, &fmt_date(today()), "2099-12-31").unwrap();
+        let agenda = store.agenda(&se, &cem, &fmt_date(today()), "2099-12-31").unwrap();
         assert_eq!(agenda["caseDeadlines"].as_array().unwrap().len(), 1);
     }
 }

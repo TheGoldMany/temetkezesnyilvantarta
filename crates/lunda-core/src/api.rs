@@ -26,7 +26,35 @@ fn ok<T: serde::Serialize>(v: T) -> Result<Value> {
     Ok(serde_json::to_value(v)?)
 }
 
+/// What an invited funeral office may call: the shared calendar and what it
+/// needs (cemeteries, facilities, choosing a plot). Nothing of the register.
+const UNDERTAKER_METHODS: &[&str] = &[
+    "cemeteries.list",
+    "facilities.list",
+    "operations.agenda",
+    "bookings.list",
+    "bookings.get",
+    "bookings.save",
+    "bookings.status",
+    "plots.list",
+    "settings.all",
+    "session.permissions",
+];
+
 pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<Value> {
+    if s.role == crate::auth::Role::Undertaker {
+        if !UNDERTAKER_METHODS.contains(&method) {
+            return Err(CoreError::forbidden("calendar"));
+        }
+        if method == "plots.list" {
+            // identifiers and types only: no holders for an outside office
+            let mut page = store.plot_summaries(&arg(a, "filter")?)?;
+            for p in &mut page.items {
+                p.holder_name = None;
+            }
+            return ok(page);
+        }
+    }
     match method {
         // ---- structure
         "cemeteries.list" => ok(store.list_cemeteries(opt(a, "includeVoided")?.unwrap_or(false))?),
@@ -301,12 +329,22 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
         "conditions.record" => ok(store.record_condition(s, &arg(a, "condition")?)?),
         "conditions.list" => ok(store.list_conditions(&arg::<String>(a, "cemeteryId")?, opt(a, "problemsOnly")?.unwrap_or(false))?),
         "conditions.plot" => ok(store.plot_conditions(&arg::<String>(a, "plotId")?)?),
-        "operations.agenda" => ok(store.agenda(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "operations.agenda" => ok(store.agenda(s, &arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
         // ---- maintainer reports, notices, public search (W12)
         "reports.annual" => ok(store.annual_report(s, opt::<String>(a, "cemeteryId")?.as_deref(), arg::<i32>(a, "year")?)?),
         "reports.capacity" => ok(store.capacity(opt::<String>(a, "cemeteryId")?.as_deref())?),
+        "reminders.status" => ok(json!({
+            "enabled": store.auto_reminders_enabled()?,
+            "due": store.auto_reminder_plots()?.len(),
+            "unanswered": store.unanswered_reminders()?,
+        })),
         "notices.emailPrepare" => ok(store.expiry_mails(s, &arg::<Vec<String>>(a, "plotIds")?)?),
         "invoices.reminderMail" => ok(store.reminder_mail(s, &arg::<String>(a, "id")?)?),
+        "plots.setGps" => {
+            store.set_plot_gps(s, &arg::<String>(a, "id")?, opt::<f64>(a, "lat")?, opt::<f64>(a, "lon")?)?;
+            ok(true)
+        }
+        "persons.dataExport" => ok(store.person_data_export(s, &arg::<String>(a, "id")?)?),
         "deceased.setPublic" => {
             store.set_deceased_public(s, &arg::<String>(a, "id")?, arg::<bool>(a, "hidden")?)?;
             ok(true)
@@ -326,6 +364,27 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invited_office_reaches_only_the_calendar() {
+        let store = Store::in_memory().unwrap();
+        let sys = Session::system();
+        crate::sample::load_sample(&store, &sys).unwrap();
+        let office = Session::for_role(None, "iroda@pelda.hu", "Kegyelet Temetkezés", crate::auth::Role::Undertaker, &[]);
+        let cem = dispatch(&store, &office, "cemeteries.list", &json!({})).unwrap()[0]["id"].as_str().unwrap().to_string();
+        for m in ["events.list", "persons.list", "search.quick", "deceased.get", "expiries.list", "reports.annual", "charges.list", "cases.list"] {
+            assert_eq!(dispatch(&store, &office, m, &json!({ "cemeteryId": cem })).unwrap_err().code, "forbidden", "{m}");
+        }
+        assert_eq!(
+            crate::app::call(&store, &office, "print.document", &json!({ "doc": "register" }), std::path::Path::new("/tmp")).unwrap_err().code,
+            "forbidden"
+        );
+        let plots = dispatch(&store, &office, "plots.list", &json!({ "filter": { "cemeteryId": cem, "limit": 300 } })).unwrap();
+        assert!(plots["items"].as_array().unwrap().iter().all(|p| p["holderName"].is_null()));
+        let all = dispatch(&store, &sys, "plots.list", &json!({ "filter": { "cemeteryId": cem, "limit": 300 } })).unwrap();
+        assert!(all["items"].as_array().unwrap().iter().any(|p| p["holderName"].is_string()));
+        dispatch(&store, &office, "operations.agenda", &json!({ "cemeteryId": cem, "from": "2026-12-01", "to": "2026-12-07" })).unwrap();
+    }
 
     #[test]
     fn dispatch_roundtrip() {

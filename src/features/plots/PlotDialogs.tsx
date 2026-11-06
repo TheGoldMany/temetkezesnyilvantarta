@@ -252,6 +252,8 @@ export function RemovalDialog({ detail, type, onClose }: { detail: PlotDetail; t
   const [destination, setDestination] = useState("");
   const [inside, setInside] = useState(true);
   const [targetIdent, setTargetIdent] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [permit, setPermit] = useState("");
   const [done, setDone] = useState<InterEvent | null>(null);
   const { busy, error, run } = useSubmit(() => {});
   const title = type === "urn_release" ? t("removal.titleRelease") : type === "urn_removal" ? t("removal.titleRemoval") : t("removal.titleRelocation");
@@ -286,7 +288,7 @@ export function RemovalDialog({ detail, type, onClose }: { detail: PlotDetail; t
                 targetPlotId = p.id;
               }
               const ev = await api<InterEvent>("removal.record", {
-                input: { eventType: type, eventDate: date, sourceEventId: source, receiverName: receiver, receiverAddress, destination, targetPlotId, historicalFolio: null, notes: "" },
+                input: { eventType: type, eventDate: date, sourceEventId: source, receiverName: receiver, receiverAddress, destination, targetPlotId, historicalFolio: null, notes: "", holderConsent: consent, permitNumber: permit },
               });
               setDone(ev);
             })
@@ -310,6 +312,13 @@ export function RemovalDialog({ detail, type, onClose }: { detail: PlotDetail; t
           </>
         )}
         {type !== "relocation" && <TextField label={t("fields.destination")} value={destination} onChange={setDestination} />}
+        {type !== "urn_release" && (
+          <div className="flex flex-col gap-3 rounded-lg border border-seam p-4">
+            <Checkbox label={t("removal.consent")} hint={t("removal.consentHint")} checked={consent} onChange={setConsent} />
+            <TextField label={t("removal.permit")} value={permit} onChange={setPermit} hint={t("removal.permitHint")} />
+            <p className="text-sm text-granite">{t("removal.noticeHint")}</p>
+          </div>
+        )}
         <ErrorAlert error={error} />
       </div>
     </Dialog>

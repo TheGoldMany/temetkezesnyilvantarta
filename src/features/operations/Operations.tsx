@@ -34,6 +34,7 @@ interface Booking {
   container: "" | "coffin" | "urn";
   status: "planned" | "done" | "cancelled";
   notes: string;
+  createdBy: string | null;
 }
 interface WorkOrder {
   id: string;
@@ -160,7 +161,10 @@ export function OperationsView() {
   const { can } = useApp();
   const { current } = useCurrentCemetery();
   const full = can("operations");
-  const tabs: Tab[] = full ? ["calendar", "orders", "cases", "contractors", "inspection"] : ["orders"];
+  // an invited funeral office sees the shared calendar, a field worker the work orders
+  const tabs: Tab[] = full
+    ? ["calendar", "orders", "cases", "contractors", "inspection"]
+    : [...(can("calendar") ? (["calendar"] as Tab[]) : []), ...(can("complete_work") ? (["orders"] as Tab[]) : [])];
   const [tab, setTab] = useState<Tab>(tabs[0]);
   if (!current) return <Spinner />;
   return (
@@ -186,7 +190,10 @@ export function OperationsView() {
 
 function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
   const { t } = useTranslation();
-  const { can, nav } = useApp();
+  const { can, nav, status } = useApp();
+  const manager = can("operations");
+  const me = status?.session?.userName ?? "";
+  const mayEdit = (b: Booking) => b.status === "planned" && (manager || b.createdBy === me);
   const [week, setWeek] = useState(() => mondayOf(todayIso()));
   const to = addDays(week, 6);
   const agenda = useQuery({ queryKey: ["agenda", cemeteryId, week], queryFn: () => api<Agenda>("operations.agenda", { cemeteryId, from: week, to }) });
@@ -213,8 +220,8 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
           <Button icon={<Printer className="size-5" aria-hidden />} onClick={() => window.print()}>
             {t("ops.print")}
           </Button>
-          <Button onClick={() => setFacilityDialog(true)}>{t("ops.facilities")}</Button>
-          <Button variant="primary" icon={<CalendarPlus className="size-5" aria-hidden />} onClick={() => setEditing({ startsAt: `${today}T10:00`, endsAt: `${today}T11:00` })}>
+          {manager && <Button onClick={() => setFacilityDialog(true)}>{t("ops.facilities")}</Button>}
+          <Button variant="primary" icon={<CalendarPlus className="size-5" aria-hidden />} onClick={() => setEditing({ startsAt: `${today}T10:00`, endsAt: `${today}T11:00` })} data-tour="new-booking">
             {t("ops.newBooking")}
           </Button>
         </div>
@@ -238,7 +245,7 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
                   <button
                     key={b.id}
                     type="button"
-                    onClick={() => (b.status === "planned" ? setEditing(b) : undefined)}
+                    onClick={() => (mayEdit(b) ? setEditing(b) : undefined)}
                     className={cx(
                       "rounded-lg border px-2.5 py-2 text-left text-sm",
                       b.status === "cancelled" ? "border-seam text-granite line-through" : b.status === "done" ? "border-seam bg-lichen/40" : "border-moss/40 bg-moss/8 hover:bg-moss/12",
@@ -281,6 +288,7 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
                   <th className={th}>{t("ops.facility")}</th>
                   <th className={th}>{t("ops.plot")}</th>
                   <th className={th}>{t("ops.contractor")}</th>
+                  <th className={th}>{t("ops.bookedBy")}</th>
                   <th className={th}>{t("common.status")}</th>
                   <th />
                 </tr>
@@ -297,9 +305,10 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
                       <Plaque identifier={b.plotIdentifier} />
                     </td>
                     <td className={td}>{b.contractorName ?? "–"}</td>
+                    <td className={cx(td, "text-sm text-granite")}>{b.createdBy === me ? t("ops.bookedByMe") : (b.createdBy ?? "–")}</td>
                     <td className={td}>{t(`ops.bookingStatus.${b.status}`)}</td>
                     <td className={cx(td, "text-right")}>
-                      {b.status === "planned" && (
+                      {mayEdit(b) && (
                         <div className="flex justify-end gap-2">
                           {can("record_events") && (
                             <Button size="md" variant="primary" onClick={() => nav.go({ view: "newBurial", plotId: b.plotId ?? undefined, bookingId: b.id })}>
@@ -319,17 +328,17 @@ function CalendarTab({ cemeteryId }: { cemeteryId: string }) {
           )}
         </Panel>
       )}
-      {editing && <BookingDialog cemeteryId={cemeteryId} booking={editing} facilities={facilities.data ?? []} onClose={() => setEditing(null)} />}
-      {closing && <CloseBookingDialog booking={closing} onClose={() => setClosing(null)} />}
+      {editing && <BookingDialog cemeteryId={cemeteryId} booking={editing} facilities={facilities.data ?? []} manager={manager} onClose={() => setEditing(null)} />}
+      {closing && <CloseBookingDialog booking={closing} manager={manager} onClose={() => setClosing(null)} />}
       {facilityDialog && <FacilitiesDialog cemeteryId={cemeteryId} facilities={facilities.data ?? []} onClose={() => setFacilityDialog(false)} />}
     </div>
   );
 }
 
-function BookingDialog({ cemeteryId, booking, facilities, onClose }: { cemeteryId: string; booking: Partial<Booking>; facilities: Facility[]; onClose: () => void }) {
+function BookingDialog({ cemeteryId, booking, facilities, manager, onClose }: { cemeteryId: string; booking: Partial<Booking>; facilities: Facility[]; manager: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const invalidate = useInvalidate();
-  const contractors = useQuery({ queryKey: ["contractors"], queryFn: () => api<Contractor[]>("contractors.list") });
+  const contractors = useQuery({ queryKey: ["contractors"], queryFn: () => api<Contractor[]>("contractors.list"), enabled: manager });
   const [v, setV] = useState({
     title: booking.title ?? "",
     date: (booking.startsAt ?? todayIso()).slice(0, 10),
@@ -407,16 +416,18 @@ function BookingDialog({ cemeteryId, booking, facilities, onClose }: { cemeteryI
             ))}
           </Select>
         </Field>
-        <Field label={t("ops.contractor")}>
-          <Select value={v.contractorId} onChange={(e) => set("contractorId")(e.target.value)}>
-            <option value="">–</option>
-            {(contractors.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {manager && (
+          <Field label={t("ops.contractor")}>
+            <Select value={v.contractorId} onChange={(e) => set("contractorId")(e.target.value)}>
+              <option value="">–</option>
+              {(contractors.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label={t("ops.container")}>
           <Select value={v.container} onChange={(e) => set("container")(e.target.value)}>
             <option value="">–</option>
@@ -428,7 +439,7 @@ function BookingDialog({ cemeteryId, booking, facilities, onClose }: { cemeteryI
         <div className="md:col-span-3">
           <PlotPicker cemeteryId={cemeteryId} value={v.plotId} onChange={(id) => setV({ ...v, plotId: id })} />
         </div>
-        {!booking.id && <Checkbox label={t("ops.digOrder")} hint={t("ops.digOrderHint")} checked={v.digOrder} onChange={(x) => setV({ ...v, digOrder: x })} disabled={!v.plotId} />}
+        {!booking.id && manager && <Checkbox label={t("ops.digOrder")} hint={t("ops.digOrderHint")} checked={v.digOrder} onChange={(x) => setV({ ...v, digOrder: x })} disabled={!v.plotId} />}
         <Field label={t("common.notes")} className="md:col-span-3">
           <Textarea value={v.notes} onChange={(e) => set("notes")(e.target.value)} rows={2} />
         </Field>
@@ -440,10 +451,10 @@ function BookingDialog({ cemeteryId, booking, facilities, onClose }: { cemeteryI
   );
 }
 
-function CloseBookingDialog({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+function CloseBookingDialog({ booking, manager, onClose }: { booking: Booking; manager: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const invalidate = useInvalidate();
-  const [status, setStatus] = useState<"done" | "cancelled">("done");
+  const [status, setStatus] = useState<"done" | "cancelled">(manager ? "done" : "cancelled");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<unknown>(null);
   return (
@@ -478,8 +489,8 @@ function CloseBookingDialog({ booking, onClose }: { booking: Booking; onClose: (
           value={status}
           onChange={setStatus}
           options={[
-            { value: "done", label: t("ops.bookingStatus.done"), hint: t("ops.doneHint") },
-            { value: "cancelled", label: t("ops.bookingStatus.cancelled"), hint: t("ops.cancelHint") },
+            ...(manager ? [{ value: "done" as const, label: t("ops.bookingStatus.done"), hint: t("ops.doneHint") }] : []),
+            { value: "cancelled" as const, label: t("ops.bookingStatus.cancelled"), hint: t("ops.cancelHint") },
           ]}
         />
         {status === "cancelled" && <ReasonField value={reason} onChange={setReason} />}
@@ -789,7 +800,7 @@ function CompleteDialog({ order, manage, onClose }: { order: WorkOrder; manage: 
 
 const MAX_UPLOAD = 3 * 1024 * 1024;
 
-async function uploadFile(entity: string, entityId: string, file: File) {
+export async function uploadFile(entity: string, entityId: string, file: File) {
   if (file.size > MAX_UPLOAD) {
     const { ApiError } = await import("../../lib/api");
     throw new ApiError({ code: "file_too_large", message: "file too large", params: { maxMb: "3" } });

@@ -303,6 +303,75 @@ impl Store {
         Ok(OutMail { to, reply_to: self.reply_to()?, subject: format!("Fizetési emlékeztető – {} számla", inv.number), body, ref_id: inv.id })
     }
 
+    // ---------------------------------------------------------------- automatic reminders
+
+    /// Whether the operator switched on the automatic expiry reminders.
+    pub fn auto_reminders_enabled(&self) -> Result<bool> {
+        Ok(settings::get(&self.conn, "notify.auto_expiry", None)?.as_deref() == Some("true"))
+    }
+
+    /// Plots whose holder is due an automatic reminder today: one half a year
+    /// before the expiry, then one a month after it (for leases that expired
+    /// in the last year, at most twelve). Only holders with an e-mail address.
+    pub fn auto_reminder_plots(&self) -> Result<Vec<String>> {
+        let t = today();
+        let d = |days: i64| fmt_date(t + chrono::Duration::days(days));
+        let mut st = self.conn.prepare(&format!(
+            "SELECT p.id FROM leases l
+             JOIN plots p ON p.id = l.plot_id
+             JOIN plot_holders h ON h.plot_id = p.id AND h.role = 'primary' AND h.end_date IS NULL AND h.voided_at IS NULL
+             JOIN persons pe ON pe.id = h.person_id
+             WHERE l.status = 'active' AND l.voided_at IS NULL AND p.voided_at IS NULL
+               AND NOT (p.protected = 1 AND p.protection_kind = 'national')
+               AND pe.email LIKE '%@%.%'
+               AND l.expiry_date <= ?2 AND l.expiry_date >= ?3
+               AND (
+                 (l.expiry_date >= ?1 AND NOT EXISTS (
+                    SELECT 1 FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                      AND n.notice_date >= to_char(CAST(l.expiry_date AS DATE) - {half}, 'YYYY-MM-DD')))
+                 OR
+                 (l.expiry_date < ?1
+                   AND NOT EXISTS (SELECT 1 FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL AND n.notice_date > ?4)
+                   AND (SELECT count(*) FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                          AND n.notice_date >= l.expiry_date) < 12)
+               )
+             ORDER BY l.expiry_date",
+            half = 183
+        ))?;
+        let rows = st.query_map(params![d(0), d(183), d(-365), d(-30)], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// Holders who did not react: the lease expired, at least two reminders
+    /// went out (the one before the expiry and one after), the last one more
+    /// than two weeks ago, and nobody renewed. Also lists holders without an
+    /// e-mail address whose lease expired, since they need a letter.
+    pub fn unanswered_reminders(&self) -> Result<Vec<Value>> {
+        let t = today();
+        let d = |days: i64| fmt_date(t + chrono::Duration::days(days));
+        json_rows(
+            &self.conn,
+            "SELECT * FROM (
+                SELECT p.id AS plot_id, p.identifier, l.expiry_date, trim(pe.name_prefix || ' ' || pe.family_name || ' ' || pe.given_name) AS holder_name,
+                       nullif(trim(pe.email), '') AS email, nullif(trim(pe.phone), '') AS phone, pe.address,
+                       (SELECT count(*) FROM notices n WHERE n.plot_id = p.id AND n.kind = 'email' AND n.voided_at IS NULL
+                          AND n.notice_date >= to_char(CAST(l.expiry_date AS DATE) - 183, 'YYYY-MM-DD')) AS reminders,
+                       (SELECT max(n.notice_date) FROM notices n WHERE n.plot_id = p.id AND n.voided_at IS NULL) AS last_notice,
+                       CASE WHEN nullif(trim(pe.email), '') IS NULL THEN 'no_email' ELSE 'no_reply' END AS reason
+                FROM leases l
+                JOIN plots p ON p.id = l.plot_id
+                JOIN plot_holders h ON h.plot_id = p.id AND h.role = 'primary' AND h.end_date IS NULL AND h.voided_at IS NULL
+                JOIN persons pe ON pe.id = h.person_id
+                WHERE l.status = 'active' AND l.voided_at IS NULL AND p.voided_at IS NULL
+                  AND l.expiry_date < ?1 AND l.expiry_date >= ?2
+             ) x
+             WHERE (x.email IS NOT NULL AND x.reminders >= 2 AND x.last_notice < ?3)
+                OR (x.email IS NULL AND (x.last_notice IS NULL OR x.last_notice < x.expiry_date))
+             ORDER BY x.expiry_date",
+            vec![txt(d(0)), txt(d(-365)), txt(d(-14))],
+        )
+    }
+
     // ---------------------------------------------------------------- public grave search (FR-UGY-02)
 
     /// Whether the operator publishes the grave search (opt-in).
@@ -332,7 +401,7 @@ impl Store {
             "WITH cand AS MATERIALIZED (SELECT si.ref_id FROM search_index si WHERE si.kind = 'deceased' AND {conds})
              SELECT trim(d.name_prefix || ' ' || d.family_name || ' ' || d.given_name) AS name,
                     substr(d.birth_date, 1, 4) AS birth_year, substr(d.death_date, 1, 4) AS death_year,
-                    c.name AS cemetery, p.identifier AS plot
+                    c.name AS cemetery, c.id AS cemetery_id, p.identifier AS plot, p.gps_lat AS lat, p.gps_lon AS lon
              FROM deceased d
              JOIN LATERAL (SELECT e.plot_id FROM interment_events e WHERE e.deceased_id = d.id AND e.voided_at IS NULL AND e.plot_id IS NOT NULL
                            ORDER BY e.event_date DESC LIMIT 1) last ON true
@@ -344,6 +413,164 @@ impl Store {
             conds = conds.join(" AND ")
         );
         json_rows(&self.conn, &sql, args)
+    }
+
+    /// Cemeteries with address and opening hours for the public page.
+    pub fn public_cemeteries(&self) -> Result<Vec<Value>> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        json_rows(&self.conn, "SELECT id, name, address, opening_hours FROM cemeteries WHERE voided_at IS NULL ORDER BY name COLLATE \"hu-x-icu\"", vec![])
+    }
+
+    /// The layout of a cemetery for the public map: sections and plot outlines
+    /// with their identifiers. No names, holders or statuses.
+    pub fn public_map(&self, cemetery_id: &str) -> Result<Value> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        let cemetery =
+            json_rows(&self.conn, "SELECT id, name, address, opening_hours FROM cemeteries WHERE id = ?1 AND voided_at IS NULL", vec![txt(cemetery_id)])?
+                .into_iter()
+                .next()
+                .ok_or_else(|| CoreError::not_found("cemetery", cemetery_id))?;
+        let sections = json_rows(
+            &self.conn,
+            "SELECT code, name, round(map_x::numeric, 1) AS x, round(map_y::numeric, 1) AS y, round(map_w::numeric, 1) AS w,
+                    round(map_h::numeric, 1) AS h, round(map_rot::numeric, 1) AS rot
+             FROM sections WHERE cemetery_id = ?1 AND voided_at IS NULL ORDER BY code",
+            vec![txt(cemetery_id)],
+        )?;
+        // compact rows: [identifier, x, y, w, h, rotation]
+        let mut st = self.conn.prepare(
+            "SELECT identifier, map_x, map_y, map_w, map_h, map_rot FROM plots
+             WHERE cemetery_id = ?1 AND voided_at IS NULL AND merged_into_id IS NULL AND map_w > 0 ORDER BY identifier",
+        )?;
+        let r1 = |v: f64| (v * 10.0).round() / 10.0;
+        let plots: Vec<Value> = st
+            .query_map(params![cemetery_id], |r| {
+                Ok(json!([r.get::<_, String>(0)?, r1(r.get(1)?), r1(r.get(2)?), r1(r.get(3)?), r1(r.get(4)?), r1(r.get(5)?)]))
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+        Ok(json!({ "cemetery": cemetery, "sections": sections, "plots": plots }))
+    }
+
+    /// 145/1999. Korm. r. 18. § (5a): plots to be reused, announced on the
+    /// website. Identifier, expiry and the earliest reuse date; no names.
+    pub fn public_reuse_notices(&self) -> Result<Vec<Value>> {
+        if !self.public_search_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the grave search is not published"));
+        }
+        json_rows(
+            &self.conn,
+            &format!(
+                "SELECT c.name AS cemetery, p.identifier, l.expiry_date, max(n.notice_date) AS notice_date,
+                        greatest(to_char(CAST(l.expiry_date AS DATE) + {reuse}, 'YYYY-MM-DD'),
+                                 to_char(CAST(max(n.notice_date) AS DATE) + {notice}, 'YYYY-MM-DD')) AS reuse_from
+                 FROM notices n
+                 JOIN plots p ON p.id = n.plot_id
+                 JOIN cemeteries c ON c.id = p.cemetery_id
+                 JOIN leases l ON l.plot_id = p.id AND l.status = 'active' AND l.voided_at IS NULL
+                 WHERE n.kind = 'board' AND n.voided_at IS NULL AND n.notice_date >= l.expiry_date
+                   AND p.voided_at IS NULL AND p.resale_ready_at IS NULL AND l.expiry_date < ?1
+                 GROUP BY c.name, p.identifier, l.expiry_date
+                 ORDER BY c.name, p.identifier",
+                reuse = crate::rules::REUSE_AFTER_DAYS,
+                notice = crate::rules::REUSE_NOTICE_DAYS
+            ),
+            vec![txt(fmt_date(today()))],
+        )
+    }
+
+    /// The GPS position of a plot, saved on site from a phone, so visitors
+    /// and colleagues can be guided to the grave.
+    pub fn set_plot_gps(&self, s: &Session, plot_id: &str, lat: Option<f64>, lon: Option<f64>) -> Result<()> {
+        if !s.can(Permission::EditMap) {
+            s.require(Permission::ManageStructure)?;
+        }
+        if let (Some(a), Some(o)) = (lat, lon) {
+            if !(-90.0..=90.0).contains(&a) || !(-180.0..=180.0).contains(&o) || (a == 0.0 && o == 0.0) {
+                return Err(CoreError::validation("gps", "invalid coordinates").with("code", "gps_invalid"));
+            }
+        } else if lat.is_some() != lon.is_some() {
+            return Err(CoreError::validation("gps", "both coordinates are needed").with("code", "gps_invalid"));
+        }
+        let tx = crate::db::tx(&self.conn)?;
+        let n = tx.execute(
+            "UPDATE plots SET gps_lat = ?2, gps_lon = ?3, updated_at = ?4, updated_by = ?5 WHERE id = ?1 AND voided_at IS NULL",
+            params![plot_id, lat, lon, crate::util::now_ts(), s.user_name],
+        )?;
+        if n == 0 {
+            return Err(CoreError::not_found("plot", plot_id));
+        }
+        crate::audit::record_simple(&tx, s, "plot", plot_id, "gps", Some(&format!("{lat:?}, {lon:?}")))?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// GDPR Art. 15 (access request): everything the register holds about a
+    /// living person – contact data, plots, leases, notices, e-mails' subjects,
+    /// money matters – as one JSON document. The request itself is logged.
+    pub fn person_data_export(&self, s: &Session, person_id: &str) -> Result<Value> {
+        s.require(Permission::ViewPersonal)?;
+        let person = json_rows(
+            &self.conn,
+            "SELECT name_prefix, family_name, given_name, address, mail_address, phone, email, notes, created_at, updated_at
+             FROM persons WHERE id = ?1",
+            vec![txt(person_id)],
+        )?
+        .into_iter()
+        .next()
+        .ok_or_else(|| CoreError::not_found("person", person_id))?;
+        let p = || vec![txt(person_id)];
+        let plots = json_rows(
+            &self.conn,
+            "SELECT p.identifier, c.name AS cemetery, h.role, h.relation, h.start_date, h.end_date, h.legal_basis
+             FROM plot_holders h JOIN plots p ON p.id = h.plot_id JOIN cemeteries c ON c.id = p.cemetery_id
+             WHERE h.person_id = ?1 AND h.voided_at IS NULL ORDER BY h.start_date",
+            p(),
+        )?;
+        let leases = json_rows(
+            &self.conn,
+            "SELECT p.identifier, l.kind, l.start_date, l.duration_years, l.expiry_date, l.fee_huf, l.status
+             FROM leases l JOIN plots p ON p.id = l.plot_id WHERE l.person_id = ?1 AND l.voided_at IS NULL ORDER BY l.start_date",
+            p(),
+        )?;
+        let arranged = json_rows(
+            &self.conn,
+            "SELECT e.folio, e.event_type, e.event_date, trim(d.family_name || ' ' || d.given_name) AS deceased
+             FROM interment_events e JOIN deceased d ON d.id = e.deceased_id WHERE e.arranger_id = ?1 AND e.voided_at IS NULL ORDER BY e.event_date",
+            p(),
+        )?;
+        let notices = json_rows(
+            &self.conn,
+            "SELECT p.identifier, n.kind, n.notice_date, n.result FROM notices n JOIN plots p ON p.id = n.plot_id
+             JOIN plot_holders h ON h.plot_id = n.plot_id AND h.person_id = ?1 AND h.voided_at IS NULL
+             WHERE n.voided_at IS NULL ORDER BY n.notice_date",
+            p(),
+        )?;
+        let money = json_rows(
+            &self.conn,
+            "SELECT 'számla' AS kind, number AS reference, issue_date AS date, gross_huf AS amount_huf, status FROM invoices WHERE person_id = ?1
+             UNION ALL SELECT 'befizetés', reference, paid_on, amount_huf, CASE WHEN voided_at IS NULL THEN 'érvényes' ELSE 'érvénytelen' END FROM payments WHERE person_id = ?1
+             ORDER BY 3",
+            p(),
+        )?;
+        let tx = crate::db::tx(&self.conn)?;
+        crate::audit::record_simple(&tx, s, "person", person_id, "data_export", Some("GDPR 15. cikk szerinti adatkiadás"))?;
+        tx.commit()?;
+        Ok(json!({
+            "format": "TEMISZ adatkiadás (GDPR 15. cikk)",
+            "createdAt": crate::util::now_ts(),
+            "controller": settings::get(&self.conn, "operator.name", None)?.unwrap_or_default(),
+            "purpose": "A temetőkről és a temetkezésről szóló 1999. évi XLIII. törvény szerinti nyilvántartás vezetése, a temetési helyek használatának és díjainak kezelése.",
+            "person": person,
+            "plots": plots,
+            "leases": leases,
+            "arrangedBurials": arranged,
+            "notices": notices,
+            "invoicesAndPayments": money,
+        }))
     }
 
     /// FR-UGY-02: the family can ask that a deceased does not appear publicly.
@@ -400,8 +627,22 @@ mod tests {
         let hits = store.public_search("kovács").unwrap();
         assert!(!hits.is_empty());
         assert!(hits[0].get("birthDate").is_none(), "no full dates in public");
+        assert_eq!(store.public_map("x").unwrap_err().code, "not_found");
         assert!(hits[0]["plot"].is_string());
         assert!(store.public_search("ko").unwrap().is_empty(), "too short a query");
+        assert!(hits[0]["cemeteryId"].is_string());
+        let cems = store.public_cemeteries().unwrap();
+        assert!(cems[0]["openingHours"].as_str().unwrap().contains("óra"));
+        let map = store.public_map(hits[0]["cemeteryId"].as_str().unwrap()).unwrap();
+        assert!(map["plots"].as_array().unwrap().len() > 100);
+        assert!(map["plots"].as_array().unwrap().iter().any(|p| p[0] == hits[0]["plot"]));
+        assert!(map["sections"][0]["code"].is_string());
+        // a GPS position saved on site shows in public as a route target
+        let pid: String = store.conn.query_row("SELECT id FROM plots WHERE identifier = ?1", params![hits[0]["plot"].as_str().unwrap()], |r| r.get(0)).unwrap();
+        assert_eq!(store.set_plot_gps(&s, &pid, Some(0.0), Some(0.0)).unwrap_err().code, "validation");
+        store.set_plot_gps(&s, &pid, Some(46.9071), Some(19.6925)).unwrap();
+        let again = store.public_search("kovács").unwrap();
+        assert_eq!(again.iter().find(|h| h["plot"] == hits[0]["plot"]).unwrap()["lat"], 46.9071);
         let name = hits[0]["name"].as_str().unwrap().to_string();
         let id: String = store
             .conn
@@ -410,6 +651,67 @@ mod tests {
         store.set_deceased_public(&s, &id, true).unwrap();
         let after = store.public_search("kovács").unwrap();
         assert_eq!(after.iter().filter(|h| h["name"] == name).count() + 1, hits.iter().filter(|h| h["name"] == name).count());
+        // a reuse notice (hirdetmény) appears publicly, without names
+        let plot: String =
+            store.conn.query_row("SELECT plot_id FROM leases WHERE status = 'active' AND expiry_date < '2020-01-01' LIMIT 1", [], |r| r.get(0)).unwrap();
+        store.record_notices(&s, std::slice::from_ref(&plot), "board", &fmt_date(today()), "hirdetmény").unwrap();
+        let notices = store.public_reuse_notices().unwrap();
+        assert_eq!(notices.len(), 1);
+        assert!(notices[0].get("holderName").is_none());
+        assert_eq!(notices[0]["reuseFrom"], fmt_date(today() + chrono::Duration::days(30)));
+    }
+
+    #[test]
+    fn automatic_reminders_half_year_before_then_monthly() {
+        let (store, s, cem) = setup();
+        let plot: String = store.conn.query_row("SELECT id FROM plots WHERE cemetery_id = ?1 AND identifier = 'C/1/1'", params![cem], |r| r.get(0)).unwrap();
+        let person = store
+            .save_person(&s, &Person { family_name: "Emlékeztető".into(), given_name: "Emma".into(), email: "emma@pelda.hu".into(), ..Default::default() })
+            .unwrap();
+        store.conn.execute("INSERT INTO plot_holders (id, plot_id, person_id, role, start_date, created_at, updated_at) VALUES ('h1', ?1, ?2, 'primary', '2000-01-01', 'x', 'x')", params![plot, person.id]).unwrap();
+        let lease = |exp: &str| {
+            store.conn.execute("UPDATE leases SET status = 'superseded' WHERE plot_id = ?1", params![plot]).unwrap();
+            store.conn.execute(
+                "INSERT INTO leases (id, plot_id, person_id, kind, start_date, duration_years, expiry_date, created_at, updated_at) VALUES (?3, ?1, ?2, 'purchase', '2001-01-01', 25, ?4, 'x', 'x')",
+                params![plot, person.id, crate::util::new_id(), exp],
+            ).unwrap();
+        };
+        let in_days = |n: i64| fmt_date(today() + chrono::Duration::days(n));
+        // 100 days before the expiry: the half-year reminder is due once
+        lease(&in_days(100));
+        assert!(store.auto_reminder_plots().unwrap().contains(&plot));
+        store.record_notices(&s, std::slice::from_ref(&plot), "email", &in_days(0), "automatikus").unwrap();
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+        // expired 40 days ago, last reminder 35 days ago: the monthly one is due
+        lease(&in_days(-40));
+        store.conn.execute("UPDATE notices SET notice_date = ?2 WHERE plot_id = ?1", params![plot, in_days(-35)]).unwrap();
+        assert!(store.auto_reminder_plots().unwrap().contains(&plot));
+        store.record_notices(&s, std::slice::from_ref(&plot), "email", &in_days(-20), "automatikus").unwrap();
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+        // two reminders, the last 20 days ago, no renewal: flagged
+        let un = store.unanswered_reminders().unwrap();
+        let row = un.iter().find(|r| r["plotId"] == plot.as_str()).expect("flagged");
+        assert_eq!(row["reason"], "no_reply");
+        assert_eq!(row["reminders"], 2);
+        // long expired leases are left for manual handling
+        lease("1990-01-01");
+        assert!(!store.auto_reminder_plots().unwrap().contains(&plot));
+    }
+
+    #[test]
+    fn person_data_export_collects_everything_and_is_logged() {
+        let (store, s, _) = setup();
+        let pid: String = store.conn.query_row("SELECT person_id FROM plot_holders WHERE role = 'primary' LIMIT 1", [], |r| r.get(0)).unwrap();
+        let out = store.person_data_export(&s, &pid).unwrap();
+        assert!(out["person"]["familyName"].is_string());
+        assert!(!out["plots"].as_array().unwrap().is_empty());
+        let logged: i64 = store
+            .conn
+            .query_row("SELECT count(*) FROM audit_log WHERE entity = 'person' AND entity_id = ?1 AND action = 'data_export'", params![pid], |r| r.get(0))
+            .unwrap();
+        assert_eq!(logged, 1);
+        let reader = Session::for_role(None, "olvaso", "Olvasó", crate::auth::Role::Reader, &[]);
+        assert_eq!(store.person_data_export(&reader, &pid).unwrap_err().code, "forbidden");
     }
 
     #[test]

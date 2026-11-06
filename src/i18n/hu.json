@@ -18,7 +18,8 @@
     "back": "Vissza",
     "platform": "Ügyfelek",
     "finance": "Pénzügy",
-    "operations": "Üzemeltetés"
+    "operations": "Üzemeltetés",
+    "help": "Súgó"
   },
   "common": {
     "save": "Mentés",
@@ -79,7 +80,7 @@
     "user_locked": "A fiók túl sok sikertelen belépés miatt zárolva van {{until}}-ig. A rendszergazda azonnal feloldhatja.",
     "user_inactive": "Ez a felhasználói fiók ki van kapcsolva.",
     "session_expired": "Biztonsági okból kijelentkeztettük. Lépjen be újra.",
-    "password_too_short": "A jelszó legalább 8 karakter legyen.",
+    "password_too_short": "A jelszó legalább {{min}} karakter legyen. Jó választás egy hosszabb, könnyen megjegyezhető mondat.",
     "burial_not_allowed": "A temetés nem engedélyezhető.",
     "folio_taken": "A(z) {{folio}}. folyószám már foglalt.",
     "folio_scope_locked": "A folyószámozás módja csak addig módosítható, amíg a temetőben nincs bejegyzés.",
@@ -153,7 +154,17 @@
     "file_too_large": "A fájl túl nagy. Legfeljebb {{maxMb}} MB-os fájlt csatolhat.",
     "bad_file": "a fájl nem olvasható",
     "no_email": "A vevőnek nincs e-mail-címe. Küldjön levelet, vagy adja meg a címet a számlán.",
-    "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva."
+    "public_search_disabled": "A nyilvános sírkereső nincs bekapcsolva.",
+    "booking_not_own": "Ezt az időpontot egy másik iroda rögzítette, csak ő módosíthatja. Keresse a temető ügyfélszolgálatát.",
+    "lease_too_short": "A használati idő legalább {{min}} év kell legyen (145/1999. Korm. rendelet 18. §).",
+    "public_notice_required": "Előbb tegyen közzé hirdetményt a temetőben és a honlapon (Lejáratok › Értesítés rögzítése, módja: Hirdetmény). Az újraértékesítés a közzététel után legalább egy hónappal lehetséges.",
+    "public_notice_running": "A hirdetménynek legalább egy hónapig ki kell lennie. Újraértékesíthető ettől: {{from}}.",
+    "consent_required": "A sírnyitáshoz a rendelkezési jogosult hozzájárulása kell.",
+    "permit_required": "15 éven belüli exhumáláshoz adja meg a népegészségügyi engedély számát.",
+    "password_common": "Ez a jelszó túl könnyen kitalálható. Válasszon hosszabbat, például néhány szóból álló mondatot.",
+    "password_personal": "A jelszó ne a saját nevéből vagy e-mail-címéből álljon.",
+    "file_type": "Csak PDF, fénykép (JPG, PNG, HEIC, WEBP) vagy Office-dokumentum csatolható.",
+    "gps_invalid": "Érvénytelen GPS-pozíció."
   },
   "fields": {
     "familyName": "Családi név",
@@ -208,7 +219,9 @@
     "contractorId": "Vállalkozó",
     "plotId": "Sírhely",
     "workDate": "Munkavégzés napja",
-    "dueDate": "Határidő"
+    "dueDate": "Határidő",
+    "holderConsent": "Jogosult hozzájárulása",
+    "permitNumber": "Engedély száma"
   },
   "sex": {
     "": "–",
@@ -256,7 +269,7 @@
     "letter": "Levél",
     "email": "E-mail",
     "label": "Címke a síron",
-    "board": "Hirdetőtábla"
+    "board": "Hirdetmény (temető és honlap)"
   },
   "category": {
     "grave": "Sírhely",
@@ -271,7 +284,8 @@
     "finance": "Pénzügyes",
     "reader": "Olvasó",
     "cashier": "Pénztáros",
-    "worker": "Temetői dolgozó"
+    "worker": "Temetői dolgozó",
+    "undertaker": "Temetkezési iroda (meghívott)"
   },
   "permission": {
     "manage_users": "Felhasználók kezelése",
@@ -291,7 +305,8 @@
     "override_checks": "Temetési tiltás felülbírálása",
     "cash_desk": "Házipénztár",
     "operations": "Üzemeltetés (naptár, ügyiratok)",
-    "complete_work": "Munkalapok lezárása"
+    "complete_work": "Munkalapok lezárása",
+    "calendar": "Közös temetési naptár"
   },
   "burialCheck": {
     "allowed": "A temetés engedélyezhető.",
@@ -395,7 +410,10 @@
     "taskExpiring": "megváltás jár le a következő 90 napban",
     "taskNotified": "hely értesítve, a türelmi idő lejártára vár",
     "allEntries": "Összes bejegyzés",
-    "colName": "Elhunyt, esemény"
+    "colName": "Elhunyt, esemény",
+    "taskCertifiedNever": "Még nem készült hiteles másolat a nyilvántartó könyvről. Elektronikus vezetésnél ez kötelező (145/1999. Korm. rendelet 41. § (3)).",
+    "taskCertified": "{{days}} napja nem készült hiteles másolat a nyilvántartó könyvről. Javasolt havonta.",
+    "taskCertifiedAction": "Hiteles nyomtatás"
   },
   "search": {
     "placeholder": "Név, évszám vagy helyazonosító (pl. A/3/12)",
@@ -453,7 +471,17 @@
     "printCertificate": "Megváltási igazolás",
     "printFeeRequest": "Díjbekérő",
     "openPlot": "Hely adatlapja",
-    "another": "Újabb temetés"
+    "another": "Újabb temetés",
+    "offHome": "Urna hazavitele (nincs sírhely)",
+    "offElsewhere": "Hamvak szórása máshol (nincs sírhely)",
+    "offHomeHint": "Az urnát a hozzátartozó hazavitte vagy elvitte. Sírhely nem kell, de a bejegyzés folyószámot kap a nyilvántartó könyvben, az átvevő adataival.",
+    "offHomeWhere": "Hová került",
+    "offHomeWhereHint": "Például: hazavitték, külföldre vitték. Üresen „hazavitték” kerül be.",
+    "offElsewhereHint": "A hamvakat nem ebben a temetőben, sírhely nélkül szórták szét. A bejegyzés folyószámot kap, a szórás helyével.",
+    "destinationHint": "Például: Kisvölgyi köztemető szóróparcellája, vagy a Duna, Budapest",
+    "offPeopleHint": "Sírhely nélkül nincs rendelkezési jogosult. Az eltemettetőt megadhatja, de nem kötelező.",
+    "offNoLease": "Sírhely nélkül megváltás sincs. Lépjen tovább az ellenőrzéshez.",
+    "scatterPlace": "Szórás helye"
   },
   "plots": {
     "title": "Temetési helyek",
@@ -560,7 +588,12 @@
     "targetPlot": "Új hely azonosítója",
     "targetOutside": "Temetőn kívülre / másik temetőbe",
     "submit": "Rögzítés",
-    "printReceipt": "Urna-átvételi elismervény"
+    "printReceipt": "Urna-átvételi elismervény",
+    "consent": "A rendelkezési jogosult hozzájárult a sírnyitáshoz",
+    "consentHint": "145/1999. Korm. rendelet 35. § (2): sírnyitáshoz a jogosult hozzájárulása kell. Az írásos hozzájárulást csatolja vagy őrizze meg.",
+    "permit": "Népegészségügyi engedély száma",
+    "permitHint": "Koporsós temetéstől számított 15 éven belüli exhumáláshoz kötelező (36. §).",
+    "noticeHint": "Az exhumálásról legalább 10 nappal előtte hirdetményt kell kifüggeszteni a temetőben (40. §)."
   },
   "persons": {
     "title": "Személyek",
@@ -568,7 +601,9 @@
     "new": "Új személy",
     "plots": "Helyek",
     "masked": "A személyes adatokat az Ön szerepköre nem látja.",
-    "empty": "Nincs találat."
+    "empty": "Nincs találat.",
+    "gdpr": "Adatkiadás (GDPR)",
+    "gdprHint": "Az érintett kérésére kiadja a róla tárolt összes adatot (GDPR 15. cikk). A kiadást a változásnapló rögzíti."
   },
   "expiries": {
     "title": "Lejáratok",
@@ -906,7 +941,8 @@
     "occupiedWithoutLease": "Foglalt helyek megváltás nélkül",
     "checkOk": "Nincs hiányosság.",
     "quickEntry": "Gyors bevitel papírkönyvből",
-    "quickEntryHint": "Billentyűzetről végig kezelhető űrlap: Enter a következő mezőre lép, Ctrl+Enter ment."
+    "quickEntryHint": "Billentyűzetről végig kezelhető űrlap: Enter a következő mezőre lép, Ctrl+Enter ment.",
+    "exportNori": "Nemzeti sírkert adatai a NÖRI-nek"
   },
   "quick": {
     "title": "Gyors bevitel papírkönyvből",
@@ -1455,7 +1491,9 @@
     "summaryInvoice_other": "Összesítő számla ({{count}} tétel)",
     "summaryInvoice": "Összesítő számla ({{count}} tétel)",
     "issueDocument": "Irat kiadása (PDF)",
-    "documentHint": "Az irat az ügy állapotához igazodik: átvételi elismervény, hiánypótlási felhívás, határozat vagy felszólítás. A kiadott példány változatlanul a mellékletek közé kerül. Előbb mentse a változásokat."
+    "documentHint": "Az irat az ügy állapotához igazodik: átvételi elismervény, hiánypótlási felhívás, határozat vagy felszólítás. A kiadott példány változatlanul a mellékletek közé kerül. Előbb mentse a változásokat.",
+    "bookedBy": "Rögzítette",
+    "bookedByMe": "Ön"
   },
   "notify": {
     "sendEmail": "Értesítés e-mailben",
@@ -1473,7 +1511,19 @@
     "subject": "Tárgy",
     "delivered": "Kézbesítésre átadva",
     "queued": "Naplózva",
-    "failed": "Sikertelen"
+    "failed": "Sikertelen",
+    "autoTitle": "Automatikus emlékeztetők",
+    "autoIntro": "A program e-mailt küld a rendelkezési jogosultnak fél évvel a lejárat előtt, majd a lejárat után havonta, amíg újra nem váltja (legfeljebb egy évig). Minden levél értesítésként kerül a nyilvántartásba. Akinek nincs e-mail-címe, vagy több levél után sem jelentkezett, az lent látszik, és hétfőnként összesítőt küldünk róluk az üzemeltető e-mail-címére.",
+    "autoEnable": "Automatikus emlékeztetők bekapcsolása",
+    "autoDue_one": "Ma 1 emlékeztető esedékes.",
+    "autoDue_other": "Ma {{count}} emlékeztető esedékes.",
+    "autoDue": "Ma {{count}} emlékeztető esedékes.",
+    "unanswered": "Nem reagáltak ({{count}})",
+    "noUnanswered": "Mindenki reagált, vagy még nem járt le senki megváltása.",
+    "whatHappened": "Mi a helyzet",
+    "reasonNoEmail": "Nincs e-mail-címe – levelet kell küldeni",
+    "reasonNoReply": "{{count}} emlékeztető után sem jelentkezett (utoljára: {{date}})",
+    "printForNoEmail": "Levelek nyomtatása az e-mail nélkülieknek ({{count}})"
   },
   "annual": {
     "title": "Éves beszámoló a fenntartónak",
@@ -1516,5 +1566,19 @@
     "privacy": "Akinek a hozzátartozója kéri, annak az elhunytnak az adatlapján kapcsolja ki a megjelenést. A kereső születési és halálozási dátumot, lakcímet és jogosultat nem mutat.",
     "hideDeceased": "Ne jelenjen meg a nyilvános sírkeresőben",
     "hideDeceasedHint": "A hozzátartozó kérésére."
+  },
+  "place": {
+    "title": "Helyszín, fényképek",
+    "coords": "GPS: {{lat}}, {{lon}}",
+    "accuracy": "Pontosság: kb. {{m}} m",
+    "none": "Ehhez a sírhelyhez még nincs GPS-pozíció. A sír mellett állva telefonon rögzítheti.",
+    "route": "Útvonal a sírhoz",
+    "here": "Itt állok – pozíció mentése",
+    "hereHint": "Álljon a sír mellé, és nyomja meg a gombot telefonon. A pozíció alapján a látogatók a nyilvános sírkeresőből útvonalat kérhetnek a sírhoz.",
+    "files": "Fényképek és dokumentumok",
+    "noFiles": "Még nincs fénykép vagy dokumentum.",
+    "addPhoto": "Fénykép vagy dokumentum hozzáadása",
+    "noGps": "A készülék nem adott pozíciót. Próbálja szabad ég alatt, bekapcsolt helymeghatározással.",
+    "denied": "A böngésző nem kapott engedélyt a helymeghatározáshoz. Engedélyezze a beállításokban."
   }
 }

@@ -10,7 +10,7 @@ import { fmtDate, todayIso } from "../../lib/format";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { useToast } from "../../app/toast";
 import { PrintButton } from "../prints/PrintButton";
-import { EmailLog, EmailNoticeButton } from "../notify/Email";
+import { AutoReminders, EmailLog, EmailNoticeButton } from "../notify/Email";
 
 /** FR-MEG-05..07, UC-03: expiry watcher with bulk notices. */
 export function Expiries() {
@@ -113,7 +113,8 @@ export function Expiries() {
         </div>
       )}
       {can("record_leases") && (
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col gap-6">
+          <AutoReminders canManage={can("manage_settings")} />
           <EmailLog />
         </div>
       )}

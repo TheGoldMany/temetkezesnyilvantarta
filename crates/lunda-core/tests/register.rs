@@ -57,6 +57,10 @@ fn historical_folio_advances_counter_and_rejects_duplicates() {
         historical_folio: folio,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     let _ = p;
     let r = fx.store.record_burial(&fx.admin, &mk(Some(4500), "A/1/1")).unwrap();
@@ -128,6 +132,10 @@ fn uc01_mandatory_register_columns_are_validated() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     let e = fx.store.record_burial(&fx.admin, &input).unwrap_err();
     assert_eq!(e.code, "validation");
@@ -152,6 +160,10 @@ fn unknown_identity_requires_authority_and_case_number() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&fx.admin, &mk(d.clone())).unwrap_err().params["field"], "authorityName");
     d.authority_name = "Kecskeméti Rendőrkapitányság".into();
@@ -195,6 +207,10 @@ fn uc02_reburial_rules_and_extension() {
         historical_folio: None,
         override_reason: Some("mélyített sír, hatósági engedély 12/2026".into()),
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&clerk, &input).unwrap_err().code, "burial_not_allowed");
     let r = fx.store.record_burial(&fx.admin, &input).unwrap();
@@ -258,6 +274,10 @@ fn permissions_are_enforced() {
         historical_folio: None,
         override_reason: None,
         notes: String::new(),
+        cemetery_id: None,
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
     };
     assert_eq!(fx.store.record_burial(&reader, &input).unwrap_err().code, "forbidden");
     assert_eq!(fx.store.record_burial(&finance, &input).unwrap_err().code, "forbidden");
@@ -308,6 +328,8 @@ fn urn_release_and_relocation() {
         target_plot_id: None,
         historical_folio: None,
         notes: String::new(),
+        holder_consent: false,
+        permit_number: String::new(),
     };
     assert_eq!(fx.store.record_removal(&fx.admin, &input).unwrap_err().params["field"], "receiverName");
     input.receiver_name = "Urna Ubulné".into();
@@ -317,26 +339,34 @@ fn urn_release_and_relocation() {
     // cannot release twice
     assert_eq!(fx.store.record_removal(&fx.admin, &input).unwrap_err().code, "not_active_placement");
 
-    // relocation of a coffin into another plot
+    // relocation of a coffin into another plot: the holder's consent (35. §)
     let c = fx.burial("A/2/5", "coffin_burial", "2000-01-01", "Költöző", "Kálmán").unwrap();
     let target = fx.plot("A/3/9");
-    let mv = fx
-        .store
-        .record_removal(
-            &fx.admin,
-            &RemovalInput {
-                event_type: "relocation".into(),
-                event_date: "2026-01-03".into(),
-                source_event_id: c.event.id.clone(),
-                receiver_name: String::new(),
-                receiver_address: String::new(),
-                destination: String::new(),
-                target_plot_id: Some(target.id.clone()),
-                historical_folio: None,
-                notes: String::new(),
-            },
-        )
-        .unwrap();
+    let mut reloc = RemovalInput {
+        event_type: "relocation".into(),
+        event_date: "2026-01-03".into(),
+        source_event_id: c.event.id.clone(),
+        receiver_name: String::new(),
+        receiver_address: String::new(),
+        destination: String::new(),
+        target_plot_id: Some(target.id.clone()),
+        historical_folio: None,
+        notes: String::new(),
+        holder_consent: false,
+        permit_number: String::new(),
+    };
+    assert_eq!(fx.store.record_removal(&fx.admin, &reloc).unwrap_err().params["code"], "consent_required");
+    reloc.holder_consent = true;
+    let mv = fx.store.record_removal(&fx.admin, &reloc).unwrap();
+    assert!(mv.notes.contains("hozzájárult"));
+    // within 15 years of the burial a coffin needs the public health permit (36. §)
+    let young = fx.burial("A/2/6", "coffin_burial", "2020-01-01", "Fiatal", "Ferenc").unwrap();
+    let mut early =
+        RemovalInput { source_event_id: young.event.id.clone(), target_plot_id: None, destination: "Kisvölgyi köztemető".into(), ..reloc.clone() };
+    assert_eq!(fx.store.record_removal(&fx.admin, &early).unwrap_err().params["code"], "permit_required");
+    early.permit_number = "BK-NEF/123-2/2026".into();
+    let ex = fx.store.record_removal(&fx.admin, &early).unwrap();
+    assert!(ex.notes.contains("BK-NEF/123-2/2026"));
     assert_eq!(mv.plot_id.as_deref(), Some(target.id.as_str()));
     assert!(fx.store.occupants(&fx.plot("A/2/5").id).unwrap().is_empty());
     assert_eq!(fx.store.occupants(&target.id).unwrap().len(), 1);
@@ -409,6 +439,29 @@ fn holder_change_keeps_history() {
 }
 
 #[test]
+fn legal_minimum_use_period_is_enforced() {
+    let fx = fixture();
+    let p = fx.plot("A/1/9");
+    let person = PersonRef::New { person: Fx::person("Rövid", "Rezső") };
+    let lease = |years: i32| {
+        fx.store.create_lease(
+            &fx.admin,
+            &NewLeaseInput {
+                plot_id: p.id.clone(),
+                kind: "prepurchase".into(),
+                person: Some(person.clone()),
+                duration_years: Some(years),
+                ..Default::default()
+            },
+        )
+    };
+    let e = lease(20).unwrap_err();
+    assert_eq!(e.code, "lease_too_short");
+    assert_eq!(e.params["min"], "25");
+    lease(25).unwrap();
+}
+
+#[test]
 fn uc03_expiry_notice_and_resale() {
     let fx = fixture();
     fx.store.save_cemetery(&fx.admin, &fx.cemetery).unwrap();
@@ -443,8 +496,20 @@ fn uc03_expiry_notice_and_resale() {
     let list = fx.store.expiries(&fx.admin, &ExpiryFilter { within_days: 90, include_expired: true, only_not_notified: true, ..Default::default() }).unwrap();
     assert_eq!(list.len(), 1);
 
-    // reason (confirmation) required, then resellable
+    // reason (confirmation) required
     assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, None).unwrap_err().code, "reason_required");
+    // 145/1999. Korm. r. 18. § (5a): a public notice a month before the reuse
+    assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap_err().code, "public_notice_required");
+    let board = fmt_date(today() - chrono::Duration::days(10));
+    fx.store.record_notices(&fx.admin, std::slice::from_ref(&p7.id), "board", &board, "hirdetmény a temetőben és a honlapon").unwrap();
+    assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap_err().code, "public_notice_running");
+    fx.store
+        .conn
+        .execute(
+            "UPDATE notices SET notice_date = ?2 WHERE plot_id = ?1 AND kind = 'board'",
+            lunda_core::params![p7.id, fmt_date(today() - chrono::Duration::days(31))],
+        )
+        .unwrap();
     assert_eq!(fx.store.mark_resellable(&fx.admin, &p7.id, Some("türelmi idő lejárt, megerősítve")).unwrap(), PlotStatus::Resellable);
     // burial into resellable plot is blocked
     assert_eq!(fx.burial("A/1/7", "coffin_burial", &fmt_date(today()), "Új", "Ügyfél").unwrap_err().code, "burial_not_allowed");
@@ -592,9 +657,9 @@ fn bulk_create_and_summaries() {
 #[test]
 fn users_login_lockout() {
     let fx = fixture();
-    fx.store.create_initial_admin("gondnok", "Gondnok Géza", "jelszo-1234").unwrap();
-    assert_eq!(fx.store.create_initial_admin("x", "X", "jelszo-1234").unwrap_err().code, "already_initialized");
-    let s = fx.store.login("gondnok", "jelszo-1234").unwrap();
+    fx.store.create_initial_admin("gondnok", "Gondnok Géza", "gondnok-titka-77").unwrap();
+    assert_eq!(fx.store.create_initial_admin("x", "X", "gondnok-titka-77").unwrap_err().code, "already_initialized");
+    let s = fx.store.login("gondnok", "gondnok-titka-77").unwrap();
     assert_eq!(s.role, Role::Admin);
     for i in 0..4 {
         let e = fx.store.login("gondnok", "rossz").unwrap_err();
@@ -602,9 +667,9 @@ fn users_login_lockout() {
     }
     assert_eq!(fx.store.login("gondnok", "rossz").unwrap_err().code, "user_locked");
     // even the right password is refused while locked
-    assert_eq!(fx.store.login("gondnok", "jelszo-1234").unwrap_err().code, "user_locked");
+    assert_eq!(fx.store.login("gondnok", "gondnok-titka-77").unwrap_err().code, "user_locked");
     fx.store.unlock_user(&s, &s.user_id.clone().unwrap()).unwrap();
-    assert!(fx.store.login("gondnok", "jelszo-1234").is_ok());
+    assert!(fx.store.login("gondnok", "gondnok-titka-77").is_ok());
     assert_eq!(fx.store.login("nincs", "akarmi").unwrap_err().code, "invalid_credentials");
     // last admin cannot be demoted
     let uid = s.user_id.clone().unwrap();
@@ -679,4 +744,58 @@ fn all_documents_render_from_sample_data() {
     let none = lunda_core::auth::Session { permissions: vec![], ..lunda_core::auth::Session::system() };
     assert_eq!(lunda_core::pdf::generate(&store, &none, "index", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap_err().code, "forbidden");
     std::fs::remove_dir_all(dir).ok();
+}
+
+/// An urn taken home or ashes scattered elsewhere: no plot, but the register
+/// keeps the entry with a folio, the receiver or the place, and prints it.
+#[test]
+fn urn_taken_home_and_ashes_scattered_elsewhere() {
+    let fx = fixture();
+    let first = fx.burial("A/1/1", "coffin_burial", "2024-03-01", "Előző", "Péter").unwrap();
+    let off = |ty: &str, receiver: &str, destination: &str, family: &str| {
+        fx.store.record_burial(
+            &fx.admin,
+            &BurialInput {
+                event_type: ty.into(),
+                event_date: "2024-03-05".into(),
+                container: "urn".into(),
+                deceased: DeceasedRef::New { deceased: Fx::deceased(family, "Anna", "2024-02-20") },
+                plot_id: None,
+                crypt_slot_id: None,
+                arranger: None,
+                holder: None,
+                holder_relation: None,
+                lease: LeaseChoice::default(),
+                historical_folio: None,
+                override_reason: None,
+                notes: String::new(),
+                cemetery_id: Some(fx.cemetery.id.clone()),
+                receiver_name: receiver.into(),
+                receiver_address: "6050 Lajosmizse, Fő utca 2.".into(),
+                destination: destination.into(),
+            },
+        )
+    };
+    // the receiver is required for an urn taken home
+    assert_eq!(off("urn_release", "", "", "Hazavitt").unwrap_err().code, "validation");
+    let home = off("urn_release", "Hazavitt Gábor", "", "Hazavitt").unwrap();
+    assert_eq!(home.folio, first.folio + 1);
+    assert_eq!(home.event.plot_id, None);
+    assert_eq!(home.event.destination, "hazavitték");
+    assert_eq!(off("ash_scattering", "", "", "Szórt").unwrap_err().code, "validation");
+    let scattered = off("ash_scattering", "", "Kisvölgyi köztemető, szóróparcella", "Szórt").unwrap();
+    assert_eq!(scattered.folio, first.folio + 2);
+    let events = fx.store.list_events(&EventFilter { cemetery_id: Some(fx.cemetery.id.clone()), ..Default::default() }).unwrap();
+    assert_eq!(events.total, 3);
+    // the register book prints entries without a plot
+    let dir = std::env::temp_dir().join(format!("reg-{}", lunda_core::util::new_id()));
+    let f = lunda_core::pdf::generate(&fx.store, &fx.admin, "register", &serde_json::json!({ "cemeteryId": fx.cemetery.id }), &dir).unwrap();
+    assert!(f.pages >= 1);
+    // the certified copy is now on record for the dashboard reminder
+    assert_eq!(fx.store.dashboard(None).unwrap().days_since_certified_copy, Some(0));
+    // the receipt and declaration for the urn taken home (Tv. 18. § (1a))
+    let r = lunda_core::pdf::generate(&fx.store, &fx.admin, "urn_receipt", &serde_json::json!({ "eventId": home.event.id }), &dir).unwrap();
+    assert_eq!(r.pages, 1);
+    // NÖRI export of national graves runs (none in the fixture)
+    lunda_core::io::export(&fx.store, &fx.admin, "nori", "xlsx", &serde_json::json!({ "cemeteryId": fx.cemetery.id }), &dir).unwrap();
 }
