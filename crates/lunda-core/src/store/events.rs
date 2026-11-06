@@ -1,7 +1,7 @@
 //! Register events with gap-free, immutable folio numbers (FR-ELH-02..05, JOG-02).
 
+use crate::sql::{params, params_from_iter, OptionalExtension, Value};
 use chrono::{Datelike, NaiveDate};
-use rusqlite::{params, params_from_iter, types::Value, OptionalExtension};
 
 use super::*;
 use crate::audit;
@@ -14,15 +14,16 @@ use crate::util::{fmt_date, new_id, now_ts, parse_date};
 /// Allocates the next folio inside the caller's transaction (FR-ELH-03).
 /// Gap-free: the counter update and the event insert commit or roll back together.
 /// Historical (paper book) folios are accepted if unused and push the counter forward.
-pub(crate) fn allocate_folio(tx: &rusqlite::Connection, cemetery_id: &str, event_date: NaiveDate, historical: Option<i64>) -> Result<(String, i64)> {
+pub(crate) fn allocate_folio(tx: &crate::sql::Connection, cemetery_id: &str, event_date: NaiveDate, historical: Option<i64>) -> Result<(String, i64)> {
     let scope: String = tx
         .query_row("SELECT folio_scope FROM cemeteries WHERE id=?1 AND voided_at IS NULL", [cemetery_id], |r| r.get(0))
         .optional()?
         .ok_or_else(|| CoreError::not_found("cemetery", cemetery_id))?;
     let key = if scope == "yearly" { event_date.year().to_string() } else { "all".to_string() };
     tx.execute(
-        "INSERT OR IGNORE INTO register_sequences (cemetery_id, scope_key, next_value)
-         VALUES (?1, ?2, (SELECT coalesce(max(folio),0)+1 FROM interment_events WHERE cemetery_id=?1 AND scope_key=?2))",
+        "INSERT INTO register_sequences (cemetery_id, scope_key, next_value)
+         VALUES (?1, ?2, (SELECT coalesce(max(folio),0)+1 FROM interment_events WHERE cemetery_id=?1 AND scope_key=?2))
+         ON CONFLICT DO NOTHING",
         params![cemetery_id, key],
     )?;
     match historical {
@@ -39,7 +40,7 @@ pub(crate) fn allocate_folio(tx: &rusqlite::Connection, cemetery_id: &str, event
                 return Err(CoreError::new("folio_taken", "folio already used").with("folio", f));
             }
             tx.execute(
-                "UPDATE register_sequences SET next_value = max(next_value, ?3 + 1) WHERE cemetery_id=?1 AND scope_key=?2",
+                "UPDATE register_sequences SET next_value = GREATEST(next_value, ?3 + 1) WHERE cemetery_id=?1 AND scope_key=?2",
                 params![cemetery_id, key, f],
             )?;
             Ok((key, f))
@@ -76,7 +77,7 @@ impl Store {
         let ptype = self.get_plot_type(&plot.plot_type_id)?;
         let (coffins, urns): (i32, i32) = self.conn.query_row(
             &format!(
-                "SELECT coalesce(sum(e.container='coffin'),0), coalesce(sum(e.container='urn'),0)
+                "SELECT count(*) FILTER (WHERE e.container='coffin'), count(*) FILTER (WHERE e.container='urn')
                  FROM interment_events e WHERE e.plot_id=?1 AND {ACTIVE_PLACEMENT_SQL}"
             ),
             [&plot.id],
@@ -504,7 +505,7 @@ impl Store {
             Some("date_desc") => "e.event_date DESC, e.folio DESC",
             _ => "e.cemetery_id, e.scope_key, e.folio",
         };
-        let limit = f.limit.unwrap_or(-1);
+        let limit = f.limit.filter(|l| *l >= 0).unwrap_or(i64::MAX);
         let offset = f.offset.unwrap_or(0);
         let sql = format!("{EVENT_ROW_SQL}{where_} ORDER BY {order} LIMIT {limit} OFFSET {offset}");
         let mut stmt = self.conn.prepare(&sql)?;

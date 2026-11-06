@@ -9,7 +9,6 @@ pub mod api;
 pub mod app;
 pub mod audit;
 pub mod auth;
-pub mod backup;
 pub mod db;
 pub mod error;
 pub mod io;
@@ -18,7 +17,9 @@ pub mod pdf;
 pub mod rules;
 pub mod sample;
 pub mod settings;
+pub mod sql;
 pub mod store;
+pub mod szamlazz;
 pub mod text;
 pub mod util;
 

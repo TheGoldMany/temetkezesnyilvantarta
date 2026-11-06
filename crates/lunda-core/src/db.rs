@@ -1,20 +1,30 @@
-//! Encrypted database: opening, keying, pragmas, migrations, seed data.
-
-use rusqlite::{params, Connection, OpenFlags};
-use std::path::Path;
+//! Tenant database: connecting, schema selection, migrations, seed data.
+//!
+//! Every customer (tenant) has its own Postgres schema with the same tables.
+//! The connection's `search_path` points at it, so the service layer's SQL
+//! never names a schema and cannot reach another customer's data.
 
 use crate::error::{CoreError, Result};
-use crate::text::hu_compare;
+use crate::sql::{params, Connection};
 use crate::util::{new_id, now_ts};
 
-/// Ordered list of migrations. Never edit a released migration – add a new one.
-pub const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/0001_initial.sql"))];
+pub use crate::sql::{tx, Tx};
+
+/// Ordered list of tenant-schema migrations. Never edit a released migration – add a new one.
+pub const MIGRATIONS: &[(i64, &str)] = &[
+    (1, include_str!("../migrations/pg/0001_initial.sql")),
+    (2, include_str!("../migrations/pg/0002_finance.sql")),
+    (3, include_str!("../migrations/pg/0003_operations.sql")),
+];
+
+/// Hungarian collation for ORDER BY (ICU).
+pub const HU: &str = "\"hu-x-icu\"";
 
 pub fn latest_version() -> i64 {
     MIGRATIONS.last().map(|m| m.0).unwrap_or(0)
 }
 
-/// Generates a random 256-bit database key as hex.
+/// Generates a random 256-bit secret as hex.
 pub fn generate_key() -> String {
     use rand::RngCore;
     let mut k = [0u8; 32];
@@ -22,124 +32,84 @@ pub fn generate_key() -> String {
     hex::encode(k)
 }
 
-fn apply_key(conn: &Connection, key_hex: &str) -> Result<()> {
-    if key_hex.len() != 64 || !key_hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(CoreError::new("db_key_invalid", "key must be 64 hex characters"));
+/// Default database for local development and tests.
+/// Neon's Vercel integration sets both; the direct (unpooled) connection is
+/// needed because each request switches the search_path to a tenant schema.
+pub fn database_url() -> String {
+    std::env::var("DATABASE_URL_UNPOOLED").or_else(|_| std::env::var("DATABASE_URL")).unwrap_or_else(|_| "postgres://postgres@127.0.0.1:5433/postgres".into())
+}
+
+/// Valid tenant schema name: `t_` + lowercase hex/underscore.
+pub fn tenant_schema(tenant_id: &str) -> Result<String> {
+    let clean: String = tenant_id.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_lowercase();
+    if clean.is_empty() || clean.len() > 40 {
+        return Err(CoreError::new("tenant_invalid", "invalid tenant id"));
     }
-    // raw key form: x'..' – no KDF needed, key is already random 256-bit
-    conn.execute_batch(&format!("PRAGMA key = \"x'{key_hex}'\";"))?;
-    Ok(())
+    Ok(format!("t_{clean}"))
 }
 
-fn configure(conn: &Connection) -> Result<()> {
-    // Verifies the key: fails with "file is not a database" on a wrong key.
-    conn.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0))?;
-    conn.pragma_update(None, "journal_mode", "WAL")?;
-    conn.pragma_update(None, "synchronous", "FULL")?;
-    conn.pragma_update(None, "foreign_keys", "ON")?;
-    conn.pragma_update(None, "busy_timeout", 5000)?;
-    // Decrypted page cache: SQLCipher decrypts every page it reads, so a
-    // generous cache (64 MB) keeps large cemeteries fast (NFR-TEL-02).
-    conn.pragma_update(None, "cache_size", -65536)?;
-    conn.pragma_update(None, "temp_store", "MEMORY")?;
-    conn.create_collation("HU", hu_compare)?;
-    Ok(())
-}
-
-/// Opens (or creates) an encrypted database file and runs pending migrations.
-/// `before_migrate` is invoked with the current version when a migration is
-/// pending on an existing database (used to take a backup, NFR-KAR-01).
-pub fn open(path: &Path, key_hex: &str, before_migrate: impl FnOnce(&Connection, i64) -> Result<()>) -> Result<Connection> {
-    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
-    apply_key(&conn, key_hex)?;
-    configure(&conn)?;
-    let v = user_version(&conn)?;
-    if v > 0 && v < latest_version() {
-        before_migrate(&conn, v)?;
+/// Points the connection at a tenant schema, creating and migrating it when needed.
+pub fn open_tenant(conn: &Connection, schema: &str) -> Result<()> {
+    // CREATE EXTENSION IF NOT EXISTS is not safe against concurrent runs on a
+    // fresh database (parallel tests, several cold-started functions): serialise it
+    let exists: bool = conn.query_row("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm')", [], |r| r.get(0))?;
+    if !exists {
+        let t = tx(conn)?;
+        t.execute_batch("SELECT pg_advisory_xact_lock(7381003); CREATE EXTENSION IF NOT EXISTS pg_trgm")?;
+        t.commit()?;
     }
-    if v > latest_version() {
-        return Err(CoreError::new("db_too_new", "database was created by a newer version").with("version", v));
-    }
-    migrate(&conn)?;
-    Ok(conn)
+    conn.execute_batch(&format!("CREATE SCHEMA IF NOT EXISTS \"{schema}\""))?;
+    conn.use_schema(schema)?;
+    migrate(conn)
 }
 
-/// Opens an encrypted database without migrating (used to verify backups).
-pub fn open_readonly(path: &Path, key_hex: &str) -> Result<Connection> {
-    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
-    apply_key(&conn, key_hex)?;
-    conn.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0))?;
-    conn.create_collation("HU", hu_compare)?;
-    Ok(conn)
-}
-
-/// In-memory encrypted database for tests.
+/// Fresh throw-away tenant schema for tests (dropped with the connection).
 pub fn open_in_memory() -> Result<Connection> {
-    let conn = Connection::open_in_memory()?;
-    conn.pragma_update(None, "foreign_keys", "ON")?;
-    conn.create_collation("HU", hu_compare)?;
-    migrate(&conn)?;
+    let conn = Connection::connect(&database_url())?;
+    let schema = format!("test_{}", new_id().replace('-', ""));
+    open_tenant(&conn, &schema)?;
+    conn.set_temp_schema(true);
     Ok(conn)
 }
 
-/// Nestable transaction based on SAVEPOINTs: outside a transaction it acts
-/// like BEGIN, inside one (e.g. an import dry run) it nests. Rolls back on
-/// drop unless committed.
-pub struct Tx<'a> {
-    conn: &'a Connection,
-    name: String,
-    done: bool,
-}
-
-static TX_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
-pub fn tx(conn: &Connection) -> Result<Tx<'_>> {
-    let name = format!("sp{}", TX_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-    conn.execute_batch(&format!("SAVEPOINT {name}"))?;
-    Ok(Tx { conn, name, done: false })
-}
-
-impl Tx<'_> {
-    pub fn commit(mut self) -> Result<()> {
-        self.conn.execute_batch(&format!("RELEASE {}", self.name))?;
-        self.done = true;
-        Ok(())
+/// Refreshes planner statistics after a bulk load (import, sample data), so
+/// the next queries are not planned as if the tables were still empty.
+pub fn analyze(conn: &Connection) -> Result<()> {
+    if conn.in_transaction() {
+        return Ok(());
     }
-}
-
-impl std::ops::Deref for Tx<'_> {
-    type Target = Connection;
-    fn deref(&self) -> &Connection {
-        self.conn
-    }
-}
-
-impl Drop for Tx<'_> {
-    fn drop(&mut self) {
-        if !self.done {
-            let _ = self.conn.execute_batch(&format!("ROLLBACK TO {0}; RELEASE {0}", self.name));
-        }
-    }
+    conn.execute_batch("ANALYZE plots, plot_rows, sections, interment_events, deceased, persons, plot_holders, leases, notices, search_index")?;
+    Ok(())
 }
 
 pub fn user_version(conn: &Connection) -> Result<i64> {
-    Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS schema_version (version BIGINT NOT NULL)")?;
+    Ok(conn.query_row("SELECT coalesce(max(version), 0) FROM schema_version", [], |r| r.get(0))?)
 }
 
 pub fn migrate(conn: &Connection) -> Result<()> {
     let current = user_version(conn)?;
+    if current > latest_version() {
+        return Err(CoreError::new("db_too_new", "database was created by a newer version").with("version", current));
+    }
+    if current == latest_version() {
+        return Ok(());
+    }
+    // two requests may open a new tenant at once: serialise per schema
+    let t = tx(conn)?;
+    t.execute_batch("SELECT pg_advisory_xact_lock(7381002, hashtext(current_schema()))")?;
+    let current = user_version(&t)?;
     for (version, sql) in MIGRATIONS {
         if *version <= current {
             continue;
         }
-        let tx = conn.unchecked_transaction()?;
-        tx.execute_batch(sql)?;
+        t.execute_batch(sql)?;
         if *version == 1 {
-            seed_initial(&tx)?;
+            seed_initial(&t)?;
         }
-        tx.pragma_update(None, "user_version", version)?;
-        tx.commit()?;
+        t.execute("INSERT INTO schema_version (version) VALUES (?1)", params![version])?;
     }
+    t.commit()?;
     Ok(())
 }
 
@@ -179,33 +149,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn encrypted_file_requires_key() {
-        let dir = std::env::temp_dir().join(format!("lunda-test-{}", new_id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("db.sqlite");
-        let key = generate_key();
-        {
-            let c = open(&path, &key, |_, _| Ok(())).unwrap();
-            assert_eq!(user_version(&c).unwrap(), latest_version());
-            let n: i64 = c.query_row("SELECT count(*) FROM plot_types", [], |r| r.get(0)).unwrap();
-            assert!(n >= 10);
-        }
-        // the file must not be readable as plain SQLite
-        let bytes = std::fs::read(&path).unwrap();
-        assert!(!bytes.starts_with(b"SQLite format 3"));
-        // wrong key fails
-        let err = open(&path, &generate_key(), |_, _| Ok(())).unwrap_err();
-        assert_eq!(err.code, "db_key_invalid");
-        // correct key reopens
-        let c = open(&path, &key, |_, _| panic!("no migration expected")).unwrap();
-        let mode: String = c.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
-        assert_eq!(mode.to_lowercase(), "wal");
-        drop(c);
-        std::fs::remove_dir_all(dir).ok();
+    fn migrates_and_seeds() {
+        let c = open_in_memory().unwrap();
+        assert_eq!(user_version(&c).unwrap(), latest_version());
+        let n: i64 = c.query_row("SELECT count(*) FROM plot_types", [], |r| r.get(0)).unwrap();
+        assert!(n >= 10);
     }
 
     #[test]
-    fn trigram_fts_is_available() {
+    fn trigram_search_is_available() {
         let c = open_in_memory().unwrap();
         c.execute("INSERT INTO search_index(kind, ref_id, text) VALUES ('d','1','kovacs janos')", []).unwrap();
         let n: i64 = c.query_row("SELECT count(*) FROM search_index WHERE text LIKE '%vacs%'", [], |r| r.get(0)).unwrap();
@@ -216,12 +168,51 @@ mod tests {
     fn hu_collation_in_sql() {
         let c = open_in_memory().unwrap();
         let v: Vec<String> = c
-            .prepare("SELECT x FROM (SELECT 'Csonka' x UNION SELECT 'Cukor' UNION SELECT 'Dávid') ORDER BY x COLLATE HU")
+            .prepare(&format!("SELECT x FROM (VALUES ('Csonka'), ('Cukor'), ('Dávid')) t(x) ORDER BY x COLLATE {HU}"))
             .unwrap()
             .query_map([], |r| r.get(0))
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
         assert_eq!(v, vec!["Cukor", "Csonka", "Dávid"]);
+    }
+
+    #[test]
+    fn delete_is_forbidden() {
+        let c = open_in_memory().unwrap();
+        c.execute("INSERT INTO cemeteries (id, name, created_at, updated_at) VALUES ('c1', 'Teszt', 'now', 'now')", []).unwrap();
+        let e = c.execute("DELETE FROM cemeteries", []).unwrap_err();
+        assert!(e.to_string().contains("physical delete forbidden"), "{e}");
+    }
+
+    #[test]
+    fn cached_statements_follow_the_schema_switch() {
+        // One connection serving two tenants: a statement prepared for A must
+        // read B's table after switching (Postgres re-parses on search_path change).
+        let c = Connection::connect(&database_url()).unwrap();
+        let a = format!("test_{}", new_id().replace('-', ""));
+        let b = format!("test_{}", new_id().replace('-', ""));
+        open_tenant(&c, &a).unwrap();
+        c.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('who', '', 'A', 'now')", []).unwrap();
+        let q = "SELECT value FROM settings WHERE key = 'who'";
+        let v: String = c.query_row(q, [], |r| r.get(0)).unwrap();
+        assert_eq!(v, "A");
+        open_tenant(&c, &b).unwrap();
+        c.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('who', '', 'B', 'now')", []).unwrap();
+        let v: String = c.query_row(q, [], |r| r.get(0)).unwrap();
+        assert_eq!(v, "B");
+        c.use_schema(&a).unwrap();
+        let v: String = c.query_row(q, [], |r| r.get(0)).unwrap();
+        assert_eq!(v, "A");
+        c.execute_batch(&format!("DROP SCHEMA {a} CASCADE; DROP SCHEMA {b} CASCADE")).unwrap();
+    }
+
+    #[test]
+    fn tenants_are_isolated() {
+        let a = open_in_memory().unwrap();
+        let b = open_in_memory().unwrap();
+        a.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('x.only_a', '', 'a', 'now')", []).unwrap();
+        let n: i64 = b.query_row("SELECT count(*) FROM settings WHERE key = 'x.only_a'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
     }
 }

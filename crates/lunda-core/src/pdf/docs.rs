@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::sql::{params, OptionalExtension};
 use chrono::Datelike;
-use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -185,6 +185,7 @@ pub fn generate(store: &Store, s: &Session, doc: &str, args: &Value, out_dir: &P
         "notice_board" => notice_board(store, &op, &ids_arg(args, "plotIds"))?,
         "urn_receipt" => urn_receipt(store, &op, &s_arg(args, "eventId")?)?,
         "monument_permit" => monument_permit(store, &op, &s_arg(args, "monumentId")?)?,
+        "case_document" => case_document(store, &op, &s_arg(args, "caseId")?)?,
         "map" => map_doc(store, &op, &s_arg(args, "cemeteryId")?, Paper::parse(&opt_arg(args, "paper").unwrap_or_else(|| "A3".into())))?,
         "report_utilization" | "report_yearly" => report_doc(store, &op, doc, opt_arg(args, "cemeteryId").as_deref())?,
         _ => return Err(CoreError::new("bad_request", format!("unknown document {doc}"))),
@@ -211,6 +212,17 @@ pub fn generate(store: &Store, s: &Session, doc: &str, args: &Value, out_dir: &P
             (None, None)
         }
     };
+    if doc == "case_document" {
+        // FR-ENG-04: the issued document is kept unchanged with the case
+        let case_id = s_arg(args, "caseId")?;
+        let ts = now_ts();
+        store.conn.execute(
+            "INSERT INTO attachments (id, entity, entity_id, file_name, mime_type, sha256, content, created_at, created_by, updated_at, updated_by)
+             VALUES (?1, 'case', ?2, ?3, 'application/pdf', ?4, ?5, ?6, ?7, ?6, ?7)",
+            params![new_id(), case_id, file_name, sha, bytes, ts, s.user_name],
+        )?;
+        audit::record_simple(&store.conn, s, "case", &case_id, "issue", Some(&title))?;
+    }
     Ok(GeneratedFile { path: path.display().to_string(), file_name, pages: pages.len(), sha256: sha, content_hash, volume_id })
 }
 
@@ -913,6 +925,84 @@ fn monument_permit(store: &Store, op: &Operator, monument_id: &str) -> Result<(V
     let mut pages = l.pages;
     add_footers(&mut pages, 18.0 * MM, &op.name);
     Ok((pages, format!("Síremlék-engedély – {}", plot.identifier), None))
+}
+
+/// FR-ENG-01/04: the document of a case on the operator's letterhead. Which
+/// one depends on the state of the case: acknowledgement, request for missing
+/// documents, permit (decision), refusal, or the notice to a neglected plot.
+fn case_document(store: &Store, op: &Operator, case_id: &str) -> Result<(Vec<Page>, String, Option<(String, String)>)> {
+    type Row = (String, String, String, String, Option<String>, String, Option<String>, String, String, Option<String>);
+    let (number, kind, subject, applicant, plot, received, deadline, status, decision, contractor): Row = store
+        .conn
+        .query_row(
+            "SELECT k.case_number, k.kind, k.subject, k.applicant_name, p.identifier, k.received_on, k.deadline, k.status, k.decision, c.name
+             FROM cases k LEFT JOIN plots p ON p.id = k.plot_id LEFT JOIN contractors c ON c.id = k.contractor_id
+             WHERE k.id = ?1 AND k.voided_at IS NULL",
+            [case_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?)),
+        )
+        .optional()?
+        .ok_or_else(|| CoreError::not_found("case", case_id))?;
+    let kind_hu = match kind.as_str() {
+        "lease_contract" => "megváltási szerződés",
+        "renewal" => "újraváltás",
+        "monument_permit" => "síremlék-állítási engedély",
+        "monument_removal" => "síremlék elszállítása",
+        "exhumation" => "exhumálás",
+        "relocation" => "áthelyezés",
+        "ash_release" => "hamvak kiadása",
+        "holder_transfer" => "rendelkezési jog átruházása",
+        "neglect" => "gondozatlan temetési hely",
+        "complaint" => "panasz",
+        _ => "egyéb ügy",
+    };
+    let (title, body): (String, String) = match (kind.as_str(), status.as_str()) {
+        ("neglect", "received" | "missing_docs") => (
+            "Felszólítás a temetési hely rendbetételére".into(),
+            format!(
+                "A temetőbejárás során megállapítottuk, hogy a(z) {} jelű temetési hely gondozatlan. Felhívjuk, hogy a temetési helyet {} napig tegye rendbe. \
+                 Ha a felszólításnak nem tesz eleget, a temető rendje szerint intézkedünk.",
+                plot.clone().unwrap_or_default(),
+                deadline.as_deref().map(hu_date).unwrap_or_else(|| "a megadott határidő".into())
+            ),
+        ),
+        (_, "approved") => (format!("Határozat – {kind_hu}"), "Kérelmét megvizsgáltuk, és az alábbiak szerint engedélyezzük.".into()),
+        (_, "rejected") => (format!("Elutasító határozat – {kind_hu}"), "Kérelmét megvizsgáltuk, és az alábbi indokkal elutasítjuk.".into()),
+        (_, "missing_docs") => (
+            "Hiánypótlási felhívás".into(),
+            format!(
+                "Kérelmét átvettük, de az elbíráláshoz az alábbiak hiányoznak. Kérjük, pótolja őket {} napig.",
+                deadline.as_deref().map(hu_date).unwrap_or_else(|| "15".into())
+            ),
+        ),
+        (_, "closed") => (format!("Értesítés az ügy lezárásáról – {kind_hu}"), "Az ügyet lezártuk.".into()),
+        _ => ("Átvételi elismervény".into(), format!("Kérelmét {} napon átvettük és iktattuk. Az ügyintézésről értesítjük.", hu_date(&received))),
+    };
+    let mut l = Layout::a4(false);
+    letterhead(&mut l, op, &title);
+    let mut fields = vec![
+        ("Iktatószám", number.clone()),
+        ("Tárgy", subject),
+        ("Ügyfél", if applicant.is_empty() { contractor.clone().unwrap_or_default() } else { applicant }),
+    ];
+    if let Some(p) = &plot {
+        fields.push(("Temetési hely", p.clone()));
+    }
+    fields.push(("Beérkezett", hu_date(&received)));
+    if let Some(d) = &deadline {
+        fields.push(("Határidő", hu_date(d)));
+    }
+    l.fields(&fields, 11.0);
+    l.gap(10.0);
+    l.paragraph(10.5, FontKind::Sans, &body, BLACK);
+    if !decision.trim().is_empty() {
+        l.gap(6.0);
+        l.paragraph(10.5, FontKind::SansBold, &decision, BLACK);
+    }
+    l.signature(&place_date(op), &op.signer, &op.signer_title);
+    let mut pages = l.pages;
+    add_footers(&mut pages, 18.0 * MM, &op.name);
+    Ok((pages, format!("{title} – {}", number.replace('/', "-")), None))
 }
 
 // ---------------------------------------------------------------------------

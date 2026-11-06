@@ -89,7 +89,7 @@ impl Store {
         let year = t.year().to_string();
         let events_this_year: i64 = self.conn.query_row(
             "SELECT count(*) FROM interment_events WHERE voided_at IS NULL AND substr(event_date,1,4)=?1 AND (?2 IS NULL OR cemetery_id=?2)",
-            rusqlite::params![year, cemetery_id],
+            crate::params![year, cemetery_id],
             |r| r.get(0),
         )?;
         let deceased_total: i64 = self.conn.query_row("SELECT count(*) FROM deceased WHERE voided_at IS NULL", [], |r| r.get(0))?;

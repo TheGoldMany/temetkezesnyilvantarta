@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileUp, Keyboard, ShieldCheck } from "lucide-react";
 import { useApp } from "../../app/context";
-import { api, shell } from "../../lib/api";
+import { api } from "../../lib/api";
 import { Alert, Button, Checkbox, ErrorAlert, Field, PageHeader, Panel, Select } from "../../components/ui";
 import { useCurrentCemetery, useInvalidate, usePlotTypes } from "../../lib/queries";
 import { ExportButton } from "./ExportButton";
@@ -70,13 +70,6 @@ export function ImportExport() {
       setBusy(false);
     }
   };
-  const pick = async () => {
-    if (shell.isTauri) {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const f = await open({ multiple: false, filters: [{ name: "Excel / CSV", extensions: ["xlsx", "xls", "ods", "csv", "txt"] }] });
-      if (typeof f === "string") await load({ path: f });
-    }
-  };
   const onFile = (f: File | undefined) => {
     if (!f) return;
     const r = new FileReader();
@@ -129,17 +122,11 @@ export function ImportExport() {
             <div className="flex flex-col gap-4">
               <p className="text-granite">{t("io.importIntro")}</p>
               <div className="flex flex-wrap items-center gap-3">
-                {shell.isTauri ? (
-                  <Button variant="primary" icon={<FileUp className="size-5" aria-hidden />} busy={busy && !read} onClick={pick}>
-                    {t("io.pickFile")}
-                  </Button>
-                ) : (
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-seam bg-slab px-4 py-2 font-semibold">
-                    <FileUp className="size-5" aria-hidden />
-                    {t("io.pickFile")}
-                    <input type="file" accept=".xlsx,.xls,.ods,.csv,.txt" className="sr-only" data-testid="import-file" onChange={(e) => onFile(e.target.files?.[0])} />
-                  </label>
-                )}
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-seam bg-slab px-4 py-2 font-semibold">
+                  <FileUp className="size-5" aria-hidden />
+                  {t("io.pickFile")}
+                  <input type="file" accept=".xlsx,.xls,.ods,.csv,.txt" className="sr-only" data-testid="import-file" onChange={(e) => onFile(e.target.files?.[0])} />
+                </label>
                 {read && <span className="text-granite">{t("io.rows", { count: read.rowCount })}</span>}
                 {read && read.sheetNames.length > 1 && (
                   <Select

@@ -1,14 +1,98 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "echo 'static site – nothing to install'",
-  "buildCommand": "echo 'static site – nothing to build'",
-  "outputDirectory": "website",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm build:web",
+  "outputDirectory": "public",
   "cleanUrls": true,
+  "regions": [
+    "fra1"
+  ],
+  "functions": {
+    "api/rpc.rs": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/rpc",
+      "destination": "/api/rpc"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/rpc"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "/app/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "17 3 * * *"
+    }
+  ],
   "headers": [
     {
-      "source": "/(fonts|img)/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/((?!kereso).*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    },
+    {
+      "source": "/kereso(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors *"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
     }
   ]
 }

@@ -1,6 +1,26 @@
+# Root package: the Vercel Function (api/rpc.rs). Vercel's Rust runtime
+# builds the [[bin]] entries of the Cargo.toml in the project root.
+[package]
+name = "temisz-vercel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+lunda-core = { path = "crates/lunda-core" }
+temisz-server = { path = "crates/temisz-server", default-features = false }
+vercel_runtime = "2"
+tokio = { version = "1", features = ["full"] }
+http-body-util = "0.1"
+
+[[bin]]
+name = "rpc"
+path = "api/rpc.rs"
+
 [workspace]
 resolver = "2"
-members = ["crates/lunda-core", "crates/lunda-devserver", "src-tauri"]
+members = ["crates/lunda-core", "crates/temisz-server", "crates/temisz-desktop-import"]
 
 [workspace.package]
 version = "0.1.2"

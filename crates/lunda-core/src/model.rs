@@ -212,6 +212,9 @@ pub struct Deceased {
     pub authority_name: String,
     pub case_number: String,
     pub notes: String,
+    /// FR-UGY-02: kept out of the public grave search at the family's request
+    #[serde(default)]
+    pub hide_public: bool,
     pub voided_at: Option<String>,
 }
 
@@ -352,10 +355,30 @@ pub struct FeeRate {
     pub cemetery_id: String,
     pub plot_type_id: Option<String>,
     pub fee_kind: String,
+    /// net amount (VAT is added on invoicing according to `vat_rate`)
     pub amount_huf: i64,
     pub valid_from: String,
     pub valid_to: Option<String>,
     pub voided_at: Option<String>,
+    /// name on invoices; empty = the fee kind's name
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "default_unit")]
+    pub unit: String,
+    /// "27", "5", "0", "AAM" (tárgyi adómentes), "TAM" …
+    #[serde(default = "default_vat")]
+    pub vat_rate: String,
+    /// főkönyvi szám for the accounting export
+    #[serde(default)]
+    pub ledger_code: String,
+}
+
+fn default_unit() -> String {
+    "db".into()
+}
+
+fn default_vat() -> String {
+    "27".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

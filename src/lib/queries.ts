@@ -36,8 +36,15 @@ export function useCurrentCemetery() {
   return { current, list, setCemeteryId, isLoading: q.isLoading };
 }
 
-/** Invalidates everything after a write – the data set is local and small enough. */
+/**
+ * Invalidates everything after a write – the data set is small enough. The
+ * refetch runs in the background: a dialog closes at once instead of waiting
+ * for every query on the page (one slow request kept dialogs open).
+ */
 export function useInvalidate() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries();
+  return (): Promise<void> => {
+    void qc.invalidateQueries();
+    return Promise.resolve();
+  };
 }

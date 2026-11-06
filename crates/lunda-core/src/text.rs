@@ -209,6 +209,23 @@ pub fn sort_key(s: &str) -> String {
     out
 }
 
+/// 1234567 → "1 234 567" (non-breaking spaces, Hungarian grouping).
+pub fn thousands(n: i64) -> String {
+    let s = n.unsigned_abs().to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
+            out.push('\u{a0}');
+        }
+        out.push(ch);
+    }
+    if n < 0 {
+        format!("-{out}")
+    } else {
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

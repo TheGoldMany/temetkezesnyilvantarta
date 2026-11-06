@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TEMISZ – Temetőmenedzsment és Informatikai Szoftver</title>
-    <meta name="description" content="TEMISZ: temetőnyilvántartó program Windowsra és macOS-re. Nyilvántartó könyv, sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. Internet nélkül is működik." />
+    <meta name="description" content="TEMISZ: webes temetőnyilvántartó szolgáltatás. Nyilvántartó és sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. 30 napig ingyen." />
     <meta name="theme-color" content="#ecf0ec" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/instrument-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin />
@@ -13,7 +13,7 @@
   <body>
     <a class="skip" href="#tartalom">Ugrás a tartalomra</a>
     <header class="bar" id="bar">
-      <a class="wordmark" href="./" aria-label="TEMISZ kezdőlap">TEMISZ</a>
+      <a class="brand" href="./" aria-label="TEMISZ – Temetőmenedzsment és Informatikai Szoftver, kezdőlap"><span class="wordmark">TEMISZ</span><span class="brand-sub">Temetőmenedzsment és Informatikai Szoftver</span></a>
 
       <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path class="l1" d="M4 7h16" /><path class="l2" d="M4 12h16" /><path class="l3" d="M4 17h16" /></svg>
@@ -39,19 +39,20 @@
                 </ul>
                 <div class="mega-side">
                   <p class="mega-title">Kipróbálná?</p>
-                  <p>Telepítés után egy kitalált mintatemető tölthető be, így adatbevitel nélkül is körülnézhet.</p>
-                  <a class="btn btn-solid btn-sm" href="#letoltes">Letöltés</a>
-                  <a class="mega-link" href="#telepites">Telepítési útmutató</a>
+                  <p>30 napig ingyen, bankkártya nélkül. Egy kitalált mintatemetővel adatbevitel nélkül is körülnézhet.</p>
+                  <a class="btn btn-solid btn-sm" href="/app/#regisztracio">Kipróbálom ingyen</a>
+                  <a class="mega-link" href="#arak">Árak</a>
                 </div>
               </div>
             </div>
           </li>
           <li><a class="nav-top" href="#rogzites">Hogyan működik</a></li>
           <li><a class="nav-top" href="#biztonsag">Adatbiztonság</a></li>
-          <li><a class="nav-top" href="#telepites">Telepítés</a></li>
-          <li><a class="nav-top" href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Kiadások</a></li>
+          <li><a class="nav-top" href="#arak">Árak</a></li>
+          <li><a class="nav-top" href="#kerdesek">Kérdések</a></li>
+          <li><a class="nav-top" href="/app/">Belépés</a></li>
         </ul>
-        <a class="btn btn-solid btn-sm nav-cta" href="#letoltes">Letöltés</a>
+        <a class="btn btn-solid btn-sm nav-cta" href="/app/#regisztracio">Kipróbálom ingyen</a>
       </nav>
     </header>
 
@@ -63,13 +64,13 @@
           <h1>Az egész temető nyilvántartása egy programban</h1>
           <div class="hero-side">
             <p class="lead">
-              Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti.
+              Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti. Böngészőből működik, telepíteni nem kell.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-solid" id="hero-dl" href="#letoltes">Program letöltése</a>
+              <a class="btn btn-solid" href="/app/#regisztracio">Kipróbálom 30 napig ingyen</a>
               <a class="btn btn-quiet" href="#rogzites">Így működik</a>
             </div>
-            <p class="hero-note" id="hero-note">Windows és macOS, internet nélkül is. Mintatemetővel kipróbálható.</p>
+            <p class="hero-note">Bankkártya nélkül. Számítógépen, tableten és telefonon is.</p>
           </div>
         </div>
 
@@ -218,48 +219,57 @@
       </section>
 
       <section class="trust" id="biztonsag" aria-labelledby="biztonsag-h">
-        <h2 id="biztonsag-h">Az adatok a saját gépén maradnak</h2>
-        <p class="intro">A TEMISZ nem felhőszolgáltatás. Az adatbázis titkosítva a hivatal vagy a plébánia gépén van, hálózat csak a frissítéshez kell.</p>
+        <h2 id="biztonsag-h">Biztonság és adatvédelem</h2>
+        <p class="intro">A nyilvántartás személyes adatokat is tartalmaz. Úgy kezeljük, ahogy egy hivatal elvárja.</p>
         <dl class="trust-list">
-          <div><dt>Titkosított adatbázis</dt><dd>A gép elvesztése esetén sem olvasható. A helyreállító kulcsot papíron őrzi.</dd></div>
-          <div><dt>Napi mentés</dt><dd>Automatikusan, külső meghajtóra vagy hálózati mappába, ellenőrzőösszeggel. Visszaállítás új gépre is.</dd></div>
-          <div><dt>Változásnapló</dt><dd>Ki, mikor, mit módosított. A napló utólag nem írható át.</dd></div>
-          <div><dt>Felhasználók és jogok</dt><dd>Rendszergazda, ügyintéző, pénzügyes és olvasó szerepkör, automatikus kijelentkezés.</dd></div>
-          <div><dt>Jogszabálykövetés</dt><dd>Az 1999. évi XLIII. törvény és a 145/1999. Korm. rendelet szerinti nyilvántartás.</dd></div>
-          <div><dt>Kinek készült</dt><dd>Önkormányzatoknak, egyházközségeknek és temetőüzemeltetőknek, egy temetőtől akár többig.</dd></div>
+          <div><dt>Szerverek az Európai Unióban</dt><dd>Az adatok Frankfurtban vannak, titkosított kapcsolaton és titkosított tárolón.</dd></div>
+          <div><dt>Ügyfelenként elkülönítve</dt><dd>Minden fenntartó saját, elkülönített adatbázis-részt kap; más nem láthatja.</dd></div>
+          <div><dt>Folyamatos mentés</dt><dd>Bármely időpontra visszaállítható adatbázis és napi teljes export. Az adatok egy gombnyomással letölthetők.</dd></div>
+          <div><dt>Változásnapló</dt><dd>Ki, mikor, mit módosított. A napló utólag nem írható át, a hiteles könyvek ezt igazolják.</dd></div>
+          <div><dt>Kétlépcsős belépés</dt><dd>Szerepkörök, automatikus kijelentkezés; a rendszergazdáknak telefonos kód is kell.</dd></div>
+          <div><dt>Jogszabálykövetés</dt><dd>Az 1999. évi XLIII. törvény és a 145/1999. Korm. rendelet szerinti nyilvántartás, adatfeldolgozói szerződés.</dd></div>
         </dl>
       </section>
 
-      <section class="get" id="letoltes" aria-labelledby="letoltes-h">
-        <h2 id="letoltes-h">Letöltés</h2>
-        <p class="intro" id="release-line">A legfrissebb kiadás telepítői. Első indításkor egy kitalált mintatemető tölthető be, így adatbevitel nélkül is kipróbálhatja.</p>
-
-        <table class="dl" id="dl-table">
-          <thead><tr><th>Rendszer</th><th>Fájl</th><th class="r">Méret</th><th><span class="sr">Letöltés</span></th></tr></thead>
-          <tbody id="dl-body">
-            <tr><td colspan="4"><a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases/latest">A telepítők a kiadások oldalán érhetők el.</a></td></tr>
-          </tbody>
-        </table>
-        <p class="notice" id="no-release" hidden>
-          A telepítők most készülnek. Néhány perc múlva frissítse az oldalt, vagy nézze meg a
-          <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">kiadások listáját</a>.
-        </p>
-
-        <div class="install" id="telepites">
-          <div>
-            <h3>Windows 10 és 11</h3>
-            <p>Futtassa a letöltött <span class="file">-setup.exe</span> fájlt. Ha a „A Windows megvédte a számítógépet” ablak megjelenik, kattintson a „További információ”, majd a „Futtatás mindenképp” gombra.</p>
+      <section class="get" id="arak" aria-labelledby="arak-h">
+        <h2 id="arak-h">Árak</h2>
+        <p class="intro">Egy csomag, minden funkcióval. A díj csak a temetők számától függ, a felhasználók száma nem számít.</p>
+        <div class="price">
+          <div class="price-main">
+            <p class="price-label">Temetőnként</p>
+            <p class="price-amount">45&nbsp;000&nbsp;Ft <span>+ ÁFA / hó</span></p>
+            <p class="price-alt">vagy 450&nbsp;000&nbsp;Ft + ÁFA évente, ami 2 hónap ingyen</p>
+            <a class="btn btn-solid" href="/app/#regisztracio">Kipróbálom 30 napig ingyen</a>
+            <p class="price-note">A próbaidő végén dönt az előfizetésről. Fizetés átutalással, díjbekérő alapján.</p>
           </div>
-          <div>
-            <h3>macOS 12 vagy újabb</h3>
-            <p>Nyissa meg a <span class="file">.dmg</span> fájlt, és húzza a TEMISZ-t a Programok mappába. Első indításkor kattintson rá jobb gombbal, és válassza a „Megnyitás” lehetőséget.</p>
-          </div>
-          <div>
-            <h3>Első indítás</h3>
-            <p>Hozza létre a rendszergazda fiókot, adja meg a mentés helyét, és nyomtassa ki a helyreállító kulcsot.</p>
-          </div>
+          <ul class="price-list">
+            <li>Korlátlan felhasználó, szerepkörökkel</li>
+            <li>Nyilvántartó és sírbolt könyv, hiteles nyomtatás</li>
+            <li>Temetőtérkép, lejáratfigyelő, értesítő levelek</li>
+            <li>Excel- és CSV-import, átállás a régi TEMISZ-ből</li>
+            <li>Mentés, frissítések, e-mailes ügyfélszolgálat</li>
+          </ul>
         </div>
-        <p class="fine">A Windows és a macOS biztonsági figyelmeztetése a kódaláíró tanúsítvány beszerzéséig jelenik meg.</p>
+
+        <h3 class="start-h">Így kezdhet hozzá</h3>
+        <ol class="start">
+          <li><b>Regisztráció</b><span>A szervezet nevével és az e-mail-címével. Rögtön használhatja.</span></li>
+          <li><b>Adatok</b><span>Mintatemetővel körülnéz, vagy betölti a meglévő nyilvántartást Excelből.</span></li>
+          <li><b>Munkatársak</b><span>E-mailben meghívja a kollégákat, mindenki a saját fiókjával dolgozik.</span></li>
+        </ol>
+      </section>
+
+      <section class="faq" id="kerdesek" aria-labelledby="kerdesek-h">
+        <h2 id="kerdesek-h">Gyakori kérdések</h2>
+        <div class="faq-list">
+          <details><summary>Kell-e valamit telepíteni?</summary><p>Nem. A TEMISZ böngészőből működik (Chrome, Edge, Firefox, Safari), számítógépen, tableten és telefonon is. A frissítések automatikusak.</p></details>
+          <details><summary>Mi történik a próbaidő végén?</summary><p>Ha nem fizet elő, a fiók csak olvasható lesz: az adatok megmaradnak, nézhetők és letölthetők. Előfizetés után azonnal újra szerkeszthető.</p></details>
+          <details><summary>Hogyan fizethetek?</summary><p>Átutalással, díjbekérő alapján, havonta vagy évente. A befizetés után a számlát e-mailben küldjük.</p></details>
+          <details><summary>Több temetőt kezelünk. Mennyibe kerül?</summary><p>Temetőnként havi 45&nbsp;000&nbsp;Ft + ÁFA. Ha évközben új temetőt vesz fel, a program előre megmutatja a díj időarányos növekedését.</p></details>
+          <details><summary>A régi asztali TEMISZ-t használtuk. Átvihetők az adatok?</summary><p>Igen. A mentésfájlt és a kinyomtatott helyreállító kulcsot megadva a teljes nyilvántartás átkerül, a folyószámokkal és a változásnaplóval együtt.</p></details>
+          <details><summary>Ki fér hozzá az adatainkhoz?</summary><p>Csak az Ön által meghívott felhasználók. Mi adatfeldolgozóként kizárólag a szolgáltatás működtetéséhez kezeljük az adatokat, erről adatfeldolgozói szerződést kötünk.</p></details>
+          <details><summary>Ha megszüntetjük az előfizetést, mi lesz az adatokkal?</summary><p>Előtte bármikor letölthet mindent. A fiók megszüntetése után 30 napig kérésre visszaállítjuk, utána véglegesen töröljük.</p></details>
+        </div>
       </section>
     </main>
 
@@ -268,14 +278,16 @@
       <p>Temetőmenedzsment és Informatikai Szoftver</p>
       <p class="foot-links">
         <span>© 2026 Lunda Software</span>
-        <a href="https://github.com/thegoldmany/temetkezesnyilvantarta/releases">Kiadások</a>
-        <a href="https://github.com/thegoldmany/temetkezesnyilvantarta">Forráskód</a>
+        <a href="aszf.html">ÁSZF</a>
+        <a href="adatkezeles.html">Adatkezelés</a>
+        <a href="adatfeldolgozas.html">Adatfeldolgozói szerződés</a>
+        <a href="impresszum.html">Impresszum</a>
+        <a href="/app/">Belépés</a>
       </p>
     </footer>
 
     <script src="map.js" defer></script>
     <script src="nav.js" defer></script>
     <script src="tour.js" defer></script>
-    <script src="download.js" defer></script>
   </body>
 </html>

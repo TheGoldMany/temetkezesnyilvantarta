@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // End-to-end tests for the main user flows (UC-01, UC-02, UC-03, UC-05).
-// The UI runs against the real Rust core through the lunda-devserver bridge
-// (same commands as the desktop shell), on a fresh sample database.
+// The UI runs against the real TEMISZ server and Postgres (DATABASE_URL),
+// on a freshly created sample account.
 const PORT = 1430;
 
 export default defineConfig({
@@ -20,9 +20,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 950 } } }],
   webServer: {
-    command: `cargo run -q -p lunda-devserver -- --port ${PORT} --data target/e2e-data --reset --sample --static dist`,
+    command: `cargo run -q -p temisz-server -- --port ${PORT} --static dist --insecure-cookies --dev --reset-sample-account`,
     url: `http://127.0.0.1:${PORT}/`,
     timeout: 300_000,
     reuseExistingServer: false,
+    env: { SUPERADMIN_EMAILS: "admin@minta.temisz.hu" },
   },
 });

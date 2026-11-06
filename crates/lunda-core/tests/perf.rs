@@ -14,8 +14,7 @@ const LIMIT_MS: u128 = if cfg!(debug_assertions) { 1500 } else { 300 };
 fn encrypted_store() -> (Store, std::path::PathBuf) {
     let dir = std::env::temp_dir().join(format!("lunda-perf-{}", lunda_core::util::new_id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let conn = db::open(&dir.join("perf.db"), &db::generate_key(), |_, _| Ok(())).unwrap();
-    (Store::new(conn), dir)
+    (Store::new(db::open_in_memory().unwrap()), dir)
 }
 
 #[test]

@@ -242,10 +242,10 @@ export function StatusBadge({ status, protectedPlot }: { status: PlotStatus; pro
 
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: ReactNode }) {
   return (
-    <header className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b border-seam pb-5">
+    <header className="mb-5 sm:mb-7 flex flex-wrap items-end justify-between gap-4 border-b border-seam pb-5">
       <div className="min-w-0">
         {back}
-        <h1 className="text-3xl">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-granite">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-3">{actions}</div>}
@@ -263,7 +263,7 @@ export function Panel({ title, actions, children, className }: { title?: ReactNo
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       )}
-      <div className="rounded-xl border border-seam bg-slab px-5 py-4 shadow-[0_1px_2px_rgba(20,59,49,0.05)]">{children}</div>
+      <div className="overflow-x-auto rounded-xl border border-seam bg-slab px-4 py-4 sm:px-5 shadow-[0_1px_2px_rgba(20,59,49,0.05)]">{children}</div>
     </section>
   );
 }

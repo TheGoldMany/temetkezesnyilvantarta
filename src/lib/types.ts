@@ -14,7 +14,7 @@ export type EventType =
   | "common_grave";
 export const EVENT_TYPES: EventType[] = ["coffin_burial", "urn_placement", "reburial", "urn_release", "urn_removal", "ash_scattering", "relocation", "common_grave"];
 
-export type Role = "admin" | "clerk" | "finance" | "reader";
+export type Role = "admin" | "clerk" | "finance" | "reader" | "cashier" | "worker";
 export type Permission =
   | "manage_users"
   | "manage_settings"
@@ -22,6 +22,9 @@ export type Permission =
   | "record_events"
   | "record_leases"
   | "record_payments"
+  | "cash_desk"
+  | "operations"
+  | "complete_work"
   | "correct_entries"
   | "void_entries"
   | "view_personal"
@@ -38,6 +41,9 @@ export const PERMISSIONS: Permission[] = [
   "record_events",
   "record_leases",
   "record_payments",
+  "cash_desk",
+  "operations",
+  "complete_work",
   "correct_entries",
   "void_entries",
   "view_personal",
@@ -73,6 +79,26 @@ export interface AppStatus {
   dataDir: string;
   settings: Record<string, string>;
   backupWarning: boolean;
+  /** signed-in web account: verification, two-factor, trial */
+  account?: AccountInfo;
+}
+
+export interface AccountInfo {
+  email: string;
+  organization: string;
+  emailVerified: boolean;
+  totpEnabled: boolean;
+  totpRequired: boolean;
+  tenantStatus: "trial" | "active" | "read_only" | "closed";
+  trialEndsAt: string;
+  trialDaysLeft: number;
+  superadmin?: boolean;
+}
+
+/** First sign-in step answer when an authenticator code is needed. */
+export interface MfaChallenge {
+  mfa: true;
+  challenge: string;
 }
 
 export interface Cemetery {
@@ -235,6 +261,7 @@ export interface Deceased {
   authorityName: string;
   caseNumber: string;
   notes: string;
+  hidePublic?: boolean;
   voidedAt?: string | null;
 }
 
@@ -363,6 +390,10 @@ export interface FeeRate {
   validFrom: string;
   validTo: string | null;
   voidedAt: string | null;
+  name: string;
+  unit: string;
+  vatRate: string;
+  ledgerCode: string;
 }
 
 export interface Occupant {

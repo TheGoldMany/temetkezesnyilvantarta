@@ -15,12 +15,16 @@ import {
   LogOut,
   Search,
   ArrowLeft,
+  Building2,
+  Wallet,
+  ClipboardList,
 } from "lucide-react";
 import { useApp, type Route } from "./context";
 import { api, shell } from "../lib/api";
 import type { SearchHit } from "../lib/types";
 import { cx, Plaque } from "../components/ui";
 import { useCurrentCemetery } from "../lib/queries";
+import { AccountBanners } from "../features/account/Security";
 
 const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "dashboard", key: "nav.dashboard", icon: Home },
@@ -29,6 +33,8 @@ const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
   { view: "map", key: "nav.map", icon: MapIcon },
   { view: "persons", key: "nav.persons", icon: Users },
   { view: "expiries", key: "nav.expiries", icon: CalendarClock },
+  { view: "operations", key: "nav.operations", icon: ClipboardList },
+  { view: "finance", key: "nav.finance", icon: Wallet },
   { view: "prints", key: "nav.prints", icon: Printer },
   { view: "reports", key: "nav.reports", icon: BarChart3 },
   { view: "importExport", key: "nav.importExport", icon: ArrowDownUp },
@@ -45,7 +51,7 @@ const SECTION_OF: Partial<Record<Route["view"], Route["view"]>> = {
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { status, nav, setStatus } = useApp();
+  const { status, nav, setStatus, can } = useApp();
   const active = SECTION_OF[nav.route.view] ?? nav.route.view;
   const { current, list, setCemeteryId } = useCurrentCemetery();
 
@@ -71,9 +77,12 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col">
       {/* Top bar, as in the website's program window: identity, search, user; then the section tabs. */}
       <header className="no-print shrink-0 border-b border-seam bg-slab">
-        <div className="flex h-16 items-center gap-5 px-6">
-          <p className="flex shrink-0 items-baseline gap-3">
-            <span className="wordmark text-[1.375rem] text-moss">{t("app.name")}</span>
+        <div className="flex h-16 items-center gap-3 px-4 sm:gap-5 sm:px-6">
+          <div className="flex shrink-0 items-center gap-4">
+            <p className="flex flex-col gap-0.5" title={t("app.tagline")}>
+              <span className="wordmark text-[1.625rem] text-moss sm:text-[1.875rem]">{t("app.name")}</span>
+              <span className="hidden text-[0.625rem] leading-none font-semibold tracking-wide text-granite sm:block">{t("app.tagline")}</span>
+            </p>
             {list.length > 1 ? (
               <select
                 aria-label={t("common.cemetery")}
@@ -88,9 +97,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 ))}
               </select>
             ) : (
-              <span className="hidden max-w-64 truncate text-sm text-granite md:inline">{current?.name}</span>
+              <span className="hidden max-w-64 truncate border-l border-seam pl-4 text-sm text-granite md:inline">{current?.name}</span>
             )}
-          </p>
+          </div>
           {nav.canGoBack && (
             <button type="button" onClick={nav.back} className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-md px-2 text-granite hover:bg-limestone hover:text-slate" aria-label={t("nav.back")}>
               <ArrowLeft className="size-5" aria-hidden />
@@ -119,7 +128,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4">
           <ul className="flex min-w-max">
-            {NAV.map((n) => {
+            {[...NAV.filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
               return (
@@ -142,7 +151,8 @@ export function Shell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-10">
+      <AccountBanners />
+      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
         <div className="mx-auto max-w-[1320px]">{children}</div>
       </main>
     </div>
@@ -224,9 +234,9 @@ function QuickSearch() {
             setOpen(false);
           }
         }}
-        className="min-h-11 w-full rounded-lg border border-transparent bg-limestone pr-20 pl-10 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
+        className="min-h-11 w-full rounded-lg border border-transparent bg-limestone pr-3 pl-10 sm:pr-20 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
       />
-      <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
+      <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border sm:block border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
       {open && debounced.length >= 2 && (
         <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-seam bg-slab py-2 shadow-[0_20px_40px_-20px_rgba(20,59,49,0.35)]">
           {flat.length === 0 && !isFetching && <p className="px-4 py-3 text-granite">{t("search.noResults", { q: debounced })}</p>}

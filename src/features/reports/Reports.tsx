@@ -7,6 +7,7 @@ import { fmtNum } from "../../lib/format";
 import { useCurrentCemetery } from "../../lib/queries";
 import { PrintButton } from "../prints/PrintButton";
 import { ExportButton } from "../io/ExportButton";
+import { AnnualReport } from "./AnnualReport";
 
 interface UtilRow {
   cemeteryName: string;
@@ -31,6 +32,7 @@ export function Reports() {
     <>
       <PageHeader title={t("reports.title")} subtitle={current?.name} />
       <div className="flex flex-col gap-6">
+        <AnnualReport cemeteryId={current?.id ?? null} />
         <Panel
           title={t("reports.utilization")}
           actions={

@@ -94,7 +94,15 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
 
         // ---- leases
         "leases.propose" => ok(store.propose_lease(&arg::<String>(a, "plotId")?, &arg::<String>(a, "kind")?, opt::<String>(a, "start")?.as_deref())?),
-        "leases.create" => ok(store.create_lease(s, &arg(a, "input")?)?),
+        "leases.create" => {
+            let lease = store.create_lease(s, &arg(a, "input")?)?;
+            // FR-PEN-02: the fee becomes an item to invoice
+            if s.can(Permission::RecordPayments) {
+                let cem: String = store.conn.query_row("SELECT cemetery_id FROM plots WHERE id = ?1", crate::params![lease.plot_id], |r| r.get(0))?;
+                store.charge_for_lease(s, &lease, &cem)?;
+            }
+            ok(lease)
+        }
         "leases.cancel" => ok(store.cancel_lease(s, &arg::<String>(a, "id")?, &arg::<String>(a, "cancelDate")?, opt::<String>(a, "reason")?.as_deref())?),
         "leases.void" => {
             store.void_lease(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
@@ -159,10 +167,156 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
                 opt(a, "beforeSeq")?,
             )?)
         }
+        // ---- finance (W7)
+        "finance.status" => ok(store.finance_status()?),
+        "finance.setAgentKey" => {
+            store.set_szamlazz_key(s, &arg::<String>(a, "key")?)?;
+            ok(store.finance_status()?)
+        }
+        "charges.list" => {
+            ok(store.list_charges(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "personId")?.as_deref())?)
+        }
+        "charges.add" => ok(store.add_charge(s, &arg(a, "charge")?)?),
+        "charges.void" => {
+            store.void_charge(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "invoices.list" => ok(store.list_invoices(
+            &arg::<String>(a, "cemeteryId")?,
+            opt::<String>(a, "status")?.as_deref(),
+            opt::<bool>(a, "overdueOnly")?.unwrap_or(false),
+        )?),
+        "invoices.get" => {
+            let id = arg::<String>(a, "id")?;
+            ok(json!({ "invoice": store.get_invoice(&id)?, "lines": store.invoice_lines(&id)? }))
+        }
+        "invoices.create" => ok(store.create_invoice(s, &arg(a, "invoice")?)?),
+        "invoices.aspNumber" => ok(store.record_asp_number(s, &arg::<String>(a, "id")?, &arg::<String>(a, "number")?)?),
+        "invoices.storno" => ok(store.storno_invoice(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?),
+        "invoices.reminder" => ok(store.record_reminder(s, &arg::<String>(a, "id")?, &arg::<String>(a, "channel")?)?),
+        "invoices.pdf" => {
+            s.require(Permission::Print)?;
+            let (number, pdf) = store.invoice_pdf(&arg::<String>(a, "id")?)?;
+            use base64::Engine;
+            ok(
+                json!({ "fileName": format!("{}.pdf", number.replace('/', "-")), "path": "", "pages": 1, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(pdf) }),
+            )
+        }
+        "payments.list" => ok(store.list_payments(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "payments.record" => ok(store.record_payment(s, &arg(a, "payment")?)?),
+        "payments.void" => {
+            store.void_payment(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "cash.day" => ok(store.cash_day(s, &arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "date")?)?),
+        "cash.add" => ok(store.add_cash_entry(
+            s,
+            &arg::<String>(a, "cemeteryId")?,
+            opt::<String>(a, "date")?.as_deref(),
+            &arg::<String>(a, "kind")?,
+            arg::<i64>(a, "amountHuf")?,
+            &arg::<String>(a, "partnerName")?,
+            &arg::<String>(a, "description")?,
+        )?),
+        "cash.close" => ok(store.close_cash_day(
+            s,
+            &arg::<String>(a, "cemeteryId")?,
+            &arg::<String>(a, "date")?,
+            arg::<i64>(a, "countedHuf")?,
+            &opt::<String>(a, "note")?.unwrap_or_default(),
+        )?),
+        "bank.import" => ok(store.import_bank_csv(s, &arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "fileName")?, &arg::<String>(a, "content")?)?),
+        "bank.list" => ok(store.list_bank(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref())?),
+        "bank.match" => {
+            store.match_bank(s, &arg::<String>(a, "id")?, opt::<String>(a, "invoiceId")?.as_deref())?;
+            ok(true)
+        }
+        "receivables.list" => ok(store.receivables(&arg::<String>(a, "cemeteryId")?)?),
+        "finance.revenue" => {
+            s.require(Permission::RecordPayments)?;
+            ok(store.revenue_report(opt::<String>(a, "cemeteryId")?.as_deref(), &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?)
+        }
+        // ---- operations (W8–W11)
+        "facilities.list" => ok(store.list_facilities(&arg::<String>(a, "cemeteryId")?)?),
+        "facilities.save" => ok(store.save_facility(s, &arg(a, "facility")?)?),
+        "facilities.void" => {
+            store.void_facility(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "contractors.list" => ok(store.list_contractors(opt(a, "includeVoided")?.unwrap_or(false))?),
+        "contractors.save" => ok(store.save_contractor(s, &arg(a, "contractor")?)?),
+        "contractors.account" => ok(store.contractor_account(s, &arg::<String>(a, "id")?)?),
+        "contractors.void" => {
+            store.void_contractor(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "bookings.list" => ok(store.list_bookings(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "bookings.get" => ok(store.get_booking(&arg::<String>(a, "id")?)?),
+        "bookings.save" => ok(store.save_booking(s, &arg(a, "booking")?)?),
+        "bookings.status" => ok(store.set_booking_status(
+            s,
+            &arg::<String>(a, "id")?,
+            &arg::<String>(a, "status")?,
+            opt::<String>(a, "reason")?.as_deref(),
+            opt::<String>(a, "eventId")?.as_deref(),
+        )?),
+        "workNotices.list" => ok(store.list_work_notices(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        "workNotices.add" => ok(store.add_work_notice(s, &arg(a, "notice")?)?),
+        "workOrders.list" => {
+            ok(store.list_work_orders(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "assignee")?.as_deref())?)
+        }
+        "workOrders.save" => ok(store.save_work_order(s, &arg(a, "order")?)?),
+        "workOrders.complete" => ok(store.complete_work_order(s, &arg::<String>(a, "id")?, &opt::<String>(a, "note")?.unwrap_or_default())?),
+        "workOrders.cancel" => ok(store.cancel_work_order(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?),
+        "cases.list" => {
+            ok(store.list_cases(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "plotId")?.as_deref())?)
+        }
+        "cases.get" => ok(store.case_detail(&arg::<String>(a, "id")?)?),
+        "cases.create" => ok(store.create_case(s, &arg(a, "case")?)?),
+        "cases.update" => ok(store.update_case(s, &arg::<String>(a, "id")?, &arg(a, "update")?)?),
+        "cases.void" => {
+            store.void_case(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "attachments.list" => ok(store.list_attachments(&arg::<String>(a, "entity")?, &arg::<String>(a, "entityId")?)?),
+        "attachments.add" => ok(store.add_attachment(
+            s,
+            &arg::<String>(a, "entity")?,
+            &arg::<String>(a, "entityId")?,
+            &arg::<String>(a, "fileName")?,
+            &opt::<String>(a, "mimeType")?.unwrap_or_default(),
+            &arg::<String>(a, "content")?,
+        )?),
+        "attachments.get" => {
+            let (name, mime, data) = store.get_attachment(&arg::<String>(a, "id")?)?;
+            use base64::Engine;
+            ok(
+                json!({ "fileName": name, "mimeType": mime, "path": "", "pages": 0, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(data) }),
+            )
+        }
+        "attachments.void" => {
+            store.void_attachment(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
+            ok(true)
+        }
+        "conditions.record" => ok(store.record_condition(s, &arg(a, "condition")?)?),
+        "conditions.list" => ok(store.list_conditions(&arg::<String>(a, "cemeteryId")?, opt(a, "problemsOnly")?.unwrap_or(false))?),
+        "conditions.plot" => ok(store.plot_conditions(&arg::<String>(a, "plotId")?)?),
+        "operations.agenda" => ok(store.agenda(&arg::<String>(a, "cemeteryId")?, &arg::<String>(a, "from")?, &arg::<String>(a, "to")?)?),
+        // ---- maintainer reports, notices, public search (W12)
+        "reports.annual" => ok(store.annual_report(s, opt::<String>(a, "cemeteryId")?.as_deref(), arg::<i32>(a, "year")?)?),
+        "reports.capacity" => ok(store.capacity(opt::<String>(a, "cemeteryId")?.as_deref())?),
+        "notices.emailPrepare" => ok(store.expiry_mails(s, &arg::<Vec<String>>(a, "plotIds")?)?),
+        "invoices.reminderMail" => ok(store.reminder_mail(s, &arg::<String>(a, "id")?)?),
+        "deceased.setPublic" => {
+            store.set_deceased_public(s, &arg::<String>(a, "id")?, arg::<bool>(a, "hidden")?)?;
+            ok(true)
+        }
         "audit.verify" => ok(audit::verify_chain(&store.conn)?),
         "sample.load" => {
             s.require(Permission::ManageSettings)?;
-            ok(crate::sample::load_sample(store, s)?)
+            let r = crate::sample::load_sample(store, s)?;
+            crate::db::analyze(&store.conn)?;
+            ok(r)
         }
         "session.permissions" => ok(json!({ "role": s.role, "permissions": s.permissions })),
         _ => Err(CoreError::new("unknown_method", format!("unknown method {method}")).with("method", method)),

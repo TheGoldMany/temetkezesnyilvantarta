@@ -3,7 +3,7 @@
 **Döntések (2026. november 5.):**
 
 - **Ár:** létrehozott temetőnként havi 45 000 Ft + ÁFA, vagy éves 450 000 Ft + ÁFA temetőnként.
-- **Fizetés:** bankkártyával és átutalással (díjbekérő alapján) is.
+- **Fizetés:** átutalással, díjbekérő alapján; a befizetéseket a bankszámlakivonatból párosítja a program. (A bankkártyás fizetés kimaradt; ha kell, Barionnal.)
 - **Számlázás:** Számlázz.hu.
 - **Domain:** temisz.hu.
 - **Tárhely:** Vercel, később esetleg Nethely.
@@ -53,7 +53,6 @@ Költség induláskor: Vercel Pro (20 USD/hó), Neon (0–19 USD/hó), Resend (0
 2. **30 nap teljes hozzáférés.** A mintatemető egy kattintással betölthető. A 23. és a 28. napon e-mail-emlékeztető megy.
 3. **Lejárat után, ha nincs előfizetés:** a fiók csak olvasható lesz, az adatok letölthetők. 60 nap után előzetes értesítés, majd törlés.
 4. **Előfizetés:** temetőnként havi 45 000 Ft + ÁFA, vagy éves 450 000 Ft + ÁFA. A díj a fiókban létrehozott, aktív temetők számától függ, a felhasználók száma nem számít. Új temető felvételekor a díj időarányosan nő. A program a temető létrehozása előtt megmutatja, mennyivel. Két fizetési mód:
-   - bankkártyás fizetés havonta vagy évente (Stripe, ismétlődő terheléssel);
    - átutalás díjbekérő alapján, havi vagy éves díjjal. Önkormányzatoknál és plébániáknál ez a szokásos.
 5. **Számla:** a TEMISZ saját Számlázz.hu-fiókjából, a Számla Agent API-n át, automatikusan. Kártyás fizetésnél a sikeres terhelés után, átutalásnál a díjbekérő kifizetésekor.
 
@@ -108,3 +107,20 @@ A webes alap (W1–W6) nagyjából 6–8 hét, a teljes üzemeltetői kör tová
 1. **Fenntartói modulok:** teljes-e az [FRS-UZEMELTETES.md](FRS-UZEMELTETES.md) listája, és mi a sorrend?
 2. **Az ügyfelek saját számlázása:** az önkormányzatok többsége a gazdálkodást az Önkormányzati ASP-ben végzi, és onnan számláz. Ott a TEMISZ a díjat előkészíti és exportálja, a számlát az ASP állítja ki. Egyházközségek és cégek a saját Számlázz.hu-fiókjukkal számlázhatnak közvetlenül a TEMISZ-ből. Ez így megfelel?
 3. **Jogi szövegek:** ki készíti, illetve nézi át őket?
+
+## 10. Állapot (2026. november)
+
+| Szakasz | Állapot |
+| --- | --- |
+| W1–W6 | Kész: Postgres, ügyfelenkénti séma, fiókok, kétlépcsős azonosítás, próbaidő és előfizetés (átutalás, kivonat-párosítás), Számlázz.hu, export és visszaállítás, asztali mentés betöltése, telefonos nézet, weboldal, Vercel-telepítés, jogi tervezetek. |
+| W7 | Kész: díjtételek, tételek, számla a temető saját Számlázz.hu-fiókjával vagy ASP-előkészítés, sztornó, befizetések, házipénztár hézagmentes bizonylatszámmal és napi zárással, banki CSV párosítás, kintlévőség, bevételi kimutatás, könyvelési és ASP-export, pénztáros szerepkör. |
+| W8–W11 | Kész: helyiségek és temetési naptár ütközésvizsgálattal, sírásási munkalap a foglalásból, ismétlődő munkalapok, temetői dolgozó szerepkör (telefonon lezárás fényképpel), vállalkozók engedélyekkel, munkavégzési bejelentés a temetőfenntartási hozzájárulással, ügyiratok hézagmentes iktatószámmal, határidővel, döntéssel, mellékletekkel és előzményekkel, temetőbejárás fényképpel, gondozatlan sírhely eljárása. |
+| W12 | Kész: éves beszámoló a fenntartónak (Excel is), kapacitás-előrejelzés, lejárati értesítő és fizetési emlékeztető e-mailben kézbesítési naplóval, nyilvános sírkereső beágyazó kóddal és az elhunytak elrejtésével. |
+
+Később elkészült: a naptári foglalásból indítható temetésrögzítés (FR-SZE-02), a vállalkozónkénti forgalom és összesítő számla (FR-VAL-03), az ügyiratok nyomtatványai a temető fejlécével, a kiadott példány megőrzésével (FR-ENG-01/04).
+
+**Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
+
+- FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).
+- FR-UZE-04, FR-FEN-04, FR-UGY-03 („C”, később).
+

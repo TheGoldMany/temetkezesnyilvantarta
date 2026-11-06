@@ -1,0 +1,36 @@
+[package]
+name = "temisz-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "TEMISZ web server: sessions, tenants and the core API over HTTP"
+publish = false
+
+[dependencies]
+lunda-core = { path = "../lunda-core" }
+serde_json = "1"
+base64 = "0.22"
+rand = "0.8"
+hex = "0.4"
+tiny_http = "0.12"
+ureq = "3"
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+serde = { version = "1.0.229", features = ["derive"] }
+chrono = "0.4"
+
+temisz-desktop-import = { path = "../temisz-desktop-import", optional = true }
+
+[features]
+default = ["desktop-import"]
+# loading backups of the retired desktop app (builds SQLCipher with OpenSSL)
+desktop-import = ["dep:temisz-desktop-import"]
+
+[[bin]]
+name = "temisz-server"
+path = "src/bin/temisz-server.rs"
+
+[dev-dependencies]
+rusqlite = { version = "0.41", features = ["bundled-sqlcipher-vendored-openssl", "collation"] }

@@ -119,3 +119,42 @@ fn full_export_formats() {
     assert!(lunda_core::io::export(&fx.store, &reader, "report_yearly", "xlsx", &serde_json::json!({}), &dir).is_ok());
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// Loads the generated test cemetery (scripts/gen-test-cemetery.py) and
+/// reports speed and rejected rows. Run with
+/// `TEST_CSV=path cargo test -p lunda-core --release --test import big_test_cemetery -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn big_test_cemetery() {
+    let Ok(dir) = std::env::var("TEST_CSV") else { return };
+    let fx = fixture();
+    let mut files: Vec<_> =
+        std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().map(|e| e == "csv").unwrap_or(false)).collect();
+    files.sort();
+    for f in files {
+        let t = read_csv(&std::fs::read(&f).unwrap()).unwrap();
+        let mapping = guess_mapping(&t.headers);
+        let t0 = std::time::Instant::now();
+        let rep = import_rows(&fx.store, &fx.admin, &t, &ImportOptions { skip_invalid: true, ..options(&fx, false, true, &t.headers) }).unwrap();
+        let mut by_code = std::collections::BTreeMap::new();
+        for e in &rep.errors {
+            *by_code.entry(e.code.clone()).or_insert(0) += 1;
+        }
+        println!(
+            "{}: {} rows, {} ok, {} failed {:?}, {} plots, {:.1}s, mapping {} fields",
+            f.display(),
+            rep.rows_total,
+            rep.rows_ok,
+            rep.rows_failed,
+            by_code,
+            rep.plots_created,
+            t0.elapsed().as_secs_f64(),
+            mapping.len()
+        );
+        for e in rep.errors.iter().take(5) {
+            println!("  row {}: {} {} {}", e.row, e.field, e.code, e.message);
+        }
+    }
+    let n: i64 = fx.store.conn.query_row("SELECT count(*) FROM leases", [], |r| r.get(0)).unwrap();
+    println!("leases: {n}");
+}

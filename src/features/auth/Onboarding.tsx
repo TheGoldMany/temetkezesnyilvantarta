@@ -4,18 +4,21 @@ import { useApp } from "../../app/context";
 import { api } from "../../lib/api";
 import { Alert, Button, ErrorAlert, TextField, cx } from "../../components/ui";
 
-/** First-start wizard (FR-BEA-04): operator, backup folder, recovery key, sample data. */
+/** First sign-in wizard (FR-BEA-04): operator details, then optional sample data. */
 export function Onboarding() {
   const { t } = useTranslation();
-  const { refresh } = useApp();
+  const { refresh, status } = useApp();
   const [step, setStep] = useState(0);
-  const [values, setValues] = useState({ "operator.name": "", "operator.address": "", "signer.name": "", "signer.title": "temetőgondnok", "backup.directory": "" });
-  const [key, setKey] = useState<string | null>(null);
-  const [keyStored, setKeyStored] = useState(false);
+  const [values, setValues] = useState({
+    "operator.name": status?.settings["operator.name"] ?? "",
+    "operator.address": status?.settings["operator.address"] ?? "",
+    "signer.name": status?.settings["signer.name"] || status?.session?.displayName || "",
+    "signer.title": status?.settings["signer.title"] || "temetőgondnok",
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [sample, setSample] = useState<{ plots: number; events: number } | null>(null);
-  const steps = [t("onboarding.step1"), t("onboarding.step2"), t("onboarding.step3"), t("onboarding.step4")];
+  const steps = [t("onboarding.step1"), t("onboarding.step4")];
   const set = (k: keyof typeof values) => (v: string) => setValues((s) => ({ ...s, [k]: v }));
 
   const run = async (fn: () => Promise<void>) => {
@@ -33,10 +36,6 @@ export function Onboarding() {
   const next = () =>
     run(async () => {
       if (step === 0) await api("settings.set", { values: { "operator.name": values["operator.name"], "operator.address": values["operator.address"], "signer.name": values["signer.name"], "signer.title": values["signer.title"] } });
-      if (step === 1) {
-        await api("settings.set", { values: { "backup.directory": values["backup.directory"] } });
-        setKey(await api<string>("backup.recoveryKey"));
-      }
       setStep((s) => s + 1);
     });
 
@@ -72,27 +71,6 @@ export function Onboarding() {
           )}
           {step === 1 && (
             <>
-              <p className="text-granite">{t("onboarding.step2Intro")}</p>
-              <TextField label={t("backup.dir")} value={values["backup.directory"]} onChange={set("backup.directory")} hint={t("onboarding.backupDirHint")} />
-            </>
-          )}
-          {step === 2 && key && (
-            <>
-              <p className="text-granite">{t("onboarding.step3Intro")}</p>
-              <p className="rounded-md border-2 border-dashed border-seam bg-limestone px-4 py-4 text-center font-mono text-lg tracking-wide break-all" data-testid="recovery-key">
-                {key}
-              </p>
-              <div className="flex gap-3">
-                <Button onClick={() => window.print()}>{t("onboarding.printKey")}</Button>
-              </div>
-              <label className="flex items-center gap-3 font-semibold">
-                <input type="checkbox" className="size-5 accent-[var(--c-slate)]" checked={keyStored} onChange={(e) => setKeyStored(e.target.checked)} />
-                {t("onboarding.keyStored")}
-              </label>
-            </>
-          )}
-          {step === 3 && (
-            <>
               <p className="text-granite">{t("onboarding.step4Intro")}</p>
               {sample ? (
                 <Alert tone="ok">{t("onboarding.sampleLoaded", sample)}</Alert>
@@ -117,8 +95,8 @@ export function Onboarding() {
             <Button variant="quiet" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
               {t("common.previous")}
             </Button>
-            {step < 3 ? (
-              <Button variant="primary" busy={busy} onClick={next} disabled={step === 2 && !keyStored}>
+            {step < 1 ? (
+              <Button variant="primary" busy={busy} onClick={next}>
                 {t("common.next")}
               </Button>
             ) : (

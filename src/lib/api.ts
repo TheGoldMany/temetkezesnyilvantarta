@@ -1,9 +1,7 @@
-// Transport to the Rust core: Tauri IPC in the desktop app, HTTP bridge
-// (lunda-devserver) in a plain browser during development and E2E tests.
+// Transport to the TEMISZ server: JSON over POST /rpc. The session is an
+// HttpOnly cookie set by the server, so no token is handled here.
 
-import type { AppStatus, CoreError } from "./types";
-
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+import type { AppStatus, CoreError, MfaChallenge } from "./types";
 
 export class ApiError extends Error {
   code: string;
@@ -20,17 +18,15 @@ export function setSessionExpiredHandler(fn: () => void) {
   onSessionExpired = fn;
 }
 
-async function command<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+export async function command<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
-    if (isTauri) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      return await invoke<T>(cmd, args);
-    }
     const res = await fetch("/rpc", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cmd, args }),
     });
+    if (!res.ok) throw { code: res.status === 403 ? "forbidden" : "transport", message: `HTTP ${res.status}` };
     const body = await res.json();
     if (body.err) throw body.err;
     return body.ok as T;
@@ -46,15 +42,26 @@ async function command<T>(cmd: string, args: Record<string, unknown> = {}): Prom
 
 export const shell = {
   status: () => command<AppStatus>("app_status"),
-  setupAdmin: (username: string, displayName: string, password: string) =>
-    command<AppStatus>("setup_admin", { username, displayName, password }),
-  login: (username: string, password: string) => command<AppStatus>("login", { username, password }),
+  register: (organization: string, name: string, email: string, password: string) =>
+    command<AppStatus>("register", { organization, name, email, password }),
+  login: (email: string, password: string) => command<AppStatus | MfaChallenge>("login", { username: email, password }),
+  loginMfa: (challenge: string, code: string) => command<AppStatus>("login_mfa", { challenge, code }),
   logout: () => command<AppStatus>("logout"),
   touch: () => command<void>("touch"),
-  restoreFresh: (path: string, recoveryKey: string) => command<AppStatus>("restore_fresh", { path, recoveryKey }),
-  backupBeforeUpdate: () => command<void>("backup_before_update"),
-  isTauri,
+  verifyEmail: (token: string) => command<AppStatus>("verify_email", { token }),
+  resendVerification: () => command<void>("resend_verification"),
+  forgotPassword: (email: string) => command<void>("forgot_password", { email }),
+  resetPassword: (token: string, password: string) => command<AppStatus | MfaChallenge>("reset_password", { token, password }),
+  acceptInvite: (token: string, name: string, password: string) => command<AppStatus | MfaChallenge>("accept_invite", { token, name, password }),
+  totpSetup: () => command<{ secret: string; uri: string; qrSvg: string }>("totp_setup"),
+  totpEnable: (code: string) => command<{ recoveryCodes: string[] }>("totp_enable", { code }),
+  totpDisable: (password: string) => command<void>("totp_disable", { password }),
+  userSendLink: (id: string) => command<void>("user_send_link", { id }),
 };
+
+export function isMfa(x: AppStatus | MfaChallenge): x is MfaChallenge {
+  return (x as MfaChallenge).mfa === true;
+}
 
 /** Calls a core API method (see crates/lunda-core/src/api.rs). */
 export function api<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {

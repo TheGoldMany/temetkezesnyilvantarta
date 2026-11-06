@@ -15,7 +15,7 @@ const STEPS = ["deceased", "place", "people", "lease", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 /** UC-01 (new burial) and UC-02 (reburial, when opened from a plot). */
-export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotId?: string; eventType?: string }) {
+export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId }: { plotId?: string; eventType?: string; bookingId?: string }) {
   const { t } = useTranslation();
   const { nav, can } = useApp();
   const { current } = useCurrentCemetery();
@@ -42,6 +42,23 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<BurialResult | null>(null);
+
+  // FR-SZE-02: a funeral booked in the calendar fills the form
+  const booking = useQuery({
+    queryKey: ["booking", bookingId],
+    queryFn: () => api<{ startsAt: string; plotId: string | null; deceasedName: string; container: "" | "coffin" | "urn" }>("bookings.get", { id: bookingId }),
+    enabled: !!bookingId,
+  });
+  useEffect(() => {
+    const b = booking.data;
+    if (!b) return;
+    setEventDate(b.startsAt.slice(0, 10));
+    if (b.plotId) setPlotId(b.plotId);
+    if (b.container === "urn") setEventType("urn_placement");
+    if (b.container === "coffin") setEventType("coffin_burial");
+    const parts = b.deceasedName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length) setDeceased((d) => ({ ...d, familyName: parts[0], givenName: parts.slice(1).join(" ") }));
+  }, [booking.data]);
 
   const effectiveContainer = eventType === "urn_placement" ? "urn" : eventType === "coffin_burial" ? "coffin" : eventType === "ash_scattering" ? "none" : container;
 
@@ -106,6 +123,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType }: { plotI
     setError(null);
     try {
       const r = await api<BurialResult>("burial.record", { input });
+      if (bookingId) await api("bookings.status", { id: bookingId, status: "done", eventId: r.event.id }).catch(() => undefined);
       setResult(r);
       await invalidate();
     } catch (e) {
