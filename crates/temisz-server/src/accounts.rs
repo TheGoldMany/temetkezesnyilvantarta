@@ -123,16 +123,26 @@ pub fn account_by_user(conn: &Connection, tenant_id: &str, user_id: &str) -> Res
 
 /// Public address of the app for links in e-mails.
 /// The website root (the app lives under /app on it).
+pub const DEFAULT_APP_URL: &str = "https://www.temisz.hu/app";
+
 pub fn site_url(req: &Request) -> String {
     let b = base_url(req);
     b.strip_suffix("/app").map(String::from).unwrap_or(b)
 }
 
+/// Address of the app in e-mailed links: PUBLIC_URL (the app lives under
+/// /app, added when missing), else the request's host when it is one of ours.
+/// A foreign Host header never ends up in a password link.
 pub fn base_url(req: &Request) -> String {
-    if let Ok(u) = std::env::var("PUBLIC_URL") {
-        return u.trim_end_matches('/').to_string();
+    if let Some(u) = std::env::var("PUBLIC_URL").ok().map(|u| u.trim().trim_end_matches('/').to_string()).filter(|u| !u.is_empty()) {
+        return if u.ends_with("/app") { u } else { format!("{u}/app") };
     }
     let host = req.header("x-forwarded-host").or(req.header("host")).unwrap_or("localhost");
+    let bare = host.split(':').next().unwrap_or("");
+    let ours = matches!(bare, "localhost" | "127.0.0.1") || bare == "temisz.hu" || bare.ends_with(".temisz.hu") || bare.ends_with(".vercel.app");
+    if !ours {
+        return DEFAULT_APP_URL.to_string();
+    }
     let proto = req.header("x-forwarded-proto").unwrap_or(if host.starts_with("127.0.0.1") || host.starts_with("localhost") { "http" } else { "https" });
     format!("{proto}://{host}")
 }
@@ -340,4 +350,30 @@ pub fn check_second_factor(conn: &Connection, acc: &AccountRow, code: &str) -> R
 
 fn now_unix() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+// ---------------------------------------------------------------- security log
+
+/// Records a sign-in or account security change with IP address and browser.
+/// Never fails the request it belongs to.
+pub fn security_event(conn: &Connection, req: &Request, email: &str, kind: &str) {
+    let email = email.trim().to_lowercase();
+    let ua: String = req.header("user-agent").unwrap_or("").chars().take(300).collect();
+    let _ = conn.execute(
+        "INSERT INTO platform.security_log (tenant_id, account_id, email, kind, ip, user_agent)
+         SELECT a.tenant_id, a.id, ?1, ?2, ?3, ?4 FROM (SELECT 1) one LEFT JOIN platform.accounts a ON lower(a.email) = ?1",
+        params![email.chars().take(254).collect::<String>(), kind, req.ip, ua],
+    );
+    let _ = conn.execute("DELETE FROM platform.security_log WHERE at < now() - interval '1 year'", []);
+}
+
+/// The organisation's last 200 security events (administrators).
+pub fn security_log(conn: &Connection, tenant_id: &str) -> Result<Value> {
+    let text: String = conn.query_row(
+        "SELECT coalesce(json_agg(json_build_object('at', at, 'email', email, 'kind', kind, 'ip', ip, 'userAgent', user_agent) ORDER BY at DESC), '[]')::text
+         FROM (SELECT * FROM platform.security_log WHERE tenant_id = ?1 ORDER BY at DESC LIMIT 200) l",
+        params![tenant_id],
+        |r| r.get(0),
+    )?;
+    Ok(serde_json::from_str(&text)?)
 }

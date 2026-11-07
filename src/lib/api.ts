@@ -57,7 +57,16 @@ export const shell = {
   totpEnable: (code: string) => command<{ recoveryCodes: string[] }>("totp_enable", { code }),
   totpDisable: (password: string) => command<void>("totp_disable", { password }),
   userSendLink: (id: string) => command<void>("user_send_link", { id }),
+  securityLog: () => command<SecurityEvent[]>("security_log"),
 };
+
+export interface SecurityEvent {
+  at: string;
+  email: string;
+  kind: string;
+  ip: string;
+  userAgent: string;
+}
 
 export function isMfa(x: AppStatus | MfaChallenge): x is MfaChallenge {
   return (x as MfaChallenge).mfa === true;

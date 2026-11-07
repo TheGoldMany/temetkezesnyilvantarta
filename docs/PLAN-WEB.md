@@ -121,6 +121,10 @@ Később elkészült: a naptári foglalásból indítható temetésrögzítés (
 
 Az első próbák után hozzáadva: urna hazavitele és szórás máshol sírhely nélkül (folyószámmal), nyilvános térkép a sírkeresőben a nyitvatartással, automatikus lejárati e-mail emlékeztetők (fél évvel előtte, utána havonta, a nem reagálók listájával és heti összesítővel), közös temetési naptár a meghívott temetkezési irodákkal (saját szerepkör, csak a naptárhoz fér hozzá), interaktív bemutató és Súgó oldal.
 
+Biztonsági és előfizetési átvizsgálás (2026. november): a platform-adminisztrátori jog megerősített címhez és kétlépcsős azonosításhoz kötve, a levelekben lévő hivatkozás nem vehet át idegen címet, belépési napló IP-címmel és böngészővel, a kétlépcsős kód fiókonként is korlátozva, saját jelszócserénél a többi munkamenet kilép, a napi mentés titkosított. Előfizetés: kifizetetlen díjbekérő mellett nem indítható új előfizetés (nem nyitható meg így újra a fiók), a próbaidő alatt rendelt előfizetés a próbaidő végén nem zár le, a csak olvasható fiók is letöltheti egy személy adatait, a korábban fizető ügyfél adatait a rendszer nem törli magától.
+
+Még nyitott a tervből: ügyfelenkénti titkosítási kulcs (az adatbázis a Neonnál titkosítva tárol, de ügyfelenként külön kulcs nincs), külső elérhetőségfigyelés és riasztás, külső biztonsági átvizsgálás.
+
 **Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
 
 - FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).

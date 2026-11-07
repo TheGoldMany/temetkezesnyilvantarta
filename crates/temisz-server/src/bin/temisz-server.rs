@@ -2,6 +2,7 @@
 //!
 //! Usage: temisz-server [--port 1430] [--bind 127.0.0.1] [--static DIST] [--workers 4]
 //!                      [--sample-account | --reset-sample-account] [--insecure-cookies] [--dev]
+//!        temisz-server --decrypt-backup FILE.json.enc > FILE.json   (BACKUP_KEY or CRON_SECRET set)
 //! Database: DATABASE_URL (default postgres://postgres@127.0.0.1:5433/postgres).
 
 use std::sync::Arc;
@@ -25,6 +26,14 @@ fn connect() -> Store {
 }
 
 fn main() {
+    if let Some(file) = arg("--decrypt-backup") {
+        use std::io::Write;
+        let key = temisz_server::lifecycle::backup_key().expect("set BACKUP_KEY or CRON_SECRET");
+        let data = std::fs::read(&file).expect("backup file");
+        let plain = temisz_server::lifecycle::open_sealed(&key, &data).unwrap_or_else(|e| panic!("{e}"));
+        std::io::stdout().write_all(&plain).expect("stdout");
+        return;
+    }
     let port: u16 = arg("--port").and_then(|p| p.parse().ok()).unwrap_or(1430);
     let bind = arg("--bind").unwrap_or_else(|| "127.0.0.1".into());
     let workers: usize = arg("--workers").and_then(|w| w.parse().ok()).unwrap_or(4);

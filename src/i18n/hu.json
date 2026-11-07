@@ -124,6 +124,7 @@
     "read_only": "A fiók csak olvasható. Előfizetés után azonnal újra szerkeszthető (Beállítások › Előfizetés).",
     "billing_details_missing": "Először adja meg a számlázási adatokat.",
     "already_subscribed": "Már van előfizetése.",
+    "unpaid_proforma": "A(z) {{number}} díjbekérő még nincs kifizetve. Az átutalás beérkezése után a fiók azonnal újra szerkeszthető, új előfizetés addig nem indítható.",
     "payment_failed": "A fizetési szolgáltató hibát jelzett. Próbálja újra később, vagy válassza az átutalást.",
     "invoicing_failed": "A számla kiállítása nem sikerült. Próbálja újra néhány perc múlva.",
     "pdf_unavailable": "Ehhez a bizonylathoz nincs PDF. A Számlázz.hu e-mailben küldte el.",
@@ -1580,5 +1581,25 @@
     "addPhoto": "Fénykép vagy dokumentum hozzáadása",
     "noGps": "A készülék nem adott pozíciót. Próbálja szabad ég alatt, bekapcsolt helymeghatározással.",
     "denied": "A böngésző nem kapott engedélyt a helymeghatározáshoz. Engedélyezze a beállításokban."
+  },
+  "securityLog": {
+    "title": "Belépési napló",
+    "intro": "A szervezet felhasználóinak belépései, a sikertelen próbálkozások, a jelszó- és a kétlépcsős azonosítás változásai IP-címmel és böngészővel. A program egy évig őrzi meg.",
+    "empty": "Még nincs bejegyzés.",
+    "at": "Időpont",
+    "event": "Esemény",
+    "user": "Felhasználó",
+    "ip": "IP-cím",
+    "browser": "Böngésző",
+    "kinds": {
+      "login": "Belépés",
+      "login_failed": "Sikertelen belépés",
+      "mfa_failed": "Hibás azonosító kód",
+      "password_reset": "Új jelszó e-mailes hivatkozással",
+      "password_changed": "Jelszócsere",
+      "invite_accepted": "Meghívás elfogadva",
+      "totp_on": "Kétlépcsős azonosítás bekapcsolva",
+      "totp_off": "Kétlépcsős azonosítás kikapcsolva"
+    }
   }
 }

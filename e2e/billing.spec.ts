@@ -24,7 +24,9 @@ const rpc = (page: Page, cmd: string, args: object = {}) =>
 
 test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ page, browser }) => {
   const email = `penzugy-${Date.now()}@pelda.hu`;
-  await registerAndStart(page, email, "Kisrét Község Önkormányzata");
+  // unique per run: the database is kept between local runs
+  const org = `Kisrét Község ${Date.now() % 1000000}`;
+  await registerAndStart(page, email, `${org} Önkormányzata`);
 
   // a new cemetery shows its effect on the price first
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
@@ -54,12 +56,12 @@ test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ p
   await login(admin);
   await admin.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Ügyfelek", exact: true }).click();
   // … by loading the bank statement: the reference carries the customer code
-  const row = admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: "Kisrét Község" });
+  const row = admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: org });
   const code = (await row.innerText()).match(/Közlemény: ([0-9a-f]{8})/)![1];
   const csv = `Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.06;571 500;KISRÉT KÖZSÉG ÖNK.;TEMISZ ${code}\n`;
   await admin.locator("input[name=statement]").setInputFiles({ name: "kivonat.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf-8") });
   await expect(admin.getByText(/1 díjbekérő automatikusan kiegyenlítve/)).toBeVisible();
-  await expect(admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: "Kisrét Község" })).toHaveCount(0);
+  await expect(admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: org })).toHaveCount(0);
 
   await page.reload();
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();

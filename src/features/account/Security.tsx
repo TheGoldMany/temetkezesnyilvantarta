@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck } from "lucide-react";
 import { useApp } from "../../app/context";
-import { shell } from "../../lib/api";
+import { shell, type SecurityEvent } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Panel, TextField } from "../../components/ui";
 
 /** Two-factor sign-in setup: QR code, first code, recovery codes. */
@@ -205,5 +205,57 @@ export function AccountBanners() {
         </div>
       )}
     </>
+  );
+}
+
+/** Short browser and system name from a user agent string. */
+function browserName(ua: string): string {
+  const b = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
+  const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "";
+  return [b, os].filter(Boolean).join(", ") || ua.slice(0, 40);
+}
+
+/** Administrators: sign-ins and security changes of the organisation's accounts. */
+export function SecurityLogPanel() {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState<SecurityEvent[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    shell.securityLog().then(setRows, setError);
+  }, []);
+  return (
+    <Panel title={t("securityLog.title")}>
+      <p className="mb-3 max-w-2xl text-granite">{t("securityLog.intro")}</p>
+      <ErrorAlert error={error} />
+      {rows && rows.length === 0 && <p className="text-granite">{t("securityLog.empty")}</p>}
+      {rows && rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="security-log">
+            <thead>
+              <tr className="text-left text-granite">
+                <th className="py-2 pr-4">{t("securityLog.at")}</th>
+                <th className="py-2 pr-4">{t("securityLog.event")}</th>
+                <th className="py-2 pr-4">{t("securityLog.user")}</th>
+                <th className="py-2 pr-4">{t("securityLog.ip")}</th>
+                <th className="py-2">{t("securityLog.browser")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-seam">
+                  <td className="py-2 pr-4 whitespace-nowrap tabular-nums">{new Date(r.at).toLocaleString("hu-HU")}</td>
+                  <td className={r.kind.endsWith("_failed") ? "py-2 pr-4 font-semibold text-accent" : "py-2 pr-4"}>{t(`securityLog.kinds.${r.kind}`, r.kind)}</td>
+                  <td className="py-2 pr-4 break-all">{r.email}</td>
+                  <td className="py-2 pr-4 tabular-nums">{r.ip || "–"}</td>
+                  <td className="py-2" title={r.userAgent}>
+                    {browserName(r.userAgent)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
   );
 }
