@@ -123,8 +123,19 @@ pub fn effective_status(conn: &Connection, tenant_id: &str) -> Result<String> {
     let (status, trial_over): (String, bool) =
         conn.query_row("SELECT status, trial_ends_at <= now() FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     if status == "trial" && trial_over {
-        conn.execute("UPDATE platform.tenants SET status = 'read_only', read_only_since = now() WHERE id = ?1 AND status = 'trial'", params![tenant_id])?;
-        return Ok("read_only".into());
+        // ordered during the trial: work goes on while the proforma runs (the
+        // daily job makes the account read-only if it is not paid in time)
+        let ordered: bool = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM platform.subscriptions WHERE tenant_id = ?1 AND status IN ('active', 'pending'))",
+            params![tenant_id],
+            |r| r.get(0),
+        )?;
+        let next = if ordered { "active" } else { "read_only" };
+        conn.execute(
+            "UPDATE platform.tenants SET status = ?2, read_only_since = CASE WHEN ?2 = 'read_only' THEN now() END WHERE id = ?1 AND status = 'trial'",
+            params![tenant_id, next],
+        )?;
+        return Ok(next.into());
     }
     Ok(status)
 }
@@ -164,6 +175,7 @@ pub fn is_read_method(m: &str) -> bool {
                 | "contractors.account"
                 | "reminders.status"
                 | "conditions.plot"
+                | "persons.dataExport"
         )
 }
 
@@ -374,6 +386,18 @@ pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method
             return Err(CoreError::new("already_subscribed", "there is already a subscription"));
         }
     }
+    // an unpaid proforma first: otherwise ordering again would reopen a
+    // read-only account for another payment period without paying
+    let unpaid: Option<String> = conn
+        .query_row(
+            "SELECT number FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open' ORDER BY created_at LIMIT 1",
+            params![tenant_id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if let Some(number) = unpaid {
+        return Err(CoreError::new("unpaid_proforma", "an earlier proforma is still unpaid").with("number", number));
+    }
     let count = cemetery_count(store)?.max(1);
     // the paid period starts when the free trial ends
     let (trial_end, in_trial): (String, bool) =
@@ -536,7 +560,9 @@ pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
         .query_map([], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     for tenant in &expired {
-        effective_status(conn, tenant)?;
+        if effective_status(conn, tenant)? != "read_only" {
+            continue;
+        }
         if notify_once(conn, tenant, "trial_ended")? {
             let (to, org) = tenant_email(conn, tenant)?;
             mail::send(

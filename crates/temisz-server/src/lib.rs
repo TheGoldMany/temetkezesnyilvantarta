@@ -35,6 +35,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (4, include_str!("../migrations/0004_lifecycle.sql")),
     (5, include_str!("../migrations/0005_notices.sql")),
     (6, include_str!("../migrations/0006_bank.sql")),
+    (7, include_str!("../migrations/0007_security_log.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -264,7 +265,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
             billing::effective_status(&store.conn, &c.tenant_id)?;
             v["account"] = accounts::account_status(store, &acc, c.mfa_setup)?;
-            v["account"]["superadmin"] = json!(is_superadmin(&acc.email));
+            v["account"]["superadmin"] = json!(is_superadmin(&acc, cfg.dev_mode));
             v["web"] = json!(true);
             Ok(v)
         };
@@ -286,23 +287,36 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "login" => {
                 accounts::rate_limit(&store.conn, &format!("login:{}", req.ip), 30, 15)?;
                 accounts::rate_limit(&store.conn, &format!("login:{}", s("username").trim().to_lowercase()), 10, 15)?;
-                match login(store, &s("username"), &s("password"), req)? {
-                    LoginStep::Session(token) => start(&token, &mut set_cookie),
-                    LoginStep::SecondFactor(challenge) => Ok(json!({ "mfa": true, "challenge": challenge })),
+                let who = s("username");
+                match login(store, &who, &s("password"), req) {
+                    Ok(LoginStep::Session(token)) => {
+                        accounts::security_event(&store.conn, req, &who, "login");
+                        start(&token, &mut set_cookie)
+                    }
+                    Ok(LoginStep::SecondFactor(challenge)) => Ok(json!({ "mfa": true, "challenge": challenge })),
+                    Err(e) => {
+                        if matches!(e.code.as_str(), "invalid_credentials" | "account_locked" | "user_locked" | "locked") {
+                            accounts::security_event(&store.conn, req, &who, "login_failed");
+                        }
+                        Err(e)
+                    }
                 }
             }
             "login_mfa" => {
                 accounts::rate_limit(&store.conn, &format!("mfa:{}", req.ip), 20, 15)?;
                 let t = db::tx(&store.conn)?;
                 let acc_id = accounts::use_token(&t, &s("challenge"), "mfa")?;
+                accounts::rate_limit(&t, &format!("mfa:{acc_id}"), 10, 15)?;
                 let acc = accounts::account_by_id(&t, &acc_id)?;
                 if let Err(e) = accounts::check_second_factor(&t, &acc, &s("code")) {
                     // keep the challenge usable for another try
                     drop(t);
+                    accounts::security_event(&store.conn, req, &acc.email, "mfa_failed");
                     let again = accounts::create_token(&store.conn, &acc_id, "mfa", accounts::MFA_MINUTES)?;
                     return Err(e.with("challenge", again));
                 }
                 t.commit()?;
+                accounts::security_event(&store.conn, req, &acc.email, "login");
                 let token = new_session(store, &acc_id, req)?;
                 start(&token, &mut set_cookie)
             }
@@ -322,6 +336,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 let name = args["name"].as_str();
                 let acc_id = accounts::set_password_with_token(store, &s("token"), kind, &s("password"), name)?;
                 let acc = accounts::account_by_id(&store.conn, &acc_id)?;
+                accounts::security_event(&store.conn, req, &acc.email, if kind == "reset" { "password_reset" } else { "invite_accepted" });
                 if acc.totp_enabled {
                     // the password link does not replace the second factor
                     return Ok(json!({ "mfa": true, "challenge": accounts::create_token(&store.conn, &acc_id, "mfa", accounts::MFA_MINUTES)? }));
@@ -356,12 +371,22 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             "totp_enable" => {
                 let c = require(store, req)?;
-                accounts::totp_enable(store, &accounts::account_by_id(&store.conn, &c.account_id)?, &c.session, &s("code"))
+                let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                let v = accounts::totp_enable(store, &acc, &c.session, &s("code"))?;
+                accounts::security_event(&store.conn, req, &acc.email, "totp_on");
+                Ok(v)
             }
             "totp_disable" => {
                 let c = require(store, req)?;
-                accounts::totp_disable(store, &accounts::account_by_id(&store.conn, &c.account_id)?, &c.session, &s("password"))?;
+                let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                accounts::totp_disable(store, &acc, &c.session, &s("password"))?;
+                accounts::security_event(&store.conn, req, &acc.email, "totp_off");
                 Ok(Value::Null)
+            }
+            "security_log" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                accounts::security_log(&store.conn, &c.tenant_id)
             }
             "user_send_link" => {
                 let c = require(store, req)?;
@@ -397,6 +422,15 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     }
                     "users.changePassword" if a["id"].as_str() != session.user_id.as_deref() => {
                         Err(CoreError::new("not_available", "send a password link instead"))
+                    }
+                    "users.changePassword" => {
+                        let v = call_api(store, &session, &method, a)?;
+                        // signed in elsewhere with the old password: those sessions end
+                        let mine = req.cookie(COOKIE).map(|t| sha256_hex(t.as_bytes())).unwrap_or_default();
+                        store.conn.execute("DELETE FROM platform.sessions WHERE account_id = ?1 AND token_hash <> ?2", params![c.account_id, mine])?;
+                        let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                        accounts::security_event(&store.conn, req, &acc.email, "password_changed");
+                        Ok(v)
                     }
                     // FR-UGY-01: e-mail notices go out through the platform mailer
                     "notices.email" => {
@@ -495,7 +529,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "admin_overview" | "admin_mark_paid" | "admin_extend_trial" | "admin_bank_import" | "admin_bank_resolve" => {
                 let c = require(store, req)?;
                 let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
-                if !is_superadmin(&acc.email) {
+                if !is_superadmin(&acc, cfg.dev_mode) {
                     return Err(CoreError::forbidden("platform_admin"));
                 }
                 match cmd {
@@ -820,8 +854,16 @@ pub fn drop_sample_account(store: &Store) -> Result<()> {
 // ---------------------------------------------------------------- platform admin, webhooks
 
 /// TEMISZ operators (comma-separated SUPERADMIN_EMAILS) see every customer's billing.
-pub fn is_superadmin(email: &str) -> bool {
-    std::env::var("SUPERADMIN_EMAILS").map(|v| v.split(',').any(|e| e.trim().eq_ignore_ascii_case(email))).unwrap_or(false)
+/// Platform administrator: listed in SUPERADMIN_EMAILS, and the address is
+/// confirmed and protected by two-factor sign-in (so registering an account
+/// with a listed address that nobody has used yet gives no access).
+/// `dev` (development and E2E server only) skips the confirmation checks.
+pub fn is_superadmin(acc: &accounts::AccountRow, dev: bool) -> bool {
+    (dev || (acc.verified && acc.totp_enabled)) && listed_superadmin(&acc.email)
+}
+
+fn listed_superadmin(email: &str) -> bool {
+    std::env::var("SUPERADMIN_EMAILS").map(|v| v.split(',').any(|e| !e.trim().is_empty() && e.trim().eq_ignore_ascii_case(email))).unwrap_or(false)
 }
 
 fn admin_overview(store: &Store) -> Result<Value> {

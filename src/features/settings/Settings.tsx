@@ -11,7 +11,7 @@ import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
 import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSections } from "../../lib/queries";
 import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
-import { SecurityPanel } from "../account/Security";
+import { SecurityLogPanel, SecurityPanel } from "../account/Security";
 import { SubscriptionTab, huf } from "../account/Subscription";
 import { AuditTab } from "./AuditTab";
 
@@ -39,6 +39,7 @@ export function SettingsView({ tab }: { tab?: string }) {
           <div className="flex flex-col gap-6">
             <SecurityPanel />
             <OwnPassword />
+            {can("manage_settings") && <SecurityLogPanel />}
           </div>
         )}
         {current === "backup" && <BackupTab />}

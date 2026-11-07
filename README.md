@@ -78,12 +78,13 @@ pnpm e2e
 | Változó | Kötelező | Mire jó |
 | --- | --- | --- |
 | `DATABASE_URL` | igen | Postgres (Neonnál a közvetlen, nem pooled cím, `sslmode=require`) |
-| `PUBLIC_URL` | igen | A program címe a levelekben, pl. `https://temisz.hu/app` |
+| `PUBLIC_URL` | igen | A program címe a levelekben, pl. `https://www.temisz.hu/app` |
 | `CRON_SECRET` | igen | A napi feladat hívásának titka (a Vercel Cron automatikusan küldi) |
 | `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_REPLY_TO` | igen | E-mail küldés (alapból `TEMISZ <noreply@temisz.hu>`, válaszcím `info@lundasoftware.hu`) |
 | `SUPERADMIN_EMAILS` | igen | A TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva (Ügyfelek oldal) |
 | `SZAMLAZZ_AGENT_KEY` | élesben | Számlázz.hu Számla Agent kulcs; nélküle TESZT-sorszámú bizonylatok készülnek |
 | `BLOB_READ_WRITE_TOKEN` | ajánlott | Napi teljes export a Vercel Blobba |
+| `BACKUP_KEY` | ajánlott | A napi export titkosító kulcsa (AES-256-GCM); hiányában a `CRON_SECRET` |
 
 ## Adatbiztonság
 
@@ -91,7 +92,8 @@ pnpm e2e
 - Változásnapló SHA-256 hash-lánccal. Törlés és utólagos módosítás helyett érvénytelenítés, ezt adatbázis-triggerek kényszerítik ki.
 - Argon2id jelszókivonat, kizárás túl sok hibás próbálkozás után, kétlépcsős azonosítás (a rendszergazdáknak kötelező).
 - HttpOnly, `Secure`, `SameSite=Lax` süti, azonos eredetű kérések, HSTS, korlátozott belépési és regisztrációs próbálkozások.
-- Mentés: a Neon időponthoz visszaállítható mentése és napi teljes export. Az ügyfél bármikor letöltheti az összes adatát.
+- Belépési napló: sikeres és sikertelen belépés, jelszó- és kétlépcsős változás IP-címmel és böngészővel, egy évig; a rendszergazda a Beállítások › Fiókom alatt látja.
+- Mentés: a Neon időponthoz visszaállítható mentése és napi, titkosított teljes export. Az ügyfél bármikor letöltheti az összes adatát.
 
 ## Az asztali programról
 

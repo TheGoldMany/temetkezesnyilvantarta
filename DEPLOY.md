@@ -26,11 +26,12 @@ A lépések sorrendje fontos. A `main` ágra csak akkor kerüljön a webes vált
 
 | Változó | Érték |
 | --- | --- |
-| `PUBLIC_URL` | `https://temisz.hu/app` |
+| `PUBLIC_URL` | `https://www.temisz.hu/app` (ha a végéről lemarad az `/app`, a program hozzáteszi) |
 | `CRON_SECRET` | hosszú véletlen szöveg (például `openssl rand -hex 32`) |
-| `SUPERADMIN_EMAILS` | a TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva |
+| `SUPERADMIN_EMAILS` | a TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva. Az Ügyfelek oldal csak megerősített címmel és bekapcsolt kétlépcsős azonosítással érhető el. |
 | `SZAMLAZZ_AGENT_KEY` | Számlázz.hu › Beállítások › Számla Agent kulcs |
 | `BLOB_READ_WRITE_TOKEN` | Vercel › Storage › Blob létrehozása után automatikusan |
+| `BACKUP_KEY` | hosszú véletlen szöveg (`openssl rand -hex 32`); a napi mentések ezzel titkosítva kerülnek a Blobba. Ha nincs megadva, a `CRON_SECRET` a kulcs. Őrizze meg biztos helyen: a régi mentés csak azzal a kulccsal nyitható ki, amellyel készült. Kibontás: `BACKUP_KEY=… temisz-server --decrypt-backup 07.json.enc > 07.json` |
 
 A Számlázz.hu-fiókban adja meg a bankszámlaszámot és a cégadatokat: a díjbekérőn és a számlán ezek jelennek meg.
 

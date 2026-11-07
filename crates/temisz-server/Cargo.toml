@@ -22,6 +22,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 chrono = "0.4"
 
 temisz-desktop-import = { path = "../temisz-desktop-import", optional = true }
+aes-gcm = "0.10"
 
 [features]
 default = ["desktop-import"]

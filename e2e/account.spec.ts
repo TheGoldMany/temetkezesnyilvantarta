@@ -113,6 +113,14 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
   await page.locator("input[name=code]").fill(recovery);
   await page.getByRole("button", { name: "Belépés" }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+
+  // the sign-in log shows the colleague's password reset and the wrong code
+  await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
+  await page.getByRole("tab", { name: "Fiókom" }).click();
+  const log = page.getByTestId("security-log");
+  await expect(log).toContainText("Hibás azonosító kód");
+  await expect(log).toContainText("Új jelszó e-mailes hivatkozással");
+  await expect(log).toContainText("Kétlépcsős azonosítás bekapcsolva");
 });
 
 test("idegen oldalról érkező kérés elutasítva", async ({ request }) => {

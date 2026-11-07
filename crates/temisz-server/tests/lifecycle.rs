@@ -236,3 +236,135 @@ fn daily_job_sends_expiry_reminders() {
     temisz_server::reminders::daily(&store).unwrap();
     assert_eq!(count("expiry_reminder"), 1);
 }
+
+/// The subscription from the trial to payment, including the loophole of
+/// ordering again to reopen an account whose proforma was never paid.
+#[test]
+fn subscription_lifecycle_and_unpaid_proformas() {
+    use temisz_server::billing;
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "sub");
+    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
+    let s = store.session_for(&user).unwrap();
+    // billing details are needed before ordering
+    assert_eq!(billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap_err().code, "billing_details_missing");
+    billing::save_details(
+        &store.conn,
+        &tenant,
+        &json!({ "name": "Előfizető Község Önkormányzata", "postcode": "9999", "city": "Előfizető", "address": "Fő tér 1.", "email": email }),
+    )
+    .unwrap();
+    // ordered during the trial: the trial runs on, the paid period starts at its end
+    billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap();
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "trial");
+    assert_eq!(billing::subscribe(&store, &s, &tenant, "yearly", "transfer").unwrap_err().code, "already_subscribed");
+    // the trial ends before the transfer arrives: work goes on
+    store.conn.execute("UPDATE platform.tenants SET trial_ends_at = now() - interval '1 hour' WHERE id = ?1", lunda_core::params![tenant]).unwrap();
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
+    // not paid in time: read-only
+    store
+        .conn
+        .execute("UPDATE platform.invoices SET due_date = CURRENT_DATE - 30 WHERE tenant_id = ?1 AND kind = 'proforma'", lunda_core::params![tenant])
+        .unwrap();
+    billing::daily(&store, "https://www.temisz.hu/app").unwrap();
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
+    let sub: String =
+        store.conn.query_row("SELECT status FROM platform.subscriptions WHERE tenant_id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
+    assert_eq!(sub, "past_due");
+    // ordering again does not reopen it
+    let err = billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap_err();
+    assert_eq!(err.code, "unpaid_proforma");
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
+    // the transfer arrives: final invoice, editable again
+    let proforma: String = store
+        .conn
+        .query_row("SELECT id FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'", lunda_core::params![tenant], |r| r.get(0))
+        .unwrap();
+    billing::mark_paid(&store.conn, &proforma).unwrap();
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
+    let (status, start, end): (String, String, String) = store
+        .conn
+        .query_row(
+            "SELECT status, to_char(current_period_start, 'YYYY-MM-DD'), to_char(current_period_end, 'YYYY-MM-DD') FROM platform.subscriptions WHERE tenant_id = ?1",
+            lunda_core::params![tenant],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(status, "active");
+    assert!(end > start);
+    // paying twice is refused
+    assert_eq!(billing::mark_paid(&store.conn, &proforma).unwrap_err().code, "invoice_not_open");
+}
+
+/// A trial without an order ends read-only; reading and the data export still work.
+#[test]
+fn trial_without_order_becomes_read_only() {
+    use temisz_server::billing;
+    let store = platform();
+    let (tenant, _) = new_customer(&store, "trialend");
+    store.conn.execute("UPDATE platform.tenants SET trial_ends_at = now() - interval '1 hour' WHERE id = ?1", lunda_core::params![tenant]).unwrap();
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
+    assert!(billing::is_read_method("plots.list") && billing::is_read_method("persons.dataExport") && billing::is_read_method("export.file"));
+    assert!(!billing::is_read_method("burial.record") && !billing::is_read_method("users.create"));
+}
+
+/// A listed platform-admin address gives nothing until it is confirmed and
+/// protected by two-factor sign-in.
+#[test]
+fn superadmin_needs_confirmed_address_and_two_factor() {
+    use temisz_server::{accounts, is_superadmin};
+    let store = platform();
+    let (_, email) = new_customer(&store, "root");
+    // only this test reads SUPERADMIN_EMAILS
+    std::env::set_var("SUPERADMIN_EMAILS", format!("valaki@pelda.hu, {email}"));
+    let acc = accounts::account_by_email(&store.conn, &email).unwrap().unwrap();
+    assert!(!is_superadmin(&acc, false), "unconfirmed address");
+    store.conn.execute("UPDATE platform.accounts SET email_verified_at = now() WHERE email = ?1", lunda_core::params![email]).unwrap();
+    let acc = accounts::account_by_email(&store.conn, &email).unwrap().unwrap();
+    assert!(!is_superadmin(&acc, false), "no two-factor sign-in");
+    store.conn.execute("UPDATE platform.accounts SET totp_enabled_at = now(), totp_secret = 'X' WHERE email = ?1", lunda_core::params![email]).unwrap();
+    let acc = accounts::account_by_email(&store.conn, &email).unwrap().unwrap();
+    assert!(is_superadmin(&acc, false));
+}
+
+/// Links in e-mails never point to a foreign host.
+#[test]
+fn mail_links_use_our_address() {
+    use temisz_server::accounts::base_url;
+    let req = |host: &str| Request { headers: vec![("host".into(), host.into())], ..Default::default() };
+    if std::env::var("PUBLIC_URL").is_err() {
+        assert_eq!(base_url(&req("evil.example")), "https://www.temisz.hu/app");
+        assert_eq!(base_url(&req("www.temisz.hu")), "https://www.temisz.hu");
+        assert_eq!(base_url(&req("127.0.0.1:1430")), "http://127.0.0.1:1430");
+    }
+}
+
+/// Daily backups are encrypted; only the right key opens them.
+#[test]
+fn backups_are_sealed() {
+    use temisz_server::lifecycle::{open_sealed, seal};
+    let key = [7u8; 32];
+    let sealed = seal(&key, b"{\"persons\":[\"Kiss Anna\"]}");
+    assert!(!String::from_utf8_lossy(&sealed).contains("Kiss Anna"));
+    assert_eq!(open_sealed(&key, &sealed).unwrap(), b"{\"persons\":[\"Kiss Anna\"]}");
+    assert_eq!(open_sealed(&[8u8; 32], &sealed).unwrap_err().code, "backup_unreadable");
+}
+
+/// Sign-ins and failures are logged with IP address and browser, per organisation.
+#[test]
+fn security_log_records_sign_ins() {
+    use temisz_server::accounts::{security_event, security_log};
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "seclog");
+    let req = Request { ip: "203.0.113.7".into(), headers: vec![("user-agent".into(), "Mozilla/5.0 Firefox/140.0".into())], ..Default::default() };
+    security_event(&store.conn, &req, &email.to_uppercase(), "login_failed");
+    security_event(&store.conn, &req, &email, "login");
+    security_event(&store.conn, &req, "senki@pelda.hu", "login_failed");
+    let log = security_log(&store.conn, &tenant).unwrap();
+    let rows = log.as_array().unwrap();
+    assert_eq!(rows.len(), 2, "{log}");
+    assert_eq!(rows[0]["kind"], "login");
+    assert_eq!(rows[1]["kind"], "login_failed");
+    assert_eq!(rows[0]["ip"], "203.0.113.7");
+    assert!(rows[0]["userAgent"].as_str().unwrap().contains("Firefox"));
+}
