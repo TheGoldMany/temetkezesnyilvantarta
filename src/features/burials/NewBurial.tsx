@@ -191,7 +191,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
               type="button"
               onClick={() => i < stepIdx && setStep(s)}
               aria-current={s === step ? "step" : undefined}
-              className={cx("rounded-full border px-3 py-1 text-sm", s === step ? "border-slate bg-lichen font-semibold" : i < stepIdx ? "border-seam text-slate hover:border-granite" : "border-seam text-granite")}
+              className={cx("rounded-md border px-3 py-1 text-sm", s === step ? "border-slate bg-lichen font-semibold" : i < stepIdx ? "border-seam text-slate hover:border-granite" : "border-seam text-granite")}
             >
               {i + 1}. {t(`wizard.steps.${s}`)}
             </button>
@@ -199,7 +199,7 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
         ))}
       </ol>
 
-      <div className="flex flex-col gap-5 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-7 py-6">
+      <div className="flex flex-col gap-5 rounded-xl border border-seam bg-slab px-7 py-6">
         {step === "deceased" && (
           <>
             {existingDeceasedId ? (

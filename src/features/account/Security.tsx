@@ -91,7 +91,7 @@ export function TotpRequired() {
   const { setStatus } = useApp();
   return (
     <div className="flex min-h-full items-center justify-center bg-limestone px-6 py-10">
-      <div className="w-full max-w-2xl rounded-xl border border-seam bg-slab p-8 shadow-[0_20px_40px_-24px_rgba(20,59,49,0.35)]">
+      <div className="w-full max-w-2xl rounded-xl border border-seam bg-slab p-8 shadow-[0_20px_40px_-24px_rgba(22,24,29,0.35)]">
         <p className="wordmark mb-6 text-2xl text-moss">{t("app.name")}</p>
         <h1 className="text-2xl">{t("security.requiredTitle")}</h1>
         <p className="mt-1 mb-6 text-granite">{t("security.requiredIntro")}</p>

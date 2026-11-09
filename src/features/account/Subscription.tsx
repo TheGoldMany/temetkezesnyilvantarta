@@ -101,7 +101,7 @@ export function SubscriptionTab() {
                   <span className="block text-sm text-granite">
                     {t("billing.netPer", { per: t(`billing.per.${p}`) })}, {t("billing.gross", { amount: huf(o.prices[p].gross) })}
                   </span>
-                  {p === "yearly" && <span className="mt-2 inline-block rounded-full bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("billing.yearlySaving")}</span>}
+                  {p === "yearly" && <span className="mt-2 inline-block bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("billing.yearlySaving")}</span>}
                 </button>
               ))}
             </div>

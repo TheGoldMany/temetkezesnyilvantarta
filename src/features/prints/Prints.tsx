@@ -52,7 +52,7 @@ export function Prints() {
   return (
     <>
       <PageHeader title={t("prints.title")} subtitle={current?.name} />
-      <div className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-5 py-4">
+      <div className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-seam bg-slab px-5 py-4">
         <span className="font-semibold">{t("prints.period")}</span>
         <TextField label={t("common.from")} type="date" value={from} onChange={setFrom} />
         <TextField label={t("common.to")} type="date" value={to} onChange={setTo} />

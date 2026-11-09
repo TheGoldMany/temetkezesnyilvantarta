@@ -26,8 +26,9 @@
   el("rect", { x: 425, y: 0, width: 30, height: 430, class: "m-path" });
   el("rect", { x: 0, y: 206, width: 880, height: 22, class: "m-path" });
   for (let y = 14; y < 200; y += 30) {
-    el("ellipse", { cx: 431, cy: y + 10, rx: 3.6, ry: 9.5, class: "m-tree" });
-    el("ellipse", { cx: 449, cy: y + 10, rx: 3.6, ry: 9.5, class: "m-tree" });
+    // cypresses as tall triangles, the same form as in the emblem
+    el("path", { d: `M427 ${y + 21}l4-22 4 22z`, class: "m-tree" });
+    el("path", { d: `M445 ${y + 21}l4-22 4 22z`, class: "m-tree" });
   }
   const chapel = el("g", { class: "m-chapel", transform: "translate(668 378)" });
   el("path", { d: "M-30 40V8L0-12 30 8v32z" }, chapel);
@@ -56,7 +57,7 @@
 
   const g = el("g", { class: "m-plots" });
   plots.forEach((p, i) => {
-    const node = el("rect", { x: p.x, y: p.y, width: p.w, height: p.h, rx: 3.5, class: `plot p-${p.state}` }, g);
+    const node = el("rect", { x: p.x, y: p.y, width: p.w, height: p.h, rx: 1, class: `plot p-${p.state}` }, g);
     node.style.setProperty("--d", `${(p.x * 0.6 + p.y * 1.4) | 0}ms`);
     p.node = node;
     p.i = i;

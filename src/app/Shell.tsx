@@ -78,12 +78,12 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col">
       {/* Top bar, as in the website's program window: identity, search, user; then the section tabs. */}
-      <header className="no-print shrink-0 border-b border-seam bg-slab">
+      <header className="no-print shrink-0 border-b-2 border-slate bg-slab">
         <div className="flex h-16 items-center gap-3 px-4 sm:gap-5 sm:px-6">
           <div className="flex shrink-0 items-center gap-4">
             <p className="flex flex-col gap-0.5" title={t("app.tagline")}>
-              <span className="wordmark text-[1.625rem] text-moss sm:text-[1.875rem]">{t("app.name")}</span>
-              <span className="hidden text-[0.625rem] leading-none font-semibold tracking-wide text-granite sm:block">{t("app.tagline")}</span>
+              <span className="wordmark text-[1.5rem] text-slate sm:text-[1.75rem]">{t("app.name")}</span>
+              <span className="hidden border-t-[3px] border-double border-gilt pt-1 text-[0.625rem] leading-none font-medium tracking-wide text-granite sm:block">{t("app.tagline")}</span>
             </p>
             {list.length > 1 ? (
               <select
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     aria-current={on ? "page" : undefined}
                     className={cx(
                       "flex h-12 items-center gap-2 px-3 text-[0.9375rem] font-medium whitespace-nowrap shadow-[inset_0_-3px_0_transparent] transition-colors",
-                      on ? "text-slate shadow-[inset_0_-3px_0_var(--c-moss)] font-semibold" : "text-granite hover:text-slate",
+                      on ? "text-slate shadow-[inset_0_-4px_0_var(--c-moss)] font-semibold" : "text-granite hover:text-slate",
                     )}
                   >
                     <Icon className={cx("size-[1.1rem]", on ? "text-moss" : "text-granite/80")} aria-hidden />
@@ -256,7 +256,7 @@ function QuickSearch() {
       />
       <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border sm:block border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
       {open && debounced.length >= 2 && (
-        <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-seam bg-slab py-2 shadow-[0_20px_40px_-20px_rgba(20,59,49,0.35)]">
+        <div id="quicksearch-results" role="listbox" className="absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-seam bg-slab py-2 shadow-[0_20px_40px_-20px_rgba(22,24,29,0.35)]">
           {flat.length === 0 && !isFetching && <p className="px-4 py-3 text-granite">{t("search.noResults", { q: debounced })}</p>}
           {groups.map(([label, hits]) =>
             hits.length ? (

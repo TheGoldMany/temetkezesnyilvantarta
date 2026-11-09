@@ -1,14 +1,15 @@
 @import "tailwindcss";
-@import "@fontsource-variable/instrument-sans/standard.css";
+@import "@fontsource-variable/jost";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* TEMISZ tokens, shared with the website (docs/DESIGN.md).
-   Token names are historical: limestone = canvas, slab = surface, slate = ink,
-   granite = muted text, seam = rule, moss = primary (cypress green),
-   lichen = selection wash (marigold), accent = marigold, rail = deep cypress. */
+/* TEMISZ tokens, shared with the website (docs/DESIGN.md): Bauhaus with Art
+   Deco touches. Token names are historical: limestone = plaster canvas,
+   slab = surface, slate = ink, granite = muted text, seam = rule,
+   moss = primary (cobalt), lichen = ochre wash, accent = ochre,
+   rail = deep cobalt, alert = cinnabar, gilt = deco rules. */
 @theme {
-  --font-sans: "Instrument Sans Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Jost Variable", "Futura", "Century Gothic", system-ui, sans-serif;
   --font-serif: var(--font-sans);
 
   --color-limestone: var(--c-limestone);
@@ -30,17 +31,26 @@
   --color-warn-bg: var(--c-warn-bg);
 
   --color-st-free: var(--st-free);
-  --color-st-reserved: #4f6b8a;
-  --color-st-occupied: #7f9a8d;
-  --color-st-expired: #e2a32b;
-  --color-st-notified: #b5651d;
-  --color-st-resellable: #7d62a0;
-  --color-st-liquidated: #9aa39e;
-  --color-st-unusable: #3d4447;
-  --color-gilt: #b08d2f;
+  --color-st-reserved: #3f5e9e;
+  --color-st-occupied: #8b8f97;
+  --color-st-expired: #dda22c;
+  --color-st-notified: #b8562a;
+  --color-st-resellable: #6e5a9e;
+  --color-st-liquidated: #a9abb0;
+  --color-st-unusable: #3a3d44;
+  --color-gilt: #a8873a;
 
-  --font-weight-bold: 640;
-  --font-weight-extrabold: 680;
+  /* square Bauhaus geometry; circles stay round (rounded-full) */
+  --radius-xs: 0px;
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 3px;
+  --radius-2xl: 3px;
+
+  --font-weight-semibold: 560;
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 650;
 
   --text-sm: 0.9375rem;
   --text-base: 1.0625rem;
@@ -51,47 +61,47 @@
 }
 
 :root {
-  --c-limestone: #ecf0ec;
+  --c-limestone: #ededea;
   --c-slab: #ffffff;
-  --c-slate: #17251f;
-  --c-granite: #4c5a53;
-  --c-seam: #d9dfda;
-  --c-moss: #1f5546;
+  --c-slate: #16181d;
+  --c-granite: #4a4e57;
+  --c-seam: #d6d6d1;
+  --c-moss: #1e3f8c;
   --c-moss-ink: #ffffff;
-  --c-lichen: #fbefd5;
-  --c-accent: #e2a32b;
-  --c-accent-ink: #7a4f00;
-  --c-rail: #143b31;
+  --c-lichen: #f6eacd;
+  --c-accent: #dda22c;
+  --c-accent-ink: #6b4a00;
+  --c-rail: #142a5e;
   --c-rail-ink: #ffffff;
-  --c-rail-muted: #a9bfb4;
-  --c-alert: #a3261b;
-  --c-alert-bg: #fbe7e4;
-  --c-warn: #7a4f00;
-  --c-warn-bg: #fbefd5;
+  --c-rail-muted: #b4bfd8;
+  --c-alert: #b8382a;
+  --c-alert-bg: #f8e4e0;
+  --c-warn: #6b4a00;
+  --c-warn-bg: #f6eacd;
   --st-free: #ffffff;
   color-scheme: light;
   font-size: calc(17px * var(--zoom, 1));
 }
 
 [data-theme="dark"] {
-  --c-limestone: #0f1a16;
-  --c-slab: #16241f;
-  --c-slate: #e6eee9;
-  --c-granite: #9fb2a8;
-  --c-seam: #2a3b34;
-  --c-moss: #7fc2a6;
-  --c-moss-ink: #0f1a16;
+  --c-limestone: #111318;
+  --c-slab: #1a1d24;
+  --c-slate: #e8e8e4;
+  --c-granite: #a3a7af;
+  --c-seam: #2e323b;
+  --c-moss: #8fa8e8;
+  --c-moss-ink: #111318;
   --c-lichen: #3a2f14;
-  --c-accent: #f0b43c;
-  --c-accent-ink: #f0b43c;
-  --c-rail: #0b1411;
-  --c-rail-ink: #e6eee9;
-  --c-rail-muted: #8fa89c;
-  --c-alert: #f2a097;
+  --c-accent: #eab441;
+  --c-accent-ink: #eab441;
+  --c-rail: #0d1530;
+  --c-rail-ink: #e8e8e4;
+  --c-rail-muted: #9aa6c4;
+  --c-alert: #f0a196;
   --c-alert-bg: #3b1f1c;
   --c-warn: #f0c46a;
   --c-warn-bg: #3a2f14;
-  --st-free: #22322b;
+  --st-free: #262a33;
   color-scheme: dark;
 }
 
@@ -116,23 +126,31 @@ h1,
 h2,
 h3 {
   font-family: var(--font-sans);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 560;
+  letter-spacing: -0.005em;
   line-height: 1.2;
   margin: 0;
 }
 
-/* Page titles use the narrower cut, as on the website. */
+/* Page titles: Jost medium, with the gilt double rule underneath (deco). */
 h1 {
-  font-stretch: 84%;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.015em;
   line-height: 1.05;
+  padding-bottom: 0.32em;
+  background:
+    linear-gradient(var(--color-gilt), var(--color-gilt)) left bottom / 2.6rem 1px no-repeat,
+    linear-gradient(var(--color-gilt), var(--color-gilt)) left calc(100% - 4px) / 2.6rem 1px no-repeat;
+}
+h1.plain {
+  padding-bottom: 0;
+  background: none;
 }
 
 .wordmark {
-  font-weight: 700;
-  font-stretch: 78%;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  margin-right: -0.22em;
   line-height: 1;
 }
 
@@ -140,7 +158,6 @@ h1 {
 :focus-visible {
   outline: 3px solid var(--c-accent);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -158,12 +175,11 @@ h1 {
   display: inline-flex;
   align-items: stretch;
   font-family: var(--font-sans);
-  font-weight: 650;
+  font-weight: 560;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--c-slate);
   background: var(--c-slab);
-  border: 1.5px solid var(--c-moss);
-  border-radius: 6px;
+  border: 2px solid var(--c-moss);
   overflow: hidden;
   line-height: 1;
   white-space: nowrap;
@@ -174,7 +190,7 @@ h1 {
   text-align: center;
 }
 .plaque > .seg + .seg {
-  border-left: 1.5px solid var(--c-moss);
+  border-left: 2px solid var(--c-moss);
 }
 .plaque > .seg:first-child {
   background: var(--c-moss);

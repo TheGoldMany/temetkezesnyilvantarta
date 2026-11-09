@@ -235,10 +235,10 @@ export function Tour() {
       {rect ? (
         <div
           className="pointer-events-none fixed rounded-lg ring-3 ring-accent transition-all duration-200"
-          style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + 2 * pad, height: rect.height + 2 * pad, boxShadow: "0 0 0 9999px rgba(11,20,17,0.55)" }}
+          style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + 2 * pad, height: rect.height + 2 * pad, boxShadow: "0 0 0 9999px rgba(22,24,29,0.55)" }}
         />
       ) : (
-        <div className="fixed inset-0 bg-[#0b1411]/55" />
+        <div className="fixed inset-0 bg-[#16181d]/55" />
       )}
       <div
         ref={cardRef}

@@ -375,7 +375,7 @@ export function MapView({ plotId }: { plotId?: string }) {
             tabIndex={0}
             onKeyDown={onKeyDown}
             aria-label={`${t("map.title")}. ${t("map.keyboardHelp")}`}
-            className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-xl border border-seam bg-[#e3eae5] dark:bg-[#0f1a16]"
+            className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-xl border border-seam bg-[#e6e6e1] dark:bg-[#111318]"
           >
             {plots.isLoading ? (
               <Spinner />
@@ -436,9 +436,9 @@ export function MapView({ plotId }: { plotId?: string }) {
                           y={g.y}
                           width={g.w}
                           height={g.h}
-                          rx={Math.min(g.w, g.h) * 0.12}
+                          rx={Math.min(g.w, g.h) * 0.04}
                           fill={fill}
-                          stroke={isSel ? "var(--c-slate)" : p.protected ? "#b08d2f" : p.status === "free" ? "var(--c-granite)" : "none"}
+                          stroke={isSel ? "var(--c-slate)" : p.protected ? "#a8873a" : p.status === "free" ? "var(--c-granite)" : "none"}
                           strokeWidth={(isSel ? 3 : p.protected ? 2.5 : 1) / view.scale}
                         >
                           <title>
@@ -446,7 +446,7 @@ export function MapView({ plotId }: { plotId?: string }) {
                           </title>
                         </rect>
                         {view.scale >= LABEL_SCALE && (
-                          <text x={g.x + g.w / 2} y={g.y + g.h / 2} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(g.w * 0.45, 12 / view.scale + 2)} fill={p.status === "free" || p.status === "expired" ? "#1f2a30" : "#ffffff"} pointerEvents="none">
+                          <text x={g.x + g.w / 2} y={g.y + g.h / 2} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(g.w * 0.45, 12 / view.scale + 2)} fill={p.status === "free" || p.status === "expired" ? "#16181d" : "#ffffff"} pointerEvents="none">
                             {p.identifier.split("/").slice(-1)[0]}
                           </text>
                         )}
@@ -461,7 +461,7 @@ export function MapView({ plotId }: { plotId?: string }) {
         </div>
         <aside className="flex flex-col gap-4">
           {selectedPlot && current ? <SelectedPanel plot={selectedPlot} cemeteryId={current.id} onOpen={(id) => nav.go({ view: "plot", id })} /> : <Alert>{t("map.keyboardHelp")}</Alert>}
-          <div className="rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-4 py-3">
+          <div className="rounded-xl border border-seam bg-slab px-4 py-3">
             <h2 className="mb-2 text-lg">{t("map.legend")}</h2>
             <ul className="flex flex-col gap-1.5">
               {PLOT_STATUSES.map((s) => (
@@ -489,7 +489,7 @@ function SelectedPanel({ plot, cemeteryId, onOpen }: { plot: MapPlot; cemeteryId
     queryFn: async () => api<PlotDetail>("plots.get", { id: await resolveId(cemeteryId, plot.identifier) }),
   });
   return (
-    <div className="rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-4 py-4" data-testid="map-selected">
+    <div className="rounded-xl border border-seam bg-slab px-4 py-4" data-testid="map-selected">
       <p className="mb-1 text-sm text-granite">{t("map.selected")}</p>
       <Plaque identifier={plot.identifier} large />
       <div className="mt-2">

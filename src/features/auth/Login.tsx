@@ -4,6 +4,7 @@ import { useApp } from "../../app/context";
 import { ApiError, isMfa, shell } from "../../lib/api";
 import type { AppStatus, MfaChallenge } from "../../lib/types";
 import { Alert, Button, ErrorAlert, TextField } from "../../components/ui";
+import { Emblem } from "../../components/Emblem";
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -11,30 +12,13 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="grid min-h-full lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       <aside className="relative flex flex-col overflow-hidden bg-rail px-10 py-10 text-rail-ink">
         <p className="wordmark text-[3rem]">{t("app.name")}</p>
-        <p className="mt-2 text-xs font-semibold tracking-[0.08em] text-rail-muted uppercase">{t("app.tagline")}</p>
-        <PlotPattern />
+        <p className="mt-3 self-start border-t-[3px] border-double border-gilt pt-2 text-sm font-medium tracking-[0.04em] text-rail-muted">{t("app.tagline")}</p>
+        <Emblem onDark className="mt-auto hidden w-full max-w-md lg:block" />
       </aside>
       <div className="flex items-center bg-limestone px-6 py-10 lg:px-16">
-        <div className="w-full max-w-lg rounded-xl border border-seam bg-slab p-8 shadow-[0_20px_40px_-24px_rgba(20,59,49,0.35)]">{children}</div>
+        <div className="w-full max-w-lg border-2 border-slate bg-slab p-8 shadow-[10px_10px_0_var(--c-moss)]">{children}</div>
       </div>
     </div>
-  );
-}
-
-/** A quiet parcel of plots, the same motif as the website's map. */
-function PlotPattern() {
-  const fills = ["#ffffff", "#7f9a8d", "#7f9a8d", "#7f9a8d", "#e2a32b", "#7f9a8d", "#ffffff", "#7f9a8d"];
-  const cells = [];
-  for (let r = 0; r < 6; r++) {
-    for (let c = 0; c < 9; c++) {
-      const f = fills[(r * 7 + c * 3 + ((r * c) % 5)) % fills.length];
-      cells.push(<rect key={`${r}-${c}`} x={c * 30} y={r * 42} width={22} height={34} rx={4} fill={f} />);
-    }
-  }
-  return (
-    <svg viewBox="0 0 262 244" aria-hidden className="mt-auto hidden w-full max-w-sm opacity-30 lg:block">
-      {cells}
-    </svg>
   );
 }
 

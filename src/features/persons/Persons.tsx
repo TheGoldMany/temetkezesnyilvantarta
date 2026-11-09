@@ -39,7 +39,7 @@ export function PersonsList() {
       ) : !data?.length ? (
         <Empty>{t("persons.empty")}</Empty>
       ) : (
-        <ul className="divide-y divide-seam rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
+        <ul className="divide-y divide-seam rounded-xl border border-seam bg-slab">
           {data.map((p) => (
             <li key={p.id}>
               <button type="button" onClick={() => nav.go({ view: "person", id: p.id })} className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left hover:bg-limestone">

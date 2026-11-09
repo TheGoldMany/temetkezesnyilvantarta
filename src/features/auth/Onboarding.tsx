@@ -53,12 +53,12 @@ export function Onboarding() {
         <p className="mb-2 text-3xl font-semibold">{t("onboarding.title")}</p>
         <ol className="mb-6 flex flex-wrap gap-2" aria-label={t("onboarding.title")}>
           {steps.map((s, i) => (
-            <li key={s} aria-current={i === step ? "step" : undefined} className={cx("rounded-full border px-3 py-1 text-sm", i === step ? "border-slate bg-lichen font-semibold" : i < step ? "border-seam text-slate" : "border-seam text-granite")}>
+            <li key={s} aria-current={i === step ? "step" : undefined} className={cx("rounded-md border px-3 py-1 text-sm", i === step ? "border-slate bg-lichen font-semibold" : i < step ? "border-seam text-slate" : "border-seam text-granite")}>
               {i + 1}. {s}
             </li>
           ))}
         </ol>
-        <div className="flex flex-col gap-4 rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-8 py-7">
+        <div className="flex flex-col gap-4 rounded-xl border border-seam bg-slab px-8 py-7">
           <h1 className="text-2xl">{steps[step]}</h1>
           {step === 0 && (
             <>
