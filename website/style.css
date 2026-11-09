@@ -577,6 +577,7 @@ h2::before {
 
 .legal { max-width: 860px; margin: 0 auto; padding: clamp(32px, 6vw, 72px) var(--pad) 80px; }
 .legal h1 { max-width: none; font-size: clamp(32px, 4vw, 48px); }
+.legal .effective { margin: 16px 0 28px; color: var(--ink-3); }
 .legal .draft { margin: 20px 0 32px; padding: 12px 16px; border-left: 6px solid var(--ochre); background: var(--ochre-soft); color: #5c4a2a; }
 .legal h2 { margin-top: 40px; font-size: 24px; }
 .legal h3 { margin-top: 24px; font-size: 18px; font-weight: 600; }
