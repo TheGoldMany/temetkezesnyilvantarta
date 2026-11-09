@@ -167,7 +167,8 @@
     "file_type": "Csak PDF, fénykép (JPG, PNG, HEIC, WEBP) vagy Office-dokumentum csatolható.",
     "gps_invalid": "Érvénytelen GPS-pozíció.",
     "card_unavailable": "A bankkártyás fizetés jelenleg nem érhető el. Fizessen átutalással.",
-    "card_failed": "A Barion fizetőoldalt most nem sikerült megnyitni. Próbálja újra pár perc múlva, vagy fizessen átutalással."
+    "card_failed": "A Barion fizetőoldalt most nem sikerült megnyitni. Próbálja újra pár perc múlva, vagy fizessen átutalással.",
+    "terms_required": "Az előfizetéshez és a fizetéshez el kell fogadni az Általános Szerződési Feltételeket."
   },
   "fields": {
     "familyName": "Családi név",
@@ -1089,7 +1090,14 @@
     "cardOpening": "Barion megnyitása…",
     "cardPaid": "Sikeres kártyás fizetés. A számlát e-mailben elküldtük.",
     "cardPending": "A fizetés feldolgozása folyamatban van. Amint a Barion visszaigazolja, a díjbekérő kifizetettre vált.",
-    "cardFailed": "A kártyás fizetés nem sikerült, vagy megszakadt. A díjbekérő továbbra is kifizethető."
+    "cardFailed": "A kártyás fizetés nem sikerült, vagy megszakadt. A díjbekérő továbbra is kifizethető.",
+    "acceptBefore": "Elolvastam és elfogadom az",
+    "acceptTerms": "Általános Szerződési Feltételeket",
+    "acceptAnd": ", és tudomásul veszem az",
+    "acceptPrivacy": "adatkezelési tájékoztatót",
+    "acceptAfter": ". Az előfizetés díjköteles.",
+    "acceptCard": ", benne a Barionnak továbbított adatokról szóló részt. A kártyás fizetés díjköteles megrendelés.",
+    "acceptFirst": "Előbb fogadja el az ÁSZF-et."
   },
   "platform": {
     "title": "Ügyfelek",

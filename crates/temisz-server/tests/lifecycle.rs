@@ -380,10 +380,14 @@ fn card_payment_settles_the_proforma_once() {
     let port = server.server_addr().to_ip().unwrap().port();
     let state = Arc::new(Mutex::new(("Prepared".to_string(), 0i64)));
     let seen_key = Arc::new(Mutex::new(String::new()));
+    // unique per run: payments are kept between local test runs
+    let pid: String = lunda_core::util::new_id().replace('-', "");
+    let pid_mock = pid.clone();
     {
         let state = state.clone();
         let seen_key = seen_key.clone();
         std::thread::spawn(move || {
+            let pid = pid_mock;
             for mut rq in server.incoming_requests() {
                 let mut body = String::new();
                 let _ = rq.as_reader().read_to_string(&mut body);
@@ -394,9 +398,9 @@ fn card_payment_settles_the_proforma_once() {
                 let answer = if rq.url().starts_with("/v2/Payment/Start") {
                     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
                     state.lock().unwrap().1 = v["Transactions"][0]["Total"].as_i64().unwrap();
-                    json!({ "PaymentId": "0f1e2d3c4b5a69788796a5b4c3d2e1f0", "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=x", "Errors": [] })
+                    json!({ "PaymentId": pid, "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=x", "Errors": [] })
                 } else {
-                    json!({ "PaymentId": "0f1e2d3c4b5a69788796a5b4c3d2e1f0", "Status": status, "Total": total, "Currency": "HUF", "Errors": [] })
+                    json!({ "PaymentId": pid, "Status": status, "Total": total, "Currency": "HUF", "Errors": [] })
                 };
                 let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
             }
