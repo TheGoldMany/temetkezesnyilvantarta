@@ -84,6 +84,7 @@ pnpm e2e
 | `SUPERADMIN_EMAILS` | igen | A TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva (Ügyfelek oldal) |
 | `SZAMLAZZ_AGENT_KEY` | élesben | Számlázz.hu Számla Agent kulcs; nélküle TESZT-sorszámú bizonylatok készülnek |
 | `BLOB_READ_WRITE_TOKEN` | ajánlott | Napi teljes export a Vercel Blobba |
+| `BARION_POS_KEY`, `BARION_PAYEE`, `BARION_ENV` | kártyás fizetéshez | Díjbekérő fizetése bankkártyával a Barionon; `BARION_ENV=prod` élesben, különben tesztrendszer |
 | `BACKUP_KEY` | ajánlott | A napi export titkosító kulcsa (AES-256-GCM); hiányában a `CRON_SECRET` |
 
 ## Adatbiztonság

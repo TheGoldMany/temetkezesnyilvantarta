@@ -31,6 +31,9 @@ A lépések sorrendje fontos. A `main` ágra csak akkor kerüljön a webes vált
 | `SUPERADMIN_EMAILS` | a TEMISZ üzemeltetőinek e-mail-címei, vesszővel elválasztva. Az Ügyfelek oldal csak megerősített címmel és bekapcsolt kétlépcsős azonosítással érhető el. |
 | `SZAMLAZZ_AGENT_KEY` | Számlázz.hu › Beállítások › Számla Agent kulcs |
 | `BLOB_READ_WRITE_TOKEN` | Vercel › Storage › Blob létrehozása után automatikusan |
+| `BARION_POS_KEY` | Barion › Üzletek › a bolt titkos kulcsa (POSKey). A tesztrendszer (secure.test.barion.com) és az éles rendszer kulcsa különbözik. |
+| `BARION_PAYEE` | a Barion-tárca e-mail-címe, ahová a pénz érkezik |
+| `BARION_ENV` | `prod` élesben; ha nincs megadva, a Barion tesztrendszere fut (próbakártyákkal) |
 | `BACKUP_KEY` | hosszú véletlen szöveg (`openssl rand -hex 32`); a napi mentések ezzel titkosítva kerülnek a Blobba. Ha nincs megadva, a `CRON_SECRET` a kulcs. Őrizze meg biztos helyen: a régi mentés csak azzal a kulccsal nyitható ki, amellyel készült. Kibontás: `BACKUP_KEY=… temisz-server --decrypt-backup 07.json.enc > 07.json` |
 
 A Számlázz.hu-fiókban adja meg a bankszámlaszámot és a cégadatokat: a díjbekérőn és a számlán ezek jelennek meg.
@@ -38,6 +41,10 @@ A Számlázz.hu-fiókban adja meg a bankszámlaszámot és a cégadatokat: a dí
 **Számlázás ellenőrzése élesítés előtt:** a Számla Agent kérés felépítése a dokumentáció szerint készült, de valódi kulccsal még nem futott. Az első díjbekérőt kísérje figyelemmel: a sorszám, a PDF és az e-mail is megérkezik-e.
 
 ## 5. Befizetések
+
+**Bankkártya (Barion):** ha a `BARION_POS_KEY` és a `BARION_PAYEE` be van állítva, a nyitott díjbekérő mellett megjelenik a „Fizetés bankkártyával” gomb. A Barion a fizetés után a `https://www.temisz.hu/api/barion/callback` címet hívja; a program ekkor a Barionnál kérdezi le a fizetés állapotát, és teljes összegű sikeres fizetésnél kiállítja a számlát. A Barion-boltban ezt a visszahívási címet nem kell külön megadni, a program minden fizetésnél elküldi. Először a tesztrendszerrel próbálja ki (a Barion próbakártyáival), utána állítsa át a `BARION_ENV`-et `prod`-ra és az éles kulcsra.
+
+**Átutalás:**
 
 Az ügyfelek átutalással fizetnek, díjbekérő alapján (a közleményben az ügyfélkód szerepel). A TEMISZ bankszámlájának kivonatát (CSV vagy Excel a netbankból) az Ügyfelek oldalon kell betölteni: a közlemény és az összeg alapján a program kiegyenlíti a díjbekérőket és kiállítja a számlákat, a bizonytalan tételekre javaslatot ad.
 
