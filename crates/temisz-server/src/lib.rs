@@ -519,10 +519,12 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             "billing_subscribe" => {
                 let c = require(store, req)?;
+                accept_terms(store, &c, args, "subscribe")?;
                 billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"))
             }
             "billing_pay_card" => {
                 let c = require(store, req)?;
+                accept_terms(store, &c, args, "card_payment")?;
                 barion::start(&store.conn, &c.session, &c.tenant_id, &s("invoiceId"), &accounts::base_url(req), &accounts::site_url(req))
             }
             "billing_card_status" => {
@@ -598,6 +600,19 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
     }
     resp
 }
+
+/// The buyer must accept the ÁSZF before ordering or paying (card schemes,
+/// Barion); the acceptance goes into the audit log with the version date.
+fn accept_terms(store: &Store, c: &Current, args: &Value, what: &str) -> Result<()> {
+    if args["termsAccepted"].as_bool() != Some(true) {
+        return Err(CoreError::new("terms_required", "the terms must be accepted"));
+    }
+    let _ = lunda_core::audit::record_simple(&store.conn, &c.session, "terms", &c.tenant_id, "terms_accepted", Some(&format!("{what}, ÁSZF {TERMS_VERSION}")));
+    Ok(())
+}
+
+/// Effective date of the ÁSZF on the website (website/aszf.html).
+pub const TERMS_VERSION: &str = "2026-11-09";
 
 /// Runs an API method; generated files come back inline (base64).
 fn call_api(store: &Store, s: &Session, method: &str, args: &Value) -> Result<Value> {

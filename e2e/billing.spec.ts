@@ -44,6 +44,9 @@ test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ p
   await page.locator("input[name=address]").fill("Fő utca 1.");
   await page.locator("input[name=taxNumber]").fill("15727000-2-20");
   await page.getByRole("button", { name: "Számlázási adatok mentése" }).click();
+  // the ÁSZF must be accepted first
+  await expect(page.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" })).toBeDisabled();
+  await page.getByTestId("terms").check();
   await page.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" }).click();
   await expect(page.getByText(/Elküldtük a díjbekérőt/)).toBeVisible();
   await expect(page.getByTestId("invoices")).toContainText("Díjbekérő");

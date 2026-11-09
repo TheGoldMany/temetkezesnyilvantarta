@@ -36,7 +36,7 @@ interface Overview {
 export const huf = (n: number) => `${n.toLocaleString("hu-HU")} Ft`;
 
 /** Pays an open proforma by card on Barion's payment page (the browser goes there and comes back). */
-function PayByCard({ invoiceId }: { invoiceId: string }) {
+function PayByCard({ invoiceId, accepted }: { invoiceId: string; accepted: boolean }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -45,12 +45,13 @@ function PayByCard({ invoiceId }: { invoiceId: string }) {
       <Button
         variant="primary"
         icon={<CreditCard className="size-4" aria-hidden />}
-        disabled={busy}
+        disabled={busy || !accepted}
+        title={accepted ? undefined : t("billing.acceptFirst")}
         onClick={async () => {
           setBusy(true);
           setError(null);
           try {
-            const r = await command<{ gatewayUrl: string }>("billing_pay_card", { invoiceId });
+            const r = await command<{ gatewayUrl: string }>("billing_pay_card", { invoiceId, termsAccepted: accepted });
             window.location.assign(r.gatewayUrl);
           } catch (e) {
             setError(e);
@@ -65,6 +66,27 @@ function PayByCard({ invoiceId }: { invoiceId: string }) {
   );
 }
 
+/** The buyer accepts the ÁSZF before ordering or paying (card schemes and Barion require it). */
+function TermsCheck({ checked, onChange, card }: { checked: boolean; onChange: (v: boolean) => void; card?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <label className="flex max-w-3xl items-start gap-3 text-[0.9375rem]">
+      <input type="checkbox" className="mt-1 size-4 shrink-0 accent-[var(--c-moss)]" checked={checked} onChange={(e) => onChange(e.target.checked)} data-testid={card ? "terms-card" : "terms"} />
+      <span>
+        {t("billing.acceptBefore")}{" "}
+        <a className="text-moss underline underline-offset-3" href="/aszf.html" target="_blank" rel="noreferrer">
+          {t("billing.acceptTerms")}
+        </a>
+        {t("billing.acceptAnd")}{" "}
+        <a className="text-moss underline underline-offset-3" href="/adatkezeles.html" target="_blank" rel="noreferrer">
+          {t("billing.acceptPrivacy")}
+        </a>
+        {card ? t("billing.acceptCard") : t("billing.acceptAfter")}
+      </span>
+    </label>
+  );
+}
+
 /** Settings › Előfizetés: price, billing details, payment method, invoices. */
 export function SubscriptionTab() {
   const { t } = useTranslation();
@@ -76,6 +98,8 @@ export function SubscriptionTab() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [cardAccepted, setCardAccepted] = useState(false);
   if (q.isLoading || !q.data) return q.error ? <ErrorAlert error={q.error} /> : <Spinner />;
   const o = q.data;
   const sub = o.subscription && o.subscription.status !== "canceled" ? o.subscription : null;
@@ -87,7 +111,7 @@ export function SubscriptionTab() {
     setBusy(true);
     setError(null);
     try {
-      await command("billing_subscribe", { plan, paymentMethod: "transfer" });
+      await command("billing_subscribe", { plan, paymentMethod: "transfer", termsAccepted: accepted });
       setDone(true);
       await reload();
     } catch (e) {
@@ -160,9 +184,10 @@ export function SubscriptionTab() {
                 </button>
               </div>
             )}
+            <TermsCheck checked={accepted} onChange={setAccepted} />
             <ErrorAlert error={error} />
             <div>
-              <Button variant="primary" size="lg" busy={busy} disabled={!o.details || editDetails} onClick={subscribe}>
+              <Button variant="primary" size="lg" busy={busy} disabled={!o.details || editDetails || !accepted} onClick={subscribe}>
                 {t("billing.subscribeTransfer")}
               </Button>
             </div>
@@ -189,6 +214,12 @@ export function SubscriptionTab() {
         {o.invoices.length === 0 ? (
           <p className="text-granite">{t("billing.noInvoices")}</p>
         ) : (
+          <>
+          {o.cardPayments && o.invoices.some((i) => i.kind === "proforma" && i.status === "open") && (
+            <div className="mb-4">
+              <TermsCheck checked={cardAccepted} onChange={setCardAccepted} card />
+            </div>
+          )}
           <table className="w-full" data-testid="invoices">
             <thead>
               <tr className="border-b border-seam text-left text-sm text-granite">
@@ -212,7 +243,7 @@ export function SubscriptionTab() {
                   <td className="py-2.5 pr-4 text-right tabular-nums">{huf(i.grossHuf)}</td>
                   <td className="py-2.5">{i.status === "open" ? t("billing.openUntil", { date: i.dueDate }) : t(`billing.status.${i.status}`)}</td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    {o.cardPayments && i.kind === "proforma" && i.status === "open" && <PayByCard invoiceId={i.id} />}
+                    {o.cardPayments && i.kind === "proforma" && i.status === "open" && <PayByCard invoiceId={i.id} accepted={cardAccepted} />}
                     {i.hasPdf && (
                       <Button variant="quiet" icon={<FileText className="size-4" aria-hidden />} onClick={async () => openGenerated(await command<GeneratedFile>("billing_invoice_pdf", { id: i.id }))}>
                         PDF
@@ -223,6 +254,7 @@ export function SubscriptionTab() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </Panel>
       <CloseAccount />
