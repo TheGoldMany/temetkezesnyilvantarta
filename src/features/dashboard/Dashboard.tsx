@@ -77,12 +77,12 @@ export function Dashboard() {
               {t("dashboard.tasks")}
             </h2>
             {tasks.length === 0 ? (
-              <p className="rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)] px-5 py-4 text-granite">{t("dashboard.noTasks")}</p>
+              <p className="rounded-xl border border-seam bg-slab px-5 py-4 text-granite">{t("dashboard.noTasks")}</p>
             ) : (
-              <ul className="overflow-hidden rounded-xl border border-seam bg-slab shadow-[0_1px_2px_rgba(20,59,49,0.05)]">
+              <ul className="overflow-hidden rounded-xl border border-seam bg-slab">
                 {tasks.map((task) => (
                   <li key={task.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-seam px-4 py-3 last:border-0 sm:gap-x-5 sm:px-5">
-                    <span className={cx("w-1.5 self-stretch rounded-full", task.urgent ? "bg-accent" : "bg-seam")} aria-hidden />
+                    <span className={cx("w-1.5 self-stretch", task.urgent ? "bg-accent" : "bg-seam")} aria-hidden />
                     {task.count !== null && <span className="min-w-14 text-2xl font-extrabold tabular-nums">{fmtNum(task.count)}</span>}
                     <span className="min-w-[11rem] flex-1">{task.text}</span>
                     <Button onClick={task.go} icon={task.key === "backup" ? <HardDriveDownload className="size-5" aria-hidden /> : undefined}>

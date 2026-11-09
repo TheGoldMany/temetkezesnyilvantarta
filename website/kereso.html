@@ -10,57 +10,66 @@
          notice board show: name, years, plot, the layout, opening hours. -->
     <style>
       @font-face {
-        font-family: "Instrument Sans";
-        src: url("fonts/instrument-sans-latin-ext-standard-normal.woff2") format("woff2");
-        font-weight: 400 700;
+        font-family: "Jost";
+        src: url("fonts/jost-latin-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
         font-display: swap;
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: "Jost";
+        src: url("fonts/jost-latin-ext-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: swap;
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20AB, U+20AD-20C0, U+A720-A7FF;
       }
       :root {
-        --canvas: #ecf0ec;
+        --canvas: #ededea;
         --paper: #ffffff;
-        --ink: #17251f;
-        --ink-2: #4c5a53;
-        --line: #d9dfda;
-        --cypress: #1f5546;
-        --cypress-soft: #dfe9e3;
-        --marigold: #e2a32b;
+        --ink: #16181d;
+        --ink-2: #4a4e57;
+        --line: #d6d6d1;
+        --cobalt: #1e3f8c;
+        --cobalt-soft: #e2e7f3;
+        --ochre: #dda22c;
+        --gilt: #a8873a;
         color-scheme: light;
       }
       * { box-sizing: border-box; }
-      body { margin: 0; font: 17px/1.5 "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+      body { margin: 0; font: 17px/1.5 "Jost", "Futura", "Century Gothic", system-ui, sans-serif; color: var(--ink); background: var(--paper); }
       main { max-width: 980px; margin: 0 auto; padding: 20px 16px 28px; }
-      h1 { margin: 0 0 4px; font-size: 1.5rem; letter-spacing: -0.01em; }
+      h1 { margin: 0 0 4px; padding-bottom: 8px; border-bottom: 3px double var(--gilt); display: inline-block; font-size: 1.6rem; font-weight: 500; letter-spacing: -0.01em; }
       h2 { margin: 0 0 8px; font-size: 1.1rem; }
       .sub { margin: 0 0 16px; color: var(--ink-2); }
       .cems { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 0 0 20px; padding: 0; list-style: none; }
-      .cems li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+      .cems li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 2px; background: var(--canvas); }
       .cems b { display: block; }
       .cems .meta { color: var(--ink-2); font-size: 0.92rem; }
       form { display: flex; gap: 8px; }
       label.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-      input[type="search"], select { min-height: 48px; padding: 0 14px; font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+      input[type="search"], select { min-height: 48px; padding: 0 14px; font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 2px; background: var(--canvas); }
       input[type="search"] { flex: 1; min-width: 0; }
-      input:focus, select:focus { outline: 3px solid var(--cypress-soft); border-color: var(--cypress); }
-      button { min-height: 44px; padding: 0 18px; font: inherit; font-weight: 600; color: #fff; background: var(--cypress); border: 0; border-radius: 10px; cursor: pointer; }
-      button.ghost { color: var(--cypress); background: transparent; border: 1px solid var(--line); }
-      button:focus-visible { outline: 3px solid var(--cypress-soft); outline-offset: 2px; }
+      input:focus, select:focus { outline: 3px solid var(--cobalt-soft); border-color: var(--cobalt); }
+      button { min-height: 44px; padding: 0 18px; font: inherit; font-weight: 600; color: #fff; background: var(--cobalt); border: 0; border-radius: 2px; cursor: pointer; }
+      button.ghost { color: var(--cobalt); background: transparent; border: 1px solid var(--line); }
+      button:focus-visible { outline: 3px solid var(--cobalt-soft); outline-offset: 2px; }
       #status { min-height: 1.5em; margin: 12px 0 6px; color: var(--ink-2); }
       ol { list-style: none; margin: 0 0 20px; padding: 0; border-top: 1px solid var(--line); }
       li.hit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
       .name { font-weight: 600; }
       .years { color: var(--ink-2); font-variant-numeric: tabular-nums; }
       .where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-      .plaque { display: inline-block; padding: 1px 8px; font-weight: 600; font-variant-numeric: tabular-nums; border: 1px solid var(--cypress); border-radius: 6px; color: var(--cypress); }
+      .plaque { display: inline-block; padding: 1px 8px; font-weight: 600; font-variant-numeric: tabular-nums; border: 2px solid var(--cobalt); border-radius: 2px; color: var(--cobalt); }
       .mapbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
       .mapbar .tools { display: flex; gap: 6px; }
       .mapbar button { min-height: 40px; padding: 0 12px; }
-      #map { width: 100%; height: min(70vh, 560px); border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); touch-action: none; display: block; }
-      #map .plot { fill: #fff; stroke: #b9c4bd; stroke-width: 0.4; }
-      #map .sec { fill: none; stroke: var(--cypress); stroke-width: 1; stroke-dasharray: 4 3; }
-      #map .lbl { fill: var(--cypress); font-weight: 700; font-family: inherit; }
-      #map .hl { fill: var(--marigold); stroke: #8a5c00; stroke-width: 1; }
-      #map .ring { fill: none; stroke: var(--marigold); stroke-width: 2; }
-      .ghost-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; font-weight: 600; color: var(--cypress); border: 1px solid var(--line); border-radius: 10px; text-decoration: none; }
+      #map { width: 100%; height: min(70vh, 560px); border: 1px solid var(--line); border-radius: 2px; background: var(--canvas); touch-action: none; display: block; }
+      #map .plot { fill: #fff; stroke: #b9bab4; stroke-width: 0.4; }
+      #map .sec { fill: none; stroke: var(--cobalt); stroke-width: 1; stroke-dasharray: 4 3; }
+      #map .lbl { fill: var(--cobalt); font-weight: 700; font-family: inherit; }
+      #map .hl { fill: var(--ochre); stroke: #8a5c00; stroke-width: 1; }
+      #map .ring { fill: none; stroke: var(--ochre); stroke-width: 2; }
+      .ghost-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; font-weight: 600; color: var(--cobalt); border: 1px solid var(--line); border-radius: 2px; text-decoration: none; }
       .hint { color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
       footer { margin-top: 18px; font-size: 0.85rem; color: var(--ink-2); }
       footer a { color: inherit; }

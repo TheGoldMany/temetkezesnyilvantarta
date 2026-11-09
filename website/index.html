@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TEMISZ – Temetőmenedzsment és Informatikai Szoftver</title>
     <meta name="description" content="TEMISZ: webes temetőnyilvántartó szolgáltatás. Nyilvántartó és sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. 30 napig ingyen." />
-    <meta name="theme-color" content="#ecf0ec" />
+    <meta name="theme-color" content="#ededea" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="preload" href="fonts/instrument-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -61,8 +61,8 @@
            The window is the one memorable element of the page. -->
       <section class="hero">
         <div class="hero-copy">
-          <h1>Az egész temető nyilvántartása egy programban</h1>
-          <div class="hero-side">
+          <div class="hero-text">
+            <h1>Az egész temető nyilvántartása egy programban</h1>
             <p class="lead">
               Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti. Böngészőből működik, telepíteni nem kell.
             </p>
@@ -72,6 +72,20 @@
             </div>
             <p class="hero-note">Bankkártya nélkül. Számítógépen, tableten és telefonon is.</p>
           </div>
+          <!-- The emblem: a cemetery reduced to Bauhaus forms (gate pillar, setting
+               sun, cypresses) with an Art Deco sunburst and stepped base. -->
+          <svg class="emblem" viewBox="0 0 520 440" aria-hidden="true" focusable="false">
+            <g class="e-rays">
+              <path d="M330 300 330 40M330 300 263 49M330 300 200 75M330 300 146 116M330 300 105 170M330 300 397 49M330 300 460 75M330 300 514 116" />
+            </g>
+            <defs><clipPath id="e-above"><rect x="0" y="0" width="520" height="420" /></clipPath></defs>
+            <g clip-path="url(#e-above)"><circle class="e-sun" cx="330" cy="300" r="118" /></g>
+            <rect class="e-pillar" x="40" y="120" width="150" height="300" />
+            <path class="e-arc" d="M190 420H60A130 130 0 0 1 190 290z" />
+            <path class="e-cypress" d="M402 420 428 196 454 420zM458 420 476 280 494 420z" />
+            <path class="e-steps" d="M196 420V398H464V420ZM218 398V380H442V398ZM240 380V364H420V380Z" />
+            <path class="e-ground" d="M0 420H520" />
+          </svg>
         </div>
 
         <figure class="window" aria-label="A TEMISZ temetőtérképe. Válasszon sírhelyet a térképen, és az adatai a jobb oldalon jelennek meg.">

@@ -208,13 +208,13 @@ export function Plaque({ identifier, large, className }: { identifier: string | 
 
 export const statusColor: Record<PlotStatus, string> = {
   free: "var(--st-free)",
-  reserved: "#4f78b0",
-  occupied: "#6b8574",
-  expired: "#e3a21a",
-  notified: "#b4502a",
-  resellable: "#7a5ca8",
-  liquidated: "#9aa3a8",
-  unusable: "#2a3137",
+  reserved: "#3f5e9e",
+  occupied: "#8b8f97",
+  expired: "#dda22c",
+  notified: "#b8562a",
+  resellable: "#6e5a9e",
+  liquidated: "#a9abb0",
+  unusable: "#3a3d44",
 };
 
 export function StatusDot({ status, protectedPlot }: { status: PlotStatus; protectedPlot?: boolean }) {
@@ -222,7 +222,7 @@ export function StatusDot({ status, protectedPlot }: { status: PlotStatus; prote
     <span
       aria-hidden
       className={cx("inline-block size-3.5 shrink-0 rounded-full border", status === "unusable" && "pattern-hatch", status === "notified" && "pattern-hatch")}
-      style={{ background: statusColor[status], borderColor: protectedPlot ? "#b08d2f" : status === "free" ? "var(--c-granite)" : "transparent", borderWidth: protectedPlot ? 2 : 1 }}
+      style={{ background: statusColor[status], borderColor: protectedPlot ? "#a8873a" : status === "free" ? "var(--c-granite)" : "transparent", borderWidth: protectedPlot ? 2 : 1 }}
     />
   );
 }
@@ -233,7 +233,7 @@ export function StatusBadge({ status, protectedPlot }: { status: PlotStatus; pro
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <StatusDot status={status} protectedPlot={protectedPlot} />
       <span>{t(`status.${status}`)}</span>
-      {protectedPlot && <span className="rounded-md border border-[#b08d2f] px-1.5 text-xs font-bold text-accent-ink">{t("status.protected")}</span>}
+      {protectedPlot && <span className="rounded-md border border-[#a8873a] px-1.5 text-xs font-bold text-accent-ink">{t("status.protected")}</span>}
     </span>
   );
 }
@@ -263,7 +263,7 @@ export function Panel({ title, actions, children, className }: { title?: ReactNo
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       )}
-      <div className="overflow-x-auto rounded-xl border border-seam bg-slab px-4 py-4 sm:px-5 shadow-[0_1px_2px_rgba(20,59,49,0.05)]">{children}</div>
+      <div className="overflow-x-auto rounded-xl border border-seam bg-slab px-4 py-4 sm:px-5">{children}</div>
     </section>
   );
 }
@@ -337,7 +337,7 @@ export function Dialog({ open, onClose, title, children, footer, wide }: { open:
         e.preventDefault();
         onClose();
       }}
-      className={cx("m-auto max-h-[90vh] w-[calc(100%-2rem)] rounded-xl border border-seam bg-slab p-0 text-slate shadow-2xl backdrop:bg-[#0b1411]/55", wide ? "max-w-4xl" : "max-w-xl")}
+      className={cx("m-auto max-h-[90vh] w-[calc(100%-2rem)] bg-slab p-0 text-slate shadow-[12px_12px_0_var(--c-moss)] border-2 border-slate backdrop:bg-[#16181d]/55", wide ? "max-w-4xl" : "max-w-xl")}
     >
       {open && (
         <div className="flex max-h-[90vh] flex-col">
