@@ -9,7 +9,8 @@ import { PlatformAdmin } from "./features/account/PlatformAdmin";
 import { FinanceView } from "./features/finance/Finance";
 import { OperationsView } from "./features/operations/Operations";
 import { Help } from "./features/help/Help";
-import { shell } from "./lib/api";
+import { command, shell } from "./lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./app/toast";
 import { Onboarding } from "./features/auth/Onboarding";
 import { Dashboard } from "./features/dashboard/Dashboard";
@@ -53,9 +54,39 @@ function useEmailVerificationLink() {
   }, []);
 }
 
+/** #fizetes=… : back from the Barion card payment page. Barion is asked for
+ *  the payment's state; the Előfizetés page shows the result. */
+function useCardPaymentReturn() {
+  const { status, nav, refresh } = useApp();
+  const toast = useToast();
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const signedIn = Boolean(status?.session);
+  useEffect(() => {
+    const h = window.location.hash;
+    if (!signedIn || !h.startsWith("#fizetes=")) return;
+    const requestId = h.slice("#fizetes=".length);
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    nav.go({ view: "settings", tab: "subscription" });
+    command<{ status: string }>("billing_card_status", { requestId }).then(
+      async ({ status: state }) => {
+        // the page shows the settled proforma before the message appears
+        await qc.invalidateQueries({ queryKey: ["billing"] });
+        await refresh();
+        if (state === "Succeeded") toast(t("billing.cardPaid"));
+        else if (["Canceled", "Failed", "Expired", "Rejected"].includes(state)) toast(t("billing.cardFailed"), "error");
+        else toast(t("billing.cardPending"));
+      },
+      () => toast(t("billing.cardFailed"), "error"),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn]);
+}
+
 export function App() {
   const { status, nav } = useApp();
   useEmailVerificationLink();
+  useCardPaymentReturn();
   if (!status) return <Spinner />;
   if (!status.session) return <Login />;
   if (status.account?.totpRequired) return <TotpRequired />;

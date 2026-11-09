@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Landmark } from "lucide-react";
+import { CreditCard, FileText, Landmark } from "lucide-react";
 import { command } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Panel, Spinner, TextField, cx } from "../../components/ui";
 import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
@@ -13,6 +13,7 @@ interface Price {
   gross: number;
 }
 interface Overview {
+  cardPayments: boolean;
   status: "trial" | "active" | "read_only" | "closed";
   trialEndsAt: string;
   trialDaysLeft: number;
@@ -33,6 +34,36 @@ interface Overview {
 }
 
 export const huf = (n: number) => `${n.toLocaleString("hu-HU")} Ft`;
+
+/** Pays an open proforma by card on Barion's payment page (the browser goes there and comes back). */
+function PayByCard({ invoiceId }: { invoiceId: string }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  return (
+    <span className="mr-2 inline-flex flex-col items-end gap-1 align-middle">
+      <Button
+        variant="primary"
+        icon={<CreditCard className="size-4" aria-hidden />}
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            const r = await command<{ gatewayUrl: string }>("billing_pay_card", { invoiceId });
+            window.location.assign(r.gatewayUrl);
+          } catch (e) {
+            setError(e);
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? t("billing.cardOpening") : t("billing.payByCard")}
+      </Button>
+      <ErrorAlert error={error} />
+    </span>
+  );
+}
 
 /** Settings › Előfizetés: price, billing details, payment method, invoices. */
 export function SubscriptionTab() {
@@ -180,7 +211,8 @@ export function SubscriptionTab() {
                   <td className="py-2.5 pr-4">{i.description}</td>
                   <td className="py-2.5 pr-4 text-right tabular-nums">{huf(i.grossHuf)}</td>
                   <td className="py-2.5">{i.status === "open" ? t("billing.openUntil", { date: i.dueDate }) : t(`billing.status.${i.status}`)}</td>
-                  <td className="py-2.5 text-right">
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    {o.cardPayments && i.kind === "proforma" && i.status === "open" && <PayByCard invoiceId={i.id} />}
                     {i.hasPdf && (
                       <Button variant="quiet" icon={<FileText className="size-4" aria-hidden />} onClick={async () => openGenerated(await command<GeneratedFile>("billing_invoice_pdf", { id: i.id }))}>
                         PDF

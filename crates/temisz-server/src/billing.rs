@@ -223,6 +223,7 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
         json!({ "unitNet": unit_net(p), "net": net, "gross": gross(net) })
     };
     Ok(json!({
+        "cardPayments": crate::barion::config().is_some(),
         "status": status,
         "trialEndsAt": trial_ends,
         "trialDaysLeft": trial_days.max(0),
@@ -291,7 +292,7 @@ fn issue(
         issue_date: ymd(today),
         fulfilment_date: ymd(if proforma { today } else { period.0.min(today) }),
         due_date: ymd(due),
-        payment_method: "Átutalás".into(),
+        payment_method: if method == "card" { "Bankkártya".into() } else { "Átutalás".into() },
         note: format!("TEMISZ előfizetés. Közlemény: {}", &tenant_id[..8]),
         order_number: tenant_id[..8].to_string(),
         proforma_number: proforma_of.map(|(_, n)| n.to_string()),
@@ -427,6 +428,11 @@ pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method
 
 /// Platform admin: the transfer arrived. Issues the final invoice and starts/extends the period.
 pub fn mark_paid(conn: &Connection, invoice_id: &str) -> Result<()> {
+    mark_paid_by(conn, invoice_id, "transfer")
+}
+
+/// A proforma was paid (`transfer` or `card`): final invoice, period started or extended.
+pub fn mark_paid_by(conn: &Connection, invoice_id: &str, method: &str) -> Result<()> {
     let row: Option<(String, String, String, i64, i64, String, String, String)> = conn
         .query_row(
             "SELECT tenant_id, number, description, quantity, unit_net_huf, to_char(period_start, 'YYYY-MM-DD'), to_char(period_end, 'YYYY-MM-DD'), status
@@ -442,7 +448,7 @@ pub fn mark_paid(conn: &Connection, invoice_id: &str) -> Result<()> {
     let (ps, pe) = (parse(&ps)?, parse(&pe)?);
     let t = lunda_core::db::tx(conn)?;
     t.execute("UPDATE platform.invoices SET status = 'paid', paid_at = now() WHERE id = ?1", params![invoice_id])?;
-    issue(&t, &tenant, false, &desc, qty, unit, (ps, pe), "transfer", Some((invoice_id, &number)))?;
+    issue(&t, &tenant, false, &desc, qty, unit, (ps, pe), method, Some((invoice_id, &number)))?;
     // a full-period proforma moves the period; a top-up for extra cemeteries does not
     t.execute(
         "UPDATE platform.subscriptions SET status = 'active', updated_at = now(),

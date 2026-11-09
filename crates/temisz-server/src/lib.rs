@@ -7,6 +7,7 @@
 //! * every signed-in request runs inside the customer's own schema.
 
 pub mod accounts;
+pub mod barion;
 pub mod billing;
 pub mod lifecycle;
 pub mod mail;
@@ -36,6 +37,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (5, include_str!("../migrations/0005_notices.sql")),
     (6, include_str!("../migrations/0006_bank.sql")),
     (7, include_str!("../migrations/0007_security_log.sql")),
+    (8, include_str!("../migrations/0008_card_payments.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -127,6 +129,22 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Err(_) => Response::text(503, "database unavailable"),
         },
         ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map" | "/api/public/notices") => public_search(store, req),
+        // Barion tells that a payment changed; the state is asked from Barion
+        ("POST" | "GET", "/api/barion/callback") => {
+            if accounts::rate_limit(&store.conn, &format!("barion:{}", req.ip), 120, 1).is_err() {
+                return Response::text(429, "too many requests");
+            }
+            let query = req.path.split_once('?').map(|(_, q)| q).unwrap_or("");
+            match barion::payment_id_from(query, &req.body) {
+                Some(id) => match barion::refresh(&store.conn, &id) {
+                    Ok(_) => Response::text(200, "ok"),
+                    // unknown payments are answered like known ones; Barion retries on errors
+                    Err(e) if e.code == "not_found" => Response::text(200, "ok"),
+                    Err(e) => Response::text(500, &e.code),
+                },
+                None => Response::text(400, "paymentId required"),
+            }
+        }
         ("GET", "/api/cron/daily") | ("POST", "/api/cron/daily") => {
             let secret = std::env::var("CRON_SECRET").unwrap_or_default();
             let ok = (!secret.is_empty() && req.header("authorization") == Some(&format!("Bearer {secret}"))) || cfg.dev_mode;
@@ -502,6 +520,14 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "billing_subscribe" => {
                 let c = require(store, req)?;
                 billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"))
+            }
+            "billing_pay_card" => {
+                let c = require(store, req)?;
+                barion::start(&store.conn, &c.session, &c.tenant_id, &s("invoiceId"), &accounts::base_url(req), &accounts::site_url(req))
+            }
+            "billing_card_status" => {
+                let c = require(store, req)?;
+                barion::status_for(&store.conn, &c.tenant_id, &s("requestId"))
             }
             "billing_quote_cemetery" => {
                 let c = require(store, req)?;

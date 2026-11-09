@@ -165,7 +165,9 @@
     "password_common": "Ez a jelszó túl könnyen kitalálható. Válasszon hosszabbat, például néhány szóból álló mondatot.",
     "password_personal": "A jelszó ne a saját nevéből vagy e-mail-címéből álljon.",
     "file_type": "Csak PDF, fénykép (JPG, PNG, HEIC, WEBP) vagy Office-dokumentum csatolható.",
-    "gps_invalid": "Érvénytelen GPS-pozíció."
+    "gps_invalid": "Érvénytelen GPS-pozíció.",
+    "card_unavailable": "A bankkártyás fizetés jelenleg nem érhető el. Fizessen átutalással.",
+    "card_failed": "A Barion fizetőoldalt most nem sikerült megnyitni. Próbálja újra pár perc múlva, vagy fizessen átutalással."
   },
   "fields": {
     "familyName": "Családi név",
@@ -1043,7 +1045,7 @@
     "method": {
       "transfer": "Átutalás"
     },
-    "transferHint": "Díjbekérőt küldünk 8 napos fizetési határidővel. A befizetés után a számlát e-mailben kapja.",
+    "transferHint": "Díjbekérőt küldünk 8 napos fizetési határidővel. Kifizetheti átutalással, vagy azonnal bankkártyával a Barion fizetőoldalán. A befizetés után a számlát e-mailben kapja.",
     "invoiceTo": "A számla adatai",
     "taxNumber": "Adószám",
     "taxHint": "Szervezetnél kötelező, magánszemélynél hagyja üresen.",
@@ -1082,7 +1084,12 @@
     "closeStart": "Fiók megszüntetése…",
     "closeConfirm": "Értem, hogy a fiók megszűnik, és az adatok 30 nap múlva törlődnek. Az adatokat letöltöttem, vagy nincs rájuk szükségem.",
     "closeFinal": "Fiók végleges megszüntetése",
-    "closePassword": "Jelszó a megerősítéshez"
+    "closePassword": "Jelszó a megerősítéshez",
+    "payByCard": "Fizetés bankkártyával",
+    "cardOpening": "Barion megnyitása…",
+    "cardPaid": "Sikeres kártyás fizetés. A számlát e-mailben elküldtük.",
+    "cardPending": "A fizetés feldolgozása folyamatban van. Amint a Barion visszaigazolja, a díjbekérő kifizetettre vált.",
+    "cardFailed": "A kártyás fizetés nem sikerült, vagy megszakadt. A díjbekérő továbbra is kifizethető."
   },
   "platform": {
     "title": "Ügyfelek",

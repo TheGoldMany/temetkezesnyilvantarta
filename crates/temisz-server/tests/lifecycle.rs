@@ -368,3 +368,108 @@ fn security_log_records_sign_ins() {
     assert_eq!(rows[0]["ip"], "203.0.113.7");
     assert!(rows[0]["userAgent"].as_str().unwrap().contains("Firefox"));
 }
+
+/// Card payment through Barion against a stand-in Barion server: the
+/// callback alone settles nothing; Barion's own answer does, exactly once.
+#[test]
+fn card_payment_settles_the_proforma_once() {
+    use std::sync::{Arc, Mutex};
+    use temisz_server::{barion, billing};
+    // stand-in Barion: Payment/Start answers a payment; paymentstate answers the current state
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let state = Arc::new(Mutex::new(("Prepared".to_string(), 0i64)));
+    let seen_key = Arc::new(Mutex::new(String::new()));
+    {
+        let state = state.clone();
+        let seen_key = seen_key.clone();
+        std::thread::spawn(move || {
+            for mut rq in server.incoming_requests() {
+                let mut body = String::new();
+                let _ = rq.as_reader().read_to_string(&mut body);
+                if let Some(h) = rq.headers().iter().find(|h| h.field.equiv("x-pos-key")) {
+                    *seen_key.lock().unwrap() = h.value.to_string();
+                }
+                let (status, total) = state.lock().unwrap().clone();
+                let answer = if rq.url().starts_with("/v2/Payment/Start") {
+                    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+                    state.lock().unwrap().1 = v["Transactions"][0]["Total"].as_i64().unwrap();
+                    json!({ "PaymentId": "0f1e2d3c4b5a69788796a5b4c3d2e1f0", "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=x", "Errors": [] })
+                } else {
+                    json!({ "PaymentId": "0f1e2d3c4b5a69788796a5b4c3d2e1f0", "Status": status, "Total": total, "Currency": "HUF", "Errors": [] })
+                };
+                let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
+            }
+        });
+    }
+    std::env::set_var("BARION_POS_KEY", "11111111-2222-3333-4444-555555555555");
+    std::env::set_var("BARION_PAYEE", "penz@temisz.hu");
+    std::env::set_var("BARION_API_URL", format!("http://127.0.0.1:{port}"));
+
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "card");
+    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
+    let s = store.session_for(&user).unwrap();
+    billing::save_details(
+        &store.conn,
+        &tenant,
+        &json!({ "name": "Kártyás Község", "postcode": "9999", "city": "Kártyás", "address": "Fő tér 1.", "email": email }),
+    )
+    .unwrap();
+    billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap();
+    let (proforma, gross): (String, i64) = store
+        .conn
+        .query_row(
+            "SELECT id, gross_huf FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'",
+            lunda_core::params![tenant],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    // another customer cannot pay (or see) this proforma
+    let (other_tenant, _) = new_customer(&store, "card-other");
+    assert_eq!(barion::start(&store.conn, &s, &other_tenant, &proforma, "https://x/app", "https://x").unwrap_err().code, "not_found");
+
+    let started = barion::start(&store.conn, &s, &tenant, &proforma, "https://www.temisz.hu/app", "https://www.temisz.hu").unwrap();
+    assert!(started["gatewayUrl"].as_str().unwrap().starts_with("https://"));
+    assert_eq!(*seen_key.lock().unwrap(), "11111111-2222-3333-4444-555555555555");
+    assert_eq!(state.lock().unwrap().1, gross, "the full proforma amount is charged");
+    let payment = started["paymentId"].as_str().unwrap().to_string();
+    let paid = |store: &lunda_core::Store| -> String {
+        store.conn.query_row("SELECT status FROM platform.invoices WHERE id = ?1", lunda_core::params![proforma], |r| r.get(0)).unwrap()
+    };
+
+    // a callback while Barion still says "in progress" settles nothing
+    state.lock().unwrap().0 = "Started".into();
+    assert_eq!(barion::refresh(&store.conn, &payment).unwrap(), "Started");
+    assert_eq!(paid(&store), "open");
+    // Barion reports less than the proforma: not settled
+    *state.lock().unwrap() = ("Succeeded".into(), gross - 1);
+    barion::refresh(&store.conn, &payment).unwrap();
+    assert_eq!(paid(&store), "open");
+    store.conn.execute("UPDATE platform.card_payments SET status = 'Started' WHERE payment_id = ?1", lunda_core::params![payment]).unwrap();
+    // succeeded in full: final invoice paid by card, the account stays open
+    *state.lock().unwrap() = ("Succeeded".into(), gross);
+    assert_eq!(barion::refresh(&store.conn, &payment).unwrap(), "Succeeded");
+    assert_eq!(paid(&store), "paid");
+    let invoices: i64 = store
+        .conn
+        .query_row(
+            "SELECT count(*) FROM platform.invoices WHERE proforma_id = ?1 AND kind = 'invoice' AND payment_method = 'card'",
+            lunda_core::params![proforma],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(invoices, 1);
+    // repeated callbacks change nothing
+    barion::refresh(&store.conn, &payment).unwrap();
+    barion::refresh(&store.conn, &payment).unwrap();
+    let again: i64 =
+        store.conn.query_row("SELECT count(*) FROM platform.invoices WHERE proforma_id = ?1", lunda_core::params![proforma], |r| r.get(0)).unwrap();
+    assert_eq!(again, 1);
+    // a forged payment id is ignored
+    assert_eq!(barion::refresh(&store.conn, "deadbeef").unwrap_err().code, "not_found");
+    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
+    // the callback carries the id in the query or in the body
+    assert_eq!(barion::payment_id_from("paymentId=abc", b"").as_deref(), Some("abc"));
+    assert_eq!(barion::payment_id_from("", b"PaymentId=def").as_deref(), Some("def"));
+}
