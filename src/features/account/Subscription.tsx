@@ -218,6 +218,11 @@ export function SubscriptionTab() {
           {o.cardPayments && o.invoices.some((i) => i.kind === "proforma" && i.status === "open") && (
             <div className="mb-4">
               <TermsCheck checked={cardAccepted} onChange={setCardAccepted} card />
+              <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-granite">
+                {t("billing.cardVia")}
+                <img src="/barion-logo.svg" alt="Barion" className="h-5 w-auto" />
+                {t("billing.cardMethods")}
+              </p>
             </div>
           )}
           <table className="w-full" data-testid="invoices">

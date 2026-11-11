@@ -630,3 +630,10 @@ h2::before {
   .checks li span { grid-column: 2; }
   .foot-links { margin-left: 0; }
 }
+
+/* ---------- Payment methods (Barion requires them on the home page) ---------- */
+.pay-methods { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; font-size: 14.5px; color: var(--ink-3); }
+.pay-methods img { display: block; height: 22px; width: auto; }
+.foot-pay { display: inline-flex; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; }
+.foot-pay span { color: var(--ink-2); font-size: 13.5px; }
+.foot-pay img { display: block; height: 19px; width: auto; }
