@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8" />
+<title>TEMISZ – temetőnyilvántartás önkormányzatoknak</title>
+<style>
+  /* One A4 page for municipalities. Bauhaus with Art Deco touches, as the website. */
+  @font-face { font-family: "Jost"; src: url("../../website/fonts/jost-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F; }
+  @font-face { font-family: "Jost"; src: url("../../website/fonts/jost-latin-ext-wght-normal.woff2") format("woff2"); font-weight: 100 900; unicode-range: U+0100-02BA, U+1E00-1E9F; }
+  @page { size: A4; margin: 0; }
+  :root { --plaster: #ededea; --ink: #16181d; --ink2: #4a4e57; --cobalt: #1e3f8c; --deep: #142a5e; --cinnabar: #b8382a; --ochre: #dda22c; --gilt: #a8873a; --line: #d6d6d1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 210mm; height: 297mm; }
+  body { font-family: "Jost", "Futura", sans-serif; color: var(--ink); background: #fff; font-size: 10pt; line-height: 1.42; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* header band */
+  header { background: var(--deep); color: #fff; padding: 9mm 16mm 8mm; position: relative; }
+  header::after { content: ""; position: absolute; left: 16mm; right: 16mm; bottom: 4mm; border-top: 3px double var(--gilt); }
+  .brand { display: flex; align-items: center; gap: 4mm; }
+  .wordmark { font-size: 26pt; font-weight: 500; letter-spacing: 0.32em; }
+  .tagline { font-size: 8.5pt; letter-spacing: 0.04em; color: #c9d2e8; }
+  .emblem { width: 15mm; height: 15mm; }
+  h1 { margin-top: 4mm; font-size: 20pt; line-height: 1.12; font-weight: 500; max-width: 150mm; }
+  h1 b { font-weight: 600; color: var(--ochre); }
+  .lead { margin-top: 2.5mm; margin-bottom: 2mm; max-width: 150mm; font-size: 11pt; color: #dfe5f3; }
+
+  main { padding: 7mm 16mm 0; display: flex; flex-direction: column; gap: 5mm; }
+
+  /* four benefits */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .card { border: 1px solid var(--line); background: #fff; padding: 4mm 5mm 4mm; position: relative; box-shadow: 2.2mm 2.2mm 0 var(--cobalt); }
+  .card .mark { position: absolute; top: 4.5mm; right: 5mm; width: 8mm; height: 8mm; }
+  .card h2 { font-size: 12.5pt; font-weight: 600; margin-bottom: 1.6mm; padding-right: 10mm; }
+  .card h2::before { content: ""; display: block; width: 9mm; border-top: 3px double var(--gilt); margin-bottom: 2mm; }
+  .card ul { list-style: none; }
+  .card li { padding-left: 4mm; position: relative; margin-top: 0.5mm; color: var(--ink2); }
+  .card li::before { content: ""; position: absolute; left: 0; top: 2.1mm; width: 1.6mm; height: 1.6mm; background: var(--cinnabar); }
+
+  /* offer */
+  .offer { display: grid; grid-template-columns: 1fr 34mm; gap: 6mm; align-items: center; background: var(--plaster); border-left: 3mm solid var(--ochre); padding: 4mm 6mm; }
+  .offer .kicker { font-size: 8.5pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cinnabar); }
+  .offer h3 { font-size: 14pt; line-height: 1.2; font-weight: 600; margin: 1mm 0 1.5mm; }
+  .offer p { color: var(--ink2); }
+  .offer ol { margin-top: 2mm; padding-left: 5mm; color: var(--ink); }
+  .offer ol li { margin-top: 0.6mm; }
+  .qr { text-align: center; font-size: 7.5pt; color: var(--ink2); }
+  .qr img { width: 30mm; height: 30mm; display: block; margin: 0 auto 1.5mm; background: #fff; padding: 2mm; border: 1px solid var(--line); }
+
+  /* facts row */
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .fact { padding: 3mm 4mm; }
+  .fact + .fact { border-left: 1px solid var(--line); }
+  .fact b { display: block; font-size: 15pt; font-weight: 600; color: var(--cobalt); line-height: 1.1; }
+  .fact span { font-size: 8.8pt; color: var(--ink2); }
+
+  footer { margin-top: auto; padding: 3mm 16mm 5mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
+  .contact b { font-size: 10.5pt; white-space: nowrap; }
+  .contact p { color: var(--ink2); font-size: 9.5pt; }
+  .contact .big { font-size: 13pt; color: var(--ink); font-weight: 600; letter-spacing: 0.01em; }
+  .legal { font-size: 7.2pt; color: #7a7e87; max-width: 64mm; text-align: right; }
+  .bar { height: 3mm; display: flex; }
+  .bar i { flex: 1; } .bar i:nth-child(1) { background: var(--cobalt); } .bar i:nth-child(2) { background: var(--ochre); flex: 0.35; } .bar i:nth-child(3) { background: var(--cinnabar); flex: 0.2; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="brand">
+      <svg class="emblem" viewBox="0 0 60 60" aria-hidden="true">
+        <rect x="1" y="1" width="58" height="58" fill="none" stroke="#a8873a" stroke-width="2"/>
+        <circle cx="30" cy="24" r="12" fill="#dda22c"/>
+        <rect x="14" y="38" width="32" height="6" fill="#b8382a"/>
+        <rect x="20" y="46" width="20" height="6" fill="#fff"/>
+      </svg>
+      <div>
+        <div class="wordmark">TEMISZ</div>
+        <div class="tagline">Temetőmenedzsment és Informatikai Szoftver</div>
+      </div>
+    </div>
+    <h1>A temető nyilvántartása <b>papír nélkül</b>, pontosan és jogszerűen.</h1>
+    <p class="lead">Webes program önkormányzatoknak és temetőüzemeltetőknek: a nyilvántartó könyvtől a megváltások lejáratáig minden egy helyen, böngészőből, telepítés nélkül.</p>
+  </header>
+
+  <main>
+    <section class="grid">
+      <div class="card">
+        <svg class="mark" viewBox="0 0 10 10"><rect width="10" height="10" fill="#1e3f8c"/></svg>
+        <h2>Papírmentes nyilvántartás</h2>
+        <ul>
+          <li>Nyilvántartó és sírbolt könyv folyószámmal, betűsoros névmutatóval.</li>
+          <li>Megváltások, újraváltások, jogosultak, temetések egy adatlapon.</li>
+          <li>A régi Excel- vagy Word-táblák betölthetők, az adatok nem vesznek el.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <svg class="mark" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#dda22c"/></svg>
+        <h2>Térképes sírkereső</h2>
+        <ul>
+          <li>A temető térképe parcellákkal, a sírhelyek állapota színnel jelölve.</li>
+          <li>Nyilvános sírkereső a település honlapjára: név alapján, útvonallal.</li>
+          <li>Telefonon a sírnál: GPS-hely és sírkőfotó egy érintéssel.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <svg class="mark" viewBox="0 0 10 10"><polygon points="5,0 10,10 0,10" fill="#b8382a"/></svg>
+        <h2>Azonnali lekérdezések</h2>
+        <ul>
+          <li>Ki nyugszik ott, ki a jogosult, mikor jár le – másodpercek alatt.</li>
+          <li>Lejáró megváltások listája, értesítő levelek és hirdetmény egy gombbal.</li>
+          <li>Éves beszámoló a fenntartónak, kihasználtság, kapacitás-előrejelzés.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <svg class="mark" viewBox="0 0 10 10"><rect x="0" y="0" width="10" height="4.5" fill="#142a5e"/><rect x="0" y="5.5" width="10" height="4.5" fill="#a8873a"/></svg>
+        <h2>Törvényi megfelelés</h2>
+        <ul>
+          <li>A 145/1999. Korm. rendelet szerinti nyilvántartás, hiteles nyomtatással.</li>
+          <li>Nyugvási idő, minimális használati idő, újraértékesítési hirdetmény ellenőrizve.</li>
+          <li>Módosíthatatlan változásnapló, napi titkosított mentés, GDPR-kompatibilis.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="offer">
+      <div>
+        <p class="kicker">Ingyenes adatmigrációs bemutató</p>
+        <h3>Küldje el egy meglévő táblázatát: 24 órán belül megmutatjuk, hogyan festene a temetője a&nbsp;<span style="white-space:nowrap">TEMISZ-ben</span>.</h3>
+        <ol>
+          <li>Töltse fel az egyik Excel- vagy Word-tábláját a <b>temisz.hu/bemutato</b> oldalon.</li>
+          <li>Mi betöltjük egy próbanyilvántartásba – díjmentesen, kötelezettség nélkül.</li>
+          <li>Egy napon belül megkapja a belépést, és a saját adataival próbálhatja ki.</li>
+        </ol>
+      </div>
+      <div class="qr">
+        <img src="qr-bemutato.svg" alt="QR-kód: temisz.hu/bemutato" />
+        temisz.hu/bemutato
+      </div>
+    </section>
+
+    <section class="facts">
+      <div class="fact"><b>45 000 Ft + ÁFA</b><span>havonta temetőnként (évente 450 000 Ft). A felhasználók száma nem számít.</span></div>
+      <div class="fact"><b>15 nap</b><span>ingyenes próbaidő kártyás előfizetésnél, bármikor lemondható.</span></div>
+      <div class="fact"><b>0 telepítés</b><span>böngészőből, számítógépen, tableten és telefonon; a frissítés automatikus.</span></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="contact">
+      <b>Kérdése van? Hívjon, szívesen bemutatjuk személyesen is.</b>
+      <p class="big">+36 20 298 2210 · www.temisz.hu</p>
+      <p>Uri-Kovács Richárd (Lunda Software) · urikovacsrichard@gmail.com · 6050 Lajosmizse</p>
+    </div>
+    <p class="legal">Az árak nettó árak, az ÁFA 27%. A számla Számlázz.hu rendszerben készül, átutalással vagy bankkártyával (Barion) fizethető. A részletes feltételek: www.temisz.hu/aszf</p>
+  </footer>
+  <div class="bar"><i></i><i></i><i></i></div>
+</div>
+</body>
+</html>

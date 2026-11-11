@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ingyenes adatmigrációs bemutató – TEMISZ</title>
+    <meta name="description" content="Töltse fel temetője egyik Excel- vagy Word-tábláját: 24 órán belül ingyen megmutatjuk, hogyan festene a nyilvántartás a TEMISZ-ben." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="style.css" />
+    <script src="barion-pixel.js" defer></script>
+    <script src="bemutato.js" defer></script>
+  </head>
+  <body>
+    <header class="bar">
+      <a class="brand" href="./" aria-label="TEMISZ – Temetőmenedzsment és Informatikai Szoftver, kezdőlap"><span class="wordmark">TEMISZ</span><span class="brand-sub">Temetőmenedzsment és Informatikai Szoftver</span></a>
+      <nav class="nav" aria-label="Fő menü" style="display:flex">
+        <a class="btn btn-solid btn-sm nav-cta" href="/app/">Belépés</a>
+      </nav>
+    </header>
+    <main class="pay demo">
+      <p class="eyebrow">Ingyenes adatmigrációs bemutató</p>
+      <h1>Hogyan festene az Ön temetője a TEMISZ-ben?</h1>
+      <p class="demo-lead">Töltse fel a temető egyik meglévő Excel- vagy Word-tábláját (nyilvántartó könyv, sírhelylista, megváltások). Egy munkanapon belül betöltjük egy próbanyilvántartásba, és e-mailben küldjük a belépést: a saját adataival próbálhatja ki, díjmentesen, kötelezettség nélkül.</p>
+      <ol class="demo-steps">
+        <li><b>Feltölti</b> a táblázatot ezen az oldalon.</li>
+        <li><b>Betöltjük</b> egy próbanyilvántartásba, a hibás vagy hiányos sorokat jelezzük.</li>
+        <li><b>Megnézi</b> a saját temetőjét: sírhelyek, elhunytak, lejáratok, térkép.</li>
+      </ol>
+
+      <form id="demo-form" class="pay-card demo-form" novalidate>
+        <label>Település vagy temető neve<input name="settlement" required maxlength="120" autocomplete="organization" /></label>
+        <div class="demo-row">
+          <label>Az Ön neve<input name="name" required maxlength="120" autocomplete="name" /></label>
+          <label>Beosztása <span class="opt">(nem kötelező)</span><input name="role" maxlength="80" placeholder="pl. jegyző, ügyintéző" /></label>
+        </div>
+        <div class="demo-row">
+          <label>E-mail-cím<input name="email" type="email" required maxlength="200" autocomplete="email" /></label>
+          <label>Telefonszám <span class="opt">(nem kötelező)</span><input name="phone" type="tel" maxlength="40" autocomplete="tel" /></label>
+        </div>
+        <label>A táblázat (Excel, Word, CSV vagy PDF, legfeljebb 3 MB)<input name="file" type="file" required accept=".xlsx,.xls,.xlsm,.ods,.csv,.docx,.doc,.odt,.rtf,.txt,.pdf" /></label>
+        <label>Megjegyzés <span class="opt">(nem kötelező)</span><textarea name="message" rows="3" maxlength="2000" placeholder="Például: hány temető, mióta vezetik így, mi a legnagyobb gond."></textarea></label>
+        <label class="pay-check">
+          <input type="checkbox" name="consent" required />
+          <span>A feltöltött táblázatot a TEMISZ (Uri-Kovács Richárd egyéni vállalkozó) csak a bemutató elkészítéséhez használhatja. Kijelentem, hogy az önkormányzat nevében átadhatom. Az <a href="adatkezeles.html#bemutato" target="_blank" rel="noopener">adatkezelési tájékoztatót</a> megismertem.</span>
+        </label>
+        <button type="submit" class="btn btn-solid" id="demo-send">Feltöltés és bemutató kérése</button>
+        <p id="demo-status" class="pay-status" role="status" aria-live="polite"></p>
+      </form>
+      <p class="pay-foot">A fájlt titkosítva tároljuk, csak a bemutatóhoz használjuk, és legkésőbb 30 nap múlva töröljük. Inkább beszélne? Hívjon: <a href="tel:+36202982210">+36 20 298 2210</a>.</p>
+    </main>
+    <footer class="foot">
+      <p class="wordmark">TEMISZ</p>
+      <p>Temetőmenedzsment és Informatikai Szoftver</p>
+      <p class="foot-links">
+        <a href="aszf.html">ÁSZF</a>
+        <a href="adatkezeles.html">Adatkezelés</a>
+        <a href="adatfeldolgozas.html">Adatfeldolgozói szerződés</a>
+        <a href="impresszum.html">Impresszum</a>
+      </p>
+    </footer>
+  </body>
+</html>

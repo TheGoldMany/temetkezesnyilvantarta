@@ -848,3 +848,45 @@ fn card_subscription_trial_then_automatic_charges() {
     assert_eq!(mock.lock().unwrap().charges.len(), charges);
     assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem]);
 }
+
+/// temisz.hu/bemutato: an uploaded table is kept encrypted, only the admin
+/// gets it back, wrong file types and missing consent are refused.
+#[test]
+fn demo_request_upload_is_stored_sealed() {
+    use base64::Engine;
+    use temisz_server::demo_requests;
+    // the key is process-wide: not while another test seals with it
+    let _serial = BARION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    std::env::set_var("SECRETS_KEY", "teszt-titok");
+    let store = platform();
+    let file = b"nev;sirhely\nKovacs Janos;A/1/1\n".to_vec();
+    let town = format!("Próbafalva {}", lunda_core::util::new_id());
+    let req = |body: serde_json::Value| Request {
+        method: "POST".into(),
+        path: "/api/public/demo-request".into(),
+        headers: vec![("content-type".into(), "application/json".into())],
+        body: body.to_string().into_bytes(),
+        ip: format!("198.51.100.{}", rand_octet()),
+    };
+    let ok = json!({ "settlement": town, "name": "Jegyző Judit", "role": "jegyző", "email": "jegyzo@pelda.hu", "consent": true,
+                     "fileName": "temeto.csv", "content": base64::engine::general_purpose::STANDARD.encode(&file) });
+    let mut no_consent = ok.clone();
+    no_consent["consent"] = json!(false);
+    assert_eq!(demo_requests::submit(&store.conn, &req(no_consent)).unwrap_err().code, "consent_required");
+    let mut exe = ok.clone();
+    exe["fileName"] = json!("virus.exe");
+    assert_eq!(demo_requests::submit(&store.conn, &req(exe)).unwrap_err().code, "file_type");
+    demo_requests::submit(&store.conn, &req(ok)).unwrap();
+    let raw: Vec<u8> =
+        store.conn.query_row("SELECT file_data FROM platform.demo_requests WHERE settlement = ?1", lunda_core::params![town], |r| r.get(0)).unwrap();
+    assert!(!String::from_utf8_lossy(&raw).contains("Kovacs"), "stored encrypted");
+    let list = demo_requests::list(&store.conn).unwrap();
+    let item = list.as_array().unwrap().iter().find(|x| x["settlement"] == town.as_str()).unwrap().clone();
+    let back = demo_requests::download(&store.conn, item["id"].as_str().unwrap()).unwrap();
+    assert_eq!(base64::engine::general_purpose::STANDARD.decode(back["data"].as_str().unwrap()).unwrap(), file);
+    demo_requests::delete(&store.conn, item["id"].as_str().unwrap()).unwrap();
+}
+
+fn rand_octet() -> u8 {
+    (lunda_core::util::new_id().bytes().map(|b| b as u32).sum::<u32>() % 250) as u8 + 1
+}

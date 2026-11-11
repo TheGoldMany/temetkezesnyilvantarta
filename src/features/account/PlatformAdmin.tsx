@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { command } from "../../lib/api";
 import { Alert, Button, ErrorAlert, PageHeader, Panel, Spinner } from "../../components/ui";
 import { huf } from "./Subscription";
+import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
 
 interface AdminData {
   tenants: { id: string; name: string; status: string; trialEndsAt: string; createdAt: string; email: string; plan: string | null; paymentMethod: string | null; cemeteryCount: number | null; subscriptionStatus: string | null; periodEnd: string | null; users: number }[];
@@ -121,6 +122,7 @@ export function PlatformAdmin() {
             </table>
           )}
         </Panel>
+        <DemoRequests />
         <Panel title={t("platform.customers")}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
@@ -156,5 +158,73 @@ export function PlatformAdmin() {
         </Panel>
       </div>
     </>
+  );
+}
+
+interface DemoRequest {
+  id: string;
+  createdAt: string;
+  settlement: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  message: string;
+  fileName: string;
+  fileSize: number;
+  done: boolean;
+}
+
+/** temisz.hu/bemutato: uploaded tables for the free migration demo (deleted after 30 days). */
+function DemoRequests() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["demo-requests"], queryFn: () => command<DemoRequest[]>("admin_demo_requests") });
+  const [error, setError] = useState<unknown>(null);
+  const act = async (cmd: string, id: string) => {
+    setError(null);
+    try {
+      qc.setQueryData(["demo-requests"], await command<DemoRequest[]>(cmd, { id }));
+    } catch (e) {
+      setError(e);
+    }
+  };
+  const rows = q.data ?? [];
+  return (
+    <Panel title={t("platform.demoTitle")}>
+      <p className="mb-3 text-sm text-granite">{t("platform.demoHint")}</p>
+      <ErrorAlert error={error ?? q.error} />
+      {rows.length === 0 ? (
+        <p className="text-granite">{t("platform.demoNone")}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-seam border-y border-seam" data-testid="demo-requests">
+          {rows.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="font-semibold">
+                  {r.settlement} {r.done && <span className="ml-2 text-sm font-normal text-moss">{t("platform.demoDone")}</span>}
+                </p>
+                <p className="text-sm">
+                  {r.name}
+                  {r.role && ` (${r.role})`} · <a className="text-moss underline" href={`mailto:${r.email}`}>{r.email}</a>
+                  {r.phone && ` · ${r.phone}`}
+                </p>
+                <p className="text-sm text-granite">
+                  {new Date(r.createdAt).toLocaleString("hu-HU")} · {r.fileName} ({Math.ceil(r.fileSize / 1024)} kB)
+                </p>
+                {r.message && <p className="mt-1 text-sm whitespace-pre-line">{r.message}</p>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={async () => openGenerated(await command<GeneratedFile>("admin_demo_download", { id: r.id }))}>{t("platform.demoDownload")}</Button>
+                {!r.done && <Button onClick={() => act("admin_demo_done", r.id)}>{t("platform.demoMarkDone")}</Button>}
+                <Button variant="quiet" onClick={() => act("admin_demo_delete", r.id)}>
+                  {t("common.delete")}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }

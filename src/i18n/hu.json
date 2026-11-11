@@ -1117,7 +1117,13 @@
     "suggested": "Javaslat: {{number}}, {{buyer}}, {{amount}}",
     "noSuggestion": "Nincs hozzá illő díjbekérő.",
     "confirmMatch": "Párosítás",
-    "ignore": "Nem díjbefizetés"
+    "ignore": "Nem díjbefizetés",
+    "demoTitle": "Bemutató-kérések (temisz.hu/bemutato)",
+    "demoHint": "A feltöltött táblázatot töltse be egy próbanyilvántartásba (Fiókom › Szervezeteim › új szervezet, pl. „Bemutató – Kisfalu”, majd Import és export), és hívja meg a kérőt olvasó szerepkörrel. A fájl 30 nap után magától törlődik; a próbaszervezetet is szüntesse meg, ha nem lesz belőle előfizetés.",
+    "demoNone": "Még nem érkezett kérés.",
+    "demoDone": "kész",
+    "demoDownload": "Fájl letöltése",
+    "demoMarkDone": "Kész"
   },
   "finance": {
     "title": "Pénzügy",

@@ -9,6 +9,7 @@
 pub mod accounts;
 pub mod barion;
 pub mod billing;
+pub mod demo_requests;
 pub mod lifecycle;
 pub mod mail;
 pub mod reminders;
@@ -44,6 +45,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (10, include_str!("../migrations/0010_tour.sql")),
     (11, include_str!("../migrations/0011_memberships.sql")),
     (12, include_str!("../migrations/0012_cemetery_subscriptions.sql")),
+    (13, include_str!("../migrations/0013_demo_requests.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -138,6 +140,20 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             public_search(store, req)
         }
         ("GET", "/api/public/pay") | ("POST", "/api/public/pay/start") | ("GET", "/api/public/pay/status") => public_pay(store, req),
+        ("POST", "/api/public/demo-request") => match demo_requests::submit(&store.conn, req) {
+            Ok(v) => Response::json(&v),
+            Err(e) => {
+                let mut r = Response::json(&json!({ "error": e.code, "field": e.params.get("field") }));
+                r.status = match e.code.as_str() {
+                    "rate_limited" => 429,
+                    "forbidden" => 403,
+                    "file_too_large" => 413,
+                    "internal" | "db" => 500,
+                    _ => 400,
+                };
+                r
+            }
+        },
         // Barion tells that a payment changed; the state is asked from Barion
         ("POST" | "GET", "/api/barion/callback") => {
             if accounts::rate_limit(&store.conn, &format!("barion:{}", req.ip), 120, 1).is_err() {
@@ -161,7 +177,9 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
                 return Response::text(401, "unauthorized");
             }
             let res = subscriptions::daily(store, &accounts::base_url(req))
-                .and_then(|b| Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)?, "reminders": reminders::daily(store)? })));
+                .and_then(|b| {
+                    Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)?, "reminders": reminders::daily(store)?, "demoPurged": demo_requests::purge(&store.conn)? }))
+                });
             match res {
                 Ok(v) => Response::json(&v),
                 Err(e) => Response::text(500, &e.to_string()),
@@ -722,7 +740,15 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 c.session.require(lunda_core::auth::Permission::ManageSettings)?;
                 billing::invoice_pdf(&store.conn, &c.tenant_id, &s("id"))
             }
-            "admin_overview" | "admin_mark_paid" | "admin_extend_trial" | "admin_bank_import" | "admin_bank_resolve" => {
+            "admin_overview"
+            | "admin_mark_paid"
+            | "admin_extend_trial"
+            | "admin_bank_import"
+            | "admin_bank_resolve"
+            | "admin_demo_requests"
+            | "admin_demo_download"
+            | "admin_demo_done"
+            | "admin_demo_delete" => {
                 let c = require(store, req)?;
                 let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
                 if !is_superadmin(&acc, cfg.dev_mode) {
@@ -743,6 +769,16 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                         let inv = args["invoiceId"].as_str().filter(|x| !x.is_empty());
                         billing::resolve_line(&store.conn, &s("lineId"), inv, &acc.email)?;
                         admin_overview(store)
+                    }
+                    "admin_demo_requests" => demo_requests::list(&store.conn),
+                    "admin_demo_download" => demo_requests::download(&store.conn, &s("id")),
+                    "admin_demo_done" => {
+                        demo_requests::mark_done(&store.conn, &s("id"))?;
+                        demo_requests::list(&store.conn)
+                    }
+                    "admin_demo_delete" => {
+                        demo_requests::delete(&store.conn, &s("id"))?;
+                        demo_requests::list(&store.conn)
                     }
                     "admin_extend_trial" => {
                         let days = args["days"].as_i64().unwrap_or(14).clamp(1, 90) as i32;
