@@ -672,6 +672,9 @@ pub struct User {
     pub locked_until: Option<String>,
     pub must_change_password: bool,
     pub last_login_at: Option<String>,
+    /// cemeteries the colleague works in; empty = every cemetery
+    #[serde(default)]
+    pub cemetery_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

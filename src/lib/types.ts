@@ -88,6 +88,8 @@ export interface AppStatus {
 export interface AccountInfo {
   email: string;
   organization: string;
+  /** every organisation the person signs in to with this address */
+  organizations?: { accountId: string; name: string; current: boolean }[];
   emailVerified: boolean;
   totpEnabled: boolean;
   totpRequired: boolean;
@@ -536,6 +538,8 @@ export interface User {
   lockedUntil: string | null;
   mustChangePassword: boolean;
   lastLoginAt: string | null;
+  /** cemeteries the colleague works in; empty = every cemetery */
+  cemeteryIds?: string[];
 }
 
 export interface DashboardStats {

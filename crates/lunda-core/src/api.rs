@@ -42,6 +42,13 @@ const UNDERTAKER_METHODS: &[&str] = &[
 ];
 
 pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<Value> {
+    // a colleague limited to some cemeteries reaches only those
+    crate::access::check(store, s, method, a)?;
+    let v = dispatch_inner(store, s, method, a)?;
+    crate::access::filter(store, s, method, v)
+}
+
+fn dispatch_inner(store: &Store, s: &Session, method: &str, a: &Value) -> Result<Value> {
     if s.role == crate::auth::Role::Undertaker {
         if !UNDERTAKER_METHODS.contains(&method) {
             return Err(CoreError::forbidden("calendar"));
@@ -162,6 +169,7 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
             ok(true)
         }
         "users.list" => ok(store.list_users(s)?),
+        "users.setCemeteries" => ok(store.set_user_cemeteries(s, &arg::<String>(a, "id")?, &opt::<Vec<String>>(a, "cemeteryIds")?.unwrap_or_default())?),
         "users.create" => ok(store.create_user(
             s,
             &arg::<String>(a, "username")?,

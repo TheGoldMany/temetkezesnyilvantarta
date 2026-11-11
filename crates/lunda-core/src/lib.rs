@@ -5,6 +5,7 @@
 
 #![allow(clippy::too_many_arguments, clippy::type_complexity, clippy::large_enum_variant)]
 
+pub mod access;
 pub mod api;
 pub mod app;
 pub mod audit;

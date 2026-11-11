@@ -110,7 +110,8 @@
     "not_an_urn": "Csak urna adható ki vagy emelhető ki.",
     "lease_not_active": "A megváltás nem érvényes.",
     "already_voided": "Ez a bejegyzés már érvénytelenítve van.",
-    "email_taken": "Ezzel az e-mail-címmel már van fiók. Lépjen be, vagy kérjen új jelszót.",
+    "email_taken": "Ezzel az e-mail-címmel már van fiókja. Lépjen be, és új szervezetet a Beállítások › Fiókom › Szervezeteim részen hozhat létre. Ha elfelejtette a jelszavát, kérjen újat.",
+    "already_member": "Ez a kolléga már tagja a szervezetnek.",
     "email_invalid": "Adjon meg érvényes e-mail-címet.",
     "account_closed": "Ez a fiók megszűnt.",
     "not_available": "Ez a funkció a webes változatban nem érhető el.",
@@ -349,6 +350,7 @@
     "registerIntro": "30 napig minden funkció ingyen használható, bankkártya nélkül. A próbaidő végén eldöntheti, előfizet-e.",
     "organization": "Szervezet neve",
     "organizationHint": "Önkormányzat, egyházközség vagy üzemeltető cég",
+    "colleagueHint": "Új temetőt vagy üzemeltetőt regisztrál? Akkor jó helyen jár. Ha munkatársként csatlakozna egy temetőhöz, amely már használja a TEMISZ-t, nem kell regisztrálnia: kérjen meghívót a temető adminisztrátorától. Ha már van fiókja, lépjen be: új szervezetet a fiókjából is létrehozhat.",
     "name": "Az Ön neve",
     "password": "Jelszó",
     "passwordHint": "Legalább 8 karakter.",
@@ -791,7 +793,12 @@
     "updateEndpointHint": "Üresen hagyva a telepítőbe épített cím érvényes. Csak https:// kezdetű cím adható meg; a csomagok aláírását a program mindig ellenőrzi.",
     "webAbout": "A TEMISZ böngészőből működik, mindig a legfrissebb változat fut. Telepíteni és frissíteni nem kell.",
     "sendInvite": "Meghívó küldése",
-    "inviteIntro": "A kolléga e-mailben kap egy meghívót, abban állítja be a saját jelszavát.",
+    "inviteIntro": "A kolléga e-mailben kap egy meghívót, abban állítja be a saját jelszavát. Ha más temetőben már használja a TEMISZ-t, a meglévő belépésével éri el ezt a szervezetet is.",
+    "inviteSent": "A meghívót elküldtük.",
+    "userCemeteries": "Temetők",
+    "userCemeteriesHint": "Melyik temetőben dolgozhat. A többi temető adatait nem látja, és nem is módosíthatja. Az adminisztrátorok mindig minden temetőt látnak.",
+    "allCemeteries": "Minden temető",
+    "inviteJoined": "A kolléga már használja a TEMISZ-t: hozzáadtuk a szervezethez, a meglévő jelszavával belép, és a felső sávban válthat.",
     "sendLink": "Jelszóbeállító levél küldése",
     "linkSent": "Elküldtük.",
     "feeName": "Megnevezés a számlán",
@@ -1641,8 +1648,20 @@
       "password_changed": "Jelszócsere",
       "invite_accepted": "Meghívás elfogadva",
       "totp_on": "Kétlépcsős azonosítás bekapcsolva",
-      "totp_off": "Kétlépcsős azonosítás kikapcsolva"
+      "totp_off": "Kétlépcsős azonosítás kikapcsolva",
+      "switch_org": "Szervezetváltás",
+      "create_org": "Új szervezet létrehozva"
     }
+  },
+  "orgs": {
+    "switch": "Szervezet",
+    "title": "Szervezeteim",
+    "intro": "Ugyanazzal az e-mail-címmel és jelszóval több szervezetben is dolgozhat, például ha két önkormányzat temetőjét is kezeli. Ha egy szervezet meghívja, itt és a felső sávban jelenik meg.",
+    "current": "Ebben dolgozik most",
+    "open": "Átváltás",
+    "newName": "Új szervezet neve",
+    "newHint": "Saját előfizetéssel és 30 napos próbaidővel indul. Ön lesz az adminisztrátora.",
+    "create": "Szervezet létrehozása"
   },
   "onlinePay": {
     "title": "Online fizetés bankkártyával",

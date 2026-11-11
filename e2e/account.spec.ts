@@ -128,6 +128,64 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
   await expect(log).toContainText("Kétlépcsős azonosítás bekapcsolva");
 });
 
+test("egy belépés, több szervezet: új szervezet és váltás", async ({ page }) => {
+  const email = `tobb-${Date.now()}@pelda.hu`;
+  await register(page, email, "Elsőfalva Önkormányzata");
+  await finishOnboarding(page);
+  await page.getByRole("button", { name: "Beállítások" }).first().click();
+  await page.getByRole("tab", { name: "Fiókom" }).click();
+  await expect(page.getByTestId("org-list")).toContainText("Elsőfalva Önkormányzata");
+  await page.getByLabel("Új szervezet neve").fill("Másodfalva Egyházközség");
+  await page.getByRole("button", { name: "Szervezet létrehozása" }).click();
+  // the new organisation starts with its own first-run wizard, same sign-in
+  await expect(page.getByLabel("Üzemeltető neve")).toHaveValue("Másodfalva Egyházközség", { timeout: 15_000 });
+  await finishOnboarding(page);
+  const switcher = page.getByRole("combobox", { name: "Szervezet" });
+  await expect(switcher.locator("option")).toHaveText(["Másodfalva Egyházközség", "Elsőfalva Önkormányzata"]);
+  await switcher.selectOption({ label: "Elsőfalva Önkormányzata" });
+  await expect(switcher).toHaveValue(/.+/);
+  await expect(switcher.locator("option:checked")).toHaveText("Elsőfalva Önkormányzata", { timeout: 15_000 });
+  // signing in again opens the organisation used last
+  await rpc(page, "logout");
+  const st = await rpc(page, "login", { username: email, password: "nagyon-titkos-1" });
+  expect(st.ok.account.organization).toBe("Elsőfalva Önkormányzata");
+  expect(st.ok.account.organizations).toHaveLength(2);
+});
+
+test("kolléga csak a kijelölt temetőben dolgozik", async ({ page, browser }) => {
+  const admin = `temetok-${Date.now()}@pelda.hu`;
+  const colleague = `gondnok-${Date.now()}@pelda.hu`;
+  await register(page, admin, "Kétvölgy Önkormányzata");
+  await finishOnboarding(page);
+  for (const name of ["Felsővölgyi temető", "Alsóvölgyi temető"]) {
+    expect((await rpc(page, "api", { method: "cemeteries.save", args: { cemetery: { name } } })).ok.name).toBe(name);
+  }
+  await page.reload();
+  await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
+  await page.getByRole("tab", { name: "Felhasználók" }).click();
+  await page.getByRole("button", { name: "Kolléga meghívása" }).click();
+  await page.getByLabel(/Teljes név/).fill("Völgyi Gondnok");
+  await page.locator("input[name=email]").fill(colleague);
+  const cems = page.getByTestId("user-cemeteries");
+  await expect(cems.getByLabel("Minden temető")).toBeChecked();
+  await cems.getByLabel("Alsóvölgyi temető").uncheck();
+  await expect(cems.getByLabel("Minden temető")).not.toBeChecked();
+  await page.getByRole("button", { name: "Meghívó küldése" }).click();
+  await expect(page.getByText("Völgyi Gondnok")).toBeVisible();
+
+  const other = await (await browser.newContext()).newPage();
+  const invite = await lastMail(page, colleague, "invite");
+  await other.goto(linkIn(invite.body));
+  await other.locator("input[name=password]").fill("gondnok-jelszo-1");
+  await other.locator("input[name=password2]").fill("gondnok-jelszo-1");
+  await other.getByRole("button", { name: "Fiók aktiválása" }).click();
+  await expect(other.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  const list = (await rpc(other, "api", { method: "cemeteries.list", args: {} })).ok;
+  expect(list.map((c: { name: string }) => c.name)).toEqual(["Felsővölgyi temető"]);
+  const lower = (await rpc(page, "api", { method: "cemeteries.list", args: {} })).ok.find((c: { name: string }) => c.name === "Alsóvölgyi temető");
+  expect((await rpc(other, "api", { method: "sections.list", args: { cemeteryId: lower.id } })).err.code).toBe("forbidden");
+});
+
 test("idegen oldalról érkező kérés elutasítva", async ({ request }) => {
   const r = await request.post("/rpc", { headers: { "Content-Type": "application/json", Origin: "https://tamado.example" }, data: { cmd: "app_status", args: {} } });
   expect(r.status()).toBe(403);

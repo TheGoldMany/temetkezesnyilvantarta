@@ -13,6 +13,7 @@ import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSect
 import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
 import { SecurityLogPanel, SecurityPanel } from "../account/Security";
+import { OrganizationsPanel } from "../account/Organizations";
 import { SubscriptionTab, huf } from "../account/Subscription";
 import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
@@ -42,6 +43,7 @@ export function SettingsView({ tab }: { tab?: string }) {
           <div className="flex flex-col gap-6">
             <SecurityPanel />
             <OwnPassword />
+            <OrganizationsPanel />
             {can("manage_settings") && <SecurityLogPanel />}
           </div>
         )}
@@ -634,9 +636,13 @@ function UsersTab() {
 function UserDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
   const { t } = useTranslation();
   const [v, setV] = useState({ username: user?.username ?? "", displayName: user?.displayName ?? "", role: user?.role ?? "clerk", extra: user?.extraPermissions ?? [], active: user?.active ?? true });
+  const { list: cemeteries } = useCurrentCemetery();
+  // empty = every cemetery
+  const [cems, setCems] = useState<string[]>(user?.cemeteryIds ?? []);
   const [linkSent, setLinkSent] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const invalidate = useInvalidate();
+  const toast = useToast();
   return (
     <Dialog
       open
@@ -650,11 +656,16 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
             variant="primary"
             onClick={async () => {
               try {
+                let id = user?.id;
                 if (user) {
                   await api("users.update", { id: user.id, displayName: v.displayName, role: v.role, extraPermissions: v.extra, active: v.active });
                 } else {
-                  await api("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra });
+                  const created = await api<{ id: string; joinedExisting?: boolean }>("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra });
+                  id = created.id;
+                  toast(created.joinedExisting ? t("settings.inviteJoined") : t("settings.inviteSent"));
                 }
+                const limited = v.role === "admin" || cems.length === cemeteries.length ? [] : cems;
+                if (id && (limited.length > 0 || (user?.cemeteryIds?.length ?? 0) > 0)) await api("users.setCemeteries", { id, cemeteryIds: limited });
                 await invalidate();
                 onClose();
               } catch (e) {
@@ -700,6 +711,28 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
           </div>
         )}
         {user && <Checkbox label={t("settings.active")} checked={v.active} onChange={(b) => setV({ ...v, active: b })} />}
+        {cemeteries.length > 1 && v.role !== "admin" && (
+          <fieldset data-testid="user-cemeteries">
+            <legend className="mb-1 font-semibold">{t("settings.userCemeteries")}</legend>
+            <p className="mb-2 text-sm text-granite">{t("settings.userCemeteriesHint")}</p>
+            <div className="grid gap-2 md:grid-cols-2">
+              <Checkbox label={t("settings.allCemeteries")} checked={cems.length === 0} onChange={(b) => setCems(b ? [] : cemeteries.map((c) => c.id))} />
+              {cemeteries.map((c) => (
+                <Checkbox
+                  key={c.id}
+                  label={c.name}
+                  checked={cems.length === 0 || cems.includes(c.id)}
+                  onChange={(b) => {
+                    const base = cems.length === 0 ? cemeteries.map((x) => x.id) : cems;
+                    const next = b ? [...base, c.id] : base.filter((x) => x !== c.id);
+                    if (next.length === 0) return; // at least one cemetery
+                    setCems(next.length === cemeteries.length ? [] : next);
+                  }}
+                />
+              ))}
+            </div>
+          </fieldset>
+        )}
         <fieldset>
           <legend className="mb-2 font-semibold">{t("settings.extraPermissions")}</legend>
           <div className="grid gap-2 md:grid-cols-2">
