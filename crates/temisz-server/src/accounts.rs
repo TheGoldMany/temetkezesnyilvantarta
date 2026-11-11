@@ -113,9 +113,43 @@ pub fn account_by_id(conn: &Connection, id: &str) -> Result<AccountRow> {
     conn.query_row(&format!("{ACCOUNT_SQL} WHERE a.id = ?1"), params![id], map_account).optional()?.ok_or_else(|| CoreError::not_found("account", id))
 }
 
-pub fn account_by_email(conn: &Connection, email: &str) -> Result<Option<AccountRow>> {
-    Ok(conn.query_row(&format!("{ACCOUNT_SQL} WHERE lower(a.email) = lower(?1)"), params![email.trim()], map_account).optional()?)
+/// The organisations an e-mail address belongs to (closed ones left out),
+/// the most recently used first.
+pub fn memberships(conn: &Connection, email: &str) -> Result<Vec<AccountRow>> {
+    let mut st = conn.prepare(&format!(
+        "{ACCOUNT_SQL} WHERE lower(a.email) = lower(?1) AND t.status <> 'closed' AND t.deleted_at IS NULL
+         ORDER BY a.last_used_at DESC NULLS LAST, a.created_at"
+    ))?;
+    let rows = st.query_map(params![email.trim()], map_account)?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
 }
+
+/// The membership a sign-in or a password link uses: the last one used.
+pub fn account_by_email(conn: &Connection, email: &str) -> Result<Option<AccountRow>> {
+    Ok(memberships(conn, email)?.into_iter().next())
+}
+
+/// Every membership of the same person shares the sign-in data: copies the
+/// password of `acc_id` to the person's other organisations.
+pub fn sync_password(conn: &Connection, acc_id: &str) -> Result<()> {
+    let src = account_by_id(conn, acc_id)?;
+    let hash: String = conn.query_row(&format!("SELECT password_hash FROM \"{}\".users WHERE id = ?1", src.schema), params![src.user_id], |r| r.get(0))?;
+    for m in memberships(conn, &src.email)? {
+        if m.id != src.id {
+            conn.execute(
+                &format!(
+                    "UPDATE \"{}\".users SET password_hash = ?2, must_change_password = 0, failed_attempts = 0, locked_until = NULL WHERE id = ?1",
+                    m.schema
+                ),
+                params![m.user_id, hash],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// Condition for "every membership of the address of account ?1".
+const SAME_PERSON: &str = "lower(email) = (SELECT lower(email) FROM platform.accounts WHERE id = ?1)";
 
 pub fn account_by_user(conn: &Connection, tenant_id: &str, user_id: &str) -> Result<Option<AccountRow>> {
     Ok(conn.query_row(&format!("{ACCOUNT_SQL} WHERE a.tenant_id = ?1 AND a.user_id = ?2"), params![tenant_id, user_id], map_account).optional()?)
@@ -169,7 +203,10 @@ pub fn account_status(store: &Store, acc: &AccountRow, mfa_setup: bool) -> Resul
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
     let tour_seen: bool = store.conn.query_row("SELECT tour_seen_at IS NOT NULL FROM platform.accounts WHERE id = ?1", params![acc.id], |r| r.get(0))?;
+    let orgs: Vec<Value> =
+        memberships(&store.conn, &acc.email)?.into_iter().map(|m| json!({ "accountId": m.id, "name": m.organization, "current": m.id == acc.id })).collect();
     Ok(json!({
+        "organizations": orgs,
         "tourSeen": tour_seen,
         "email": acc.email,
         "organization": acc.organization,
@@ -201,7 +238,7 @@ pub fn send_verification(conn: &Connection, acc_id: &str, email: &str, req: &Req
 
 pub fn verify_email(conn: &Connection, token: &str) -> Result<()> {
     let acc = use_token(conn, token, "verify")?;
-    conn.execute("UPDATE platform.accounts SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = ?1", params![acc])?;
+    conn.execute(&format!("UPDATE platform.accounts SET email_verified_at = coalesce(email_verified_at, now()) WHERE {SAME_PERSON}"), params![acc])?;
     Ok(())
 }
 
@@ -244,8 +281,10 @@ pub fn set_password_with_token(store: &Store, token: &str, kind: &str, password:
     t.use_schema(&acc.schema)?;
     store.set_password_system(&acc.user_id, password, display_name)?;
     // the link proves access to the mailbox
-    t.execute("UPDATE platform.accounts SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = ?1", params![acc.id])?;
-    t.execute("DELETE FROM platform.sessions WHERE account_id = ?1", params![acc.id])?;
+    t.execute(&format!("UPDATE platform.accounts SET email_verified_at = coalesce(email_verified_at, now()) WHERE {SAME_PERSON}"), params![acc.id])?;
+    // the same password in all of the person's organisations; old sign-ins end
+    sync_password(&t, &acc.id)?;
+    t.execute(&format!("DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE {SAME_PERSON})"), params![acc.id])?;
     t.commit()?;
     Ok(acc.id)
 }
@@ -259,8 +298,9 @@ pub fn invite(store: &Store, s: &Session, tenant_id: &str, args: &Value, req: &R
     if !crate::valid_email(&email) {
         return Err(CoreError::validation("email", "invalid e-mail address").with("code", "email_invalid"));
     }
-    if account_by_email(&store.conn, &email)?.is_some() {
-        return Err(CoreError::new("email_taken", "an account already exists for this e-mail address"));
+    let existing = memberships(&store.conn, &email)?;
+    if existing.iter().any(|m| m.tenant_id == tenant_id) {
+        return Err(CoreError::new("already_member", "this person is already a member of the organisation"));
     }
     let display = args["displayName"].as_str().unwrap_or("").trim().to_string();
     let role = args["role"].as_str().unwrap_or("clerk");
@@ -269,9 +309,34 @@ pub fn invite(store: &Store, s: &Session, tenant_id: &str, args: &Value, req: &R
     // unusable random password until the invitation is accepted
     let user = store.create_user(s, &email, &display, role, &extra, &format!("{}!Aa1", random_token()))?;
     let acc_id = new_id();
+    let org: String = t.query_row("SELECT name FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| r.get(0))?;
+    if let Some(other) = existing.first() {
+        // already uses TEMISZ elsewhere: joins with the same sign-in, no new password
+        t.execute(
+            "INSERT INTO platform.accounts (id, email, tenant_id, user_id, email_verified_at, totp_secret, totp_enabled_at, recovery_codes)
+             SELECT ?1, ?2, ?3, ?4, email_verified_at, totp_secret, totp_enabled_at, recovery_codes FROM platform.accounts WHERE id = ?5",
+            params![acc_id, email, tenant_id, user.id, other.id],
+        )?;
+        sync_password(&t, &other.id)?;
+        mail::send(
+            &t,
+            &email,
+            &format!("Új szervezet a TEMISZ-ben – {org}"),
+            &format!(
+                "Jó napot kívánunk!\n\n{} hozzáadta Önt a(z) {org} szervezethez a TEMISZ-ben. Ugyanazzal az e-mail-címmel és jelszóval lép be, mint eddig; a program tetején a szervezet nevére kattintva válthat a szervezetei között.\n\n{}{}",
+                s.display_name,
+                base_url(req),
+                mail::FOOTER
+            ),
+            "invite",
+        )?;
+        t.commit()?;
+        let mut v = serde_json::to_value(user)?;
+        v["joinedExisting"] = json!(true);
+        return Ok(v);
+    }
     t.execute("INSERT INTO platform.accounts (id, email, tenant_id, user_id) VALUES (?1, ?2, ?3, ?4)", params![acc_id, email, tenant_id, user.id])?;
     let token = create_token(&t, &acc_id, "invite", INVITE_HOURS * 60)?;
-    let org: String = t.query_row("SELECT name FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| r.get(0))?;
     let link = format!("{}/#meghivas={token}", base_url(req));
     mail::send(
         &t,
@@ -302,7 +367,7 @@ pub fn totp_setup(store: &Store, acc: &AccountRow) -> Result<Value> {
         return Err(CoreError::new("totp_already_enabled", "two-factor sign-in is already on"));
     }
     let secret = totp::new_secret();
-    store.conn.execute("UPDATE platform.accounts SET totp_secret = ?2 WHERE id = ?1", params![acc.id, secret])?;
+    store.conn.execute(&format!("UPDATE platform.accounts SET totp_secret = ?2 WHERE {SAME_PERSON}"), params![acc.id, secret])?;
     let uri = totp::uri(&secret, &acc.email);
     let qr = qrcode::QrCode::new(uri.as_bytes()).map_err(|e| CoreError::new("qr", e.to_string()))?;
     let svg = qr.render::<qrcode::render::svg::Color>().min_dimensions(200, 200).quiet_zone(true).build();
@@ -316,17 +381,24 @@ pub fn totp_enable(store: &Store, acc: &AccountRow, s: &Session, code: &str) -> 
     }
     let codes: Vec<String> = (0..8).map(|_| random_token()[..10].to_uppercase()).collect();
     let hashes: Vec<String> = codes.iter().map(|c| sha256_hex(c.as_bytes())).collect();
-    store
-        .conn
-        .execute("UPDATE platform.accounts SET totp_enabled_at = now(), recovery_codes = ?2 WHERE id = ?1", params![acc.id, serde_json::to_string(&hashes)?])?;
-    store.conn.execute("UPDATE platform.sessions SET mfa_setup_required = false WHERE account_id = ?1", params![acc.id])?;
+    store.conn.execute(
+        &format!("UPDATE platform.accounts SET totp_enabled_at = now(), recovery_codes = ?2 WHERE {SAME_PERSON}"),
+        params![acc.id, serde_json::to_string(&hashes)?],
+    )?;
+    store.conn.execute(
+        &format!("UPDATE platform.sessions SET mfa_setup_required = false WHERE account_id IN (SELECT id FROM platform.accounts WHERE {SAME_PERSON})"),
+        params![acc.id],
+    )?;
     lunda_core::audit::record_simple(&store.conn, s, "user", s.user_id.as_deref().unwrap_or(""), "totp_enabled", None)?;
     Ok(json!({ "recoveryCodes": codes }))
 }
 
 pub fn totp_disable(store: &Store, acc: &AccountRow, s: &Session, password: &str) -> Result<()> {
     store.verify_own_password(s, password)?;
-    store.conn.execute("UPDATE platform.accounts SET totp_secret = NULL, totp_enabled_at = NULL, recovery_codes = '[]' WHERE id = ?1", params![acc.id])?;
+    store.conn.execute(
+        &format!("UPDATE platform.accounts SET totp_secret = NULL, totp_enabled_at = NULL, recovery_codes = '[]' WHERE {SAME_PERSON}"),
+        params![acc.id],
+    )?;
     lunda_core::audit::record_simple(&store.conn, s, "user", s.user_id.as_deref().unwrap_or(""), "totp_disabled", None)?;
     Ok(())
 }
@@ -344,7 +416,7 @@ pub fn check_second_factor(conn: &Connection, acc: &AccountRow, code: &str) -> R
     let h = sha256_hex(code.to_uppercase().replace([' ', '-'], "").as_bytes());
     if let Some(i) = hashes.iter().position(|x| *x == h) {
         hashes.remove(i);
-        conn.execute("UPDATE platform.accounts SET recovery_codes = ?2 WHERE id = ?1", params![acc.id, serde_json::to_string(&hashes)?])?;
+        conn.execute(&format!("UPDATE platform.accounts SET recovery_codes = ?2 WHERE {SAME_PERSON}"), params![acc.id, serde_json::to_string(&hashes)?])?;
         return Ok(());
     }
     Err(CoreError::new("totp_invalid", "the code is not correct"))

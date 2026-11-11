@@ -59,6 +59,8 @@ export const shell = {
   userSendLink: (id: string) => command<void>("user_send_link", { id }),
   securityLog: () => command<SecurityEvent[]>("security_log"),
   tourSeen: () => command<void>("tour_seen"),
+  switchOrg: (accountId: string) => command<AppStatus>("switch_org", { accountId }),
+  createOrg: (organization: string) => command<AppStatus>("create_org", { organization }),
 };
 
 export interface SecurityEvent {

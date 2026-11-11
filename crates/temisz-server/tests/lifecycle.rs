@@ -625,3 +625,61 @@ fn resident_pays_an_invoice_online() {
     // unknown links are not found
     assert_eq!(resident_pay::public_info(&store, "00000000000000000000000000000000").unwrap_err().code, "not_found");
 }
+
+/// One person in two organisations: invited with an address that already
+/// signs in elsewhere, the same password opens both; a new password, set in
+/// one, works in the other; a new organisation keeps the sign-in.
+#[test]
+fn one_person_in_several_organisations() {
+    use temisz_server::{accounts, create_org, login, Current, LoginStep};
+    let store = platform();
+    let (_, email) = new_customer(&store, "multi");
+    let (tenant_b, admin_b) = new_customer(&store, "multib");
+    let req = Request::default();
+    // the admin of B invites the person from A
+    let b = accounts::account_by_email(&store.conn, &admin_b).unwrap().unwrap();
+    store.conn.use_schema(&b.schema).unwrap();
+    let s_b = store.session_for(&b.user_id).unwrap();
+    let v = accounts::invite(&store, &s_b, &tenant_b, &json!({ "email": email.to_uppercase(), "displayName": "Kettős Kata", "role": "clerk" }), &req).unwrap();
+    assert_eq!(v["joinedExisting"], true);
+    assert_eq!(
+        accounts::invite(&store, &s_b, &tenant_b, &json!({ "email": email, "displayName": "Kata", "role": "clerk" }), &req).unwrap_err().code,
+        "already_member"
+    );
+    let orgs = accounts::memberships(&store.conn, &email).unwrap();
+    assert_eq!(orgs.len(), 2);
+    // the existing password signs in to B too
+    let in_b = orgs.iter().find(|m| m.tenant_id == tenant_b).unwrap();
+    store.conn.use_schema(&in_b.schema).unwrap();
+    store.login(&email, "nagyon-titkos-1").unwrap();
+    assert!(matches!(login(&store, &email, "nagyon-titkos-1", &req).unwrap(), LoginStep::Session(_)));
+    // a new password in B also opens A
+    store.conn.use_schema(&in_b.schema).unwrap();
+    let me_b = store.session_for(&in_b.user_id).unwrap();
+    store.change_password(&me_b, &in_b.user_id, Some("nagyon-titkos-1"), "masik-titkos-22").unwrap();
+    accounts::sync_password(&store.conn, &in_b.id).unwrap();
+    let in_a = orgs.iter().find(|m| m.tenant_id != tenant_b).unwrap();
+    store.conn.use_schema(&in_a.schema).unwrap();
+    assert_eq!(store.login(&email, "nagyon-titkos-1").unwrap_err().code, "invalid_credentials");
+    store.login(&email, "masik-titkos-22").unwrap();
+    // a confirmed address and two-factor sign-in carry over to a new organisation
+    store
+        .conn
+        .execute(
+            "UPDATE platform.accounts SET totp_secret = 'X', totp_enabled_at = now(), email_verified_at = now() WHERE id = ?1",
+            lunda_core::params![in_a.id],
+        )
+        .unwrap();
+    store.conn.use_schema(&in_a.schema).unwrap();
+    let me_a = store.session_for(&in_a.user_id).unwrap();
+    // a third organisation with the same sign-in
+    let c = Current { session: me_a, tenant_id: in_a.tenant_id.clone(), account_id: in_a.id.clone(), mfa_setup: false };
+    let new_acc = create_org(&store, &c, "Harmadik Egyházközség", &req).unwrap();
+    let acc = accounts::account_by_id(&store.conn, &new_acc).unwrap();
+    assert_eq!(acc.organization, "Harmadik Egyházközség");
+    assert!(acc.totp_enabled && acc.verified);
+    store.conn.use_schema(&acc.schema).unwrap();
+    let s = store.login(&email, "masik-titkos-22").unwrap();
+    assert_eq!(s.role.as_str(), "admin");
+    assert_eq!(accounts::memberships(&store.conn, &email).unwrap().len(), 3);
+}

@@ -13,6 +13,7 @@ import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSect
 import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
 import { SecurityLogPanel, SecurityPanel } from "../account/Security";
+import { OrganizationsPanel } from "../account/Organizations";
 import { SubscriptionTab, huf } from "../account/Subscription";
 import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
@@ -42,6 +43,7 @@ export function SettingsView({ tab }: { tab?: string }) {
           <div className="flex flex-col gap-6">
             <SecurityPanel />
             <OwnPassword />
+            <OrganizationsPanel />
             {can("manage_settings") && <SecurityLogPanel />}
           </div>
         )}
@@ -637,6 +639,7 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
   const [linkSent, setLinkSent] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const invalidate = useInvalidate();
+  const toast = useToast();
   return (
     <Dialog
       open
@@ -653,7 +656,8 @@ function UserDialog({ user, onClose }: { user: User | null; onClose: () => void 
                 if (user) {
                   await api("users.update", { id: user.id, displayName: v.displayName, role: v.role, extraPermissions: v.extra, active: v.active });
                 } else {
-                  await api("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra });
+                  const created = await api<{ joinedExisting?: boolean }>("users.create", { username: v.username, displayName: v.displayName, role: v.role, extraPermissions: v.extra });
+                  toast(created.joinedExisting ? t("settings.inviteJoined") : t("settings.inviteSent"));
                 }
                 await invalidate();
                 onClose();

@@ -26,6 +26,7 @@ import type { SearchHit } from "../lib/types";
 import { cx, Plaque } from "../components/ui";
 import { useCurrentCemetery } from "../lib/queries";
 import { AccountBanners } from "../features/account/Security";
+import { OrgSwitcher } from "../features/account/Organizations";
 import { Tour } from "../features/help/Tour";
 
 const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
@@ -125,6 +126,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <CircleHelp className="size-5" aria-hidden />
               <span className="sr-only">{t("nav.help")}</span>
             </button>
+            <OrgSwitcher />
             <span className="hidden text-right leading-tight lg:block">
               <span className="block text-sm font-semibold">{status?.session?.displayName}</span>
               <span className="block text-sm text-granite">{status?.session ? t(`role.${status.session.role}`) : ""}</span>

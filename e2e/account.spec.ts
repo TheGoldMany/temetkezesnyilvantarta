@@ -128,6 +128,30 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
   await expect(log).toContainText("Kétlépcsős azonosítás bekapcsolva");
 });
 
+test("egy belépés, több szervezet: új szervezet és váltás", async ({ page }) => {
+  const email = `tobb-${Date.now()}@pelda.hu`;
+  await register(page, email, "Elsőfalva Önkormányzata");
+  await finishOnboarding(page);
+  await page.getByRole("button", { name: "Beállítások" }).first().click();
+  await page.getByRole("tab", { name: "Fiókom" }).click();
+  await expect(page.getByTestId("org-list")).toContainText("Elsőfalva Önkormányzata");
+  await page.getByLabel("Új szervezet neve").fill("Másodfalva Egyházközség");
+  await page.getByRole("button", { name: "Szervezet létrehozása" }).click();
+  // the new organisation starts with its own first-run wizard, same sign-in
+  await expect(page.getByLabel("Üzemeltető neve")).toHaveValue("Másodfalva Egyházközség", { timeout: 15_000 });
+  await finishOnboarding(page);
+  const switcher = page.getByRole("combobox", { name: "Szervezet" });
+  await expect(switcher.locator("option")).toHaveText(["Másodfalva Egyházközség", "Elsőfalva Önkormányzata"]);
+  await switcher.selectOption({ label: "Elsőfalva Önkormányzata" });
+  await expect(switcher).toHaveValue(/.+/);
+  await expect(switcher.locator("option:checked")).toHaveText("Elsőfalva Önkormányzata", { timeout: 15_000 });
+  // signing in again opens the organisation used last
+  await rpc(page, "logout");
+  const st = await rpc(page, "login", { username: email, password: "nagyon-titkos-1" });
+  expect(st.ok.account.organization).toBe("Elsőfalva Önkormányzata");
+  expect(st.ok.account.organizations).toHaveLength(2);
+});
+
 test("idegen oldalról érkező kérés elutasítva", async ({ request }) => {
   const r = await request.post("/rpc", { headers: { "Content-Type": "application/json", Origin: "https://tamado.example" }, data: { cmd: "app_status", args: {} } });
   expect(r.status()).toBe(403);

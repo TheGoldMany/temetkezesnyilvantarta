@@ -262,7 +262,10 @@ function RegisterForm({ onLogin }: { onLogin: () => void }) {
   return (
     <Frame>
       <h1 className="text-2xl">{t("login.registerTitle")}</h1>
-      <p className="mt-1 mb-5 text-granite">{t("login.registerIntro")}</p>
+      <p className="mt-1 mb-3 text-granite">{t("login.registerIntro")}</p>
+      <div className="mb-5">
+        <Alert>{t("login.colleagueHint")}</Alert>
+      </div>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <TextField label={t("login.organization")} hint={t("login.organizationHint")} value={organization} onChange={setOrganization} required inputProps={{ autoFocus: true, autoComplete: "organization", name: "organization" }} />
         <TextField label={t("login.name")} value={name} onChange={setName} required inputProps={{ autoComplete: "name", name: "name" }} />

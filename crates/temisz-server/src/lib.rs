@@ -41,6 +41,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (8, include_str!("../migrations/0008_card_payments.sql")),
     (9, include_str!("../migrations/0009_resident_payments.sql")),
     (10, include_str!("../migrations/0010_tour.sql")),
+    (11, include_str!("../migrations/0011_memberships.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -410,6 +411,34 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 let token = new_session(store, &acc_id, req)?;
                 start(&token, &mut set_cookie)
             }
+            // one person in several organisations: move this sign-in to another one
+            "switch_org" => {
+                let c = require(store, req)?;
+                let me = accounts::account_by_id(&store.conn, &c.account_id)?;
+                let target = accounts::memberships(&store.conn, &me.email)?
+                    .into_iter()
+                    .find(|m| m.id == s("accountId"))
+                    .ok_or_else(|| CoreError::not_found("organization", &s("accountId")))?;
+                store.conn.use_schema(&target.schema)?;
+                store.session_for(&target.user_id)?; // deactivated there: refused
+                let token = new_session(store, &target.id, req)?;
+                if let Some(t) = req.cookie(COOKIE) {
+                    store.conn.execute("DELETE FROM platform.sessions WHERE token_hash = ?1", params![sha256_hex(t.as_bytes())])?;
+                }
+                accounts::security_event(&store.conn, req, &me.email, "switch_org");
+                start(&token, &mut set_cookie)
+            }
+            // a signed-in person starts a new organisation (new customer) with the same sign-in
+            "create_org" => {
+                let c = require(store, req)?;
+                accounts::rate_limit(&store.conn, &format!("register:{}", req.ip), 10, 60)?;
+                let acc_id = create_org(store, &c, &s("organization"), req)?;
+                let token = new_session(store, &acc_id, req)?;
+                if let Some(t) = req.cookie(COOKIE) {
+                    store.conn.execute("DELETE FROM platform.sessions WHERE token_hash = ?1", params![sha256_hex(t.as_bytes())])?;
+                }
+                start(&token, &mut set_cookie)
+            }
             "logout" => {
                 if let Some(c) = current(store, req)? {
                     let _ = lunda_core::audit::record_simple(&store.conn, &c.session, "user", c.session.user_id.as_deref().unwrap_or(""), "logout", None);
@@ -497,9 +526,15 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     }
                     "users.changePassword" => {
                         let v = call_api(store, &session, &method, a)?;
+                        // the same password in all of the person's organisations
+                        accounts::sync_password(&store.conn, &c.account_id)?;
                         // signed in elsewhere with the old password: those sessions end
                         let mine = req.cookie(COOKIE).map(|t| sha256_hex(t.as_bytes())).unwrap_or_default();
-                        store.conn.execute("DELETE FROM platform.sessions WHERE account_id = ?1 AND token_hash <> ?2", params![c.account_id, mine])?;
+                        store.conn.execute(
+                            "DELETE FROM platform.sessions WHERE token_hash <> ?2 AND account_id IN
+                               (SELECT id FROM platform.accounts WHERE lower(email) = (SELECT lower(email) FROM platform.accounts WHERE id = ?1))",
+                            params![c.account_id, mine],
+                        )?;
                         let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
                         accounts::security_event(&store.conn, req, &acc.email, "password_changed");
                         Ok(v)
@@ -786,6 +821,7 @@ fn new_session(store: &Store, account_id: &str, req: &Request) -> Result<String>
     let acc = accounts::account_by_id(&store.conn, account_id)?;
     store.conn.use_schema(&acc.schema)?;
     let mfa_setup = accounts::mfa_required(store, &acc, &store.session_for(&acc.user_id)?)?;
+    store.conn.execute("UPDATE platform.accounts SET last_used_at = now() WHERE id = ?1", params![account_id])?;
     store.conn.execute(
         "INSERT INTO platform.sessions (token_hash, account_id, expires_at, ip, user_agent, mfa_setup_required)
          VALUES (?1, ?2, now() + make_interval(hours => ?3), ?4, ?5, ?6)",
@@ -824,7 +860,7 @@ pub fn register(store: &Store, organization: &str, name: &str, email: &str, pass
     lunda_core::auth::validate_password_for(password, &[&email, name, organization])?;
     let taken: Option<i64> = store.conn.query_row("SELECT 1 FROM platform.accounts WHERE lower(email) = ?1", params![email], |r| r.get(0)).optional()?;
     if taken.is_some() {
-        return Err(CoreError::new("email_taken", "an account already exists for this e-mail address"));
+        return Err(CoreError::new("email_taken", "an account already exists for this e-mail address: sign in and add the organisation there"));
     }
     let tenant_id = new_id().replace('-', "");
     let schema = db::tenant_schema(&tenant_id)?;
@@ -844,6 +880,42 @@ pub fn register(store: &Store, organization: &str, name: &str, email: &str, pass
     new_session(store, &account_id, req)
 }
 
+/// A new organisation for a person who already signs in: tenant schema, the
+/// person as its first administrator with the same password and second factor.
+pub fn create_org(store: &Store, c: &Current, organization: &str, req: &Request) -> Result<String> {
+    let organization = organization.trim();
+    if organization.chars().count() < 2 {
+        return Err(CoreError::validation("organization", "organization name required").with("code", "required"));
+    }
+    let me = accounts::account_by_id(&store.conn, &c.account_id)?;
+    let tenant_id = new_id().replace('-', "");
+    let schema = db::tenant_schema(&tenant_id)?;
+    let account_id = new_id();
+    let t = db::tx(&store.conn)?;
+    t.execute(
+        "INSERT INTO platform.tenants (id, name, schema_name, trial_ends_at, billing_email)
+         VALUES (?1, ?2, ?3, now() + make_interval(days => ?4), ?5)",
+        params![tenant_id, organization, schema, TRIAL_DAYS as i32, me.email],
+    )?;
+    db::open_tenant(&store.conn, &schema)?;
+    // a random password first; the person's own is copied over right after
+    let user = store.create_initial_admin(&me.email, &c.session.display_name, &format!("{}!Aa1", uuid_like()))?;
+    settings::set_many(&store.conn, &Session::system(), None, &[("operator.name".to_string(), organization.to_string())].into_iter().collect())?;
+    t.execute(
+        "INSERT INTO platform.accounts (id, email, tenant_id, user_id, email_verified_at, totp_secret, totp_enabled_at, recovery_codes)
+         SELECT ?1, email, ?2, ?3, email_verified_at, totp_secret, totp_enabled_at, recovery_codes FROM platform.accounts WHERE id = ?4",
+        params![account_id, tenant_id, user.id, me.id],
+    )?;
+    accounts::sync_password(&t, &me.id)?;
+    t.commit()?;
+    accounts::security_event(&store.conn, req, &me.email, "create_org");
+    Ok(account_id)
+}
+
+fn uuid_like() -> String {
+    new_id().replace('-', "")
+}
+
 pub enum LoginStep {
     Session(String),
     /// Password was right; a code from the authenticator app is needed (challenge token).
@@ -852,18 +924,39 @@ pub enum LoginStep {
 
 pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Result<LoginStep> {
     let email = email.trim().to_lowercase();
-    let acc = accounts::account_by_email(&store.conn, &email)?;
-    let Some(acc) = acc else {
+    let list = accounts::memberships(&store.conn, &email)?;
+    if list.is_empty() {
+        let closed: Option<i64> = store
+            .conn
+            .query_row(
+                "SELECT 1 FROM platform.accounts a JOIN platform.tenants t ON t.id = a.tenant_id WHERE lower(a.email) = ?1 AND t.status = 'closed' LIMIT 1",
+                params![email],
+                |r| r.get(0),
+            )
+            .optional()?;
         // same work as a wrong password, so the response time does not reveal accounts
         let _ = lunda_core::auth::verify_password(password, "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$1JqfI3pVQSrr7CFZQZD8Ewn5vYkM0+DtB4eMZ5yYO3w");
+        if closed.is_some() {
+            return Err(CoreError::new("account_closed", "this account has been closed"));
+        }
         return Err(CoreError::new("invalid_credentials", "invalid e-mail address or password"));
-    };
-    let status: String = store.conn.query_row("SELECT status FROM platform.tenants WHERE id = ?1", params![acc.tenant_id], |r| r.get(0))?;
-    if status == "closed" {
-        return Err(CoreError::new("account_closed", "this account has been closed"));
     }
-    store.conn.use_schema(&acc.schema)?;
-    store.login(&email, password)?; // checks the password and lockout, audit-logs the login
+    // the last organisation used; one where the person was deactivated is skipped
+    let mut last_err = None;
+    let mut chosen = None;
+    for acc in list {
+        store.conn.use_schema(&acc.schema)?;
+        match store.login(&email, password) {
+            // checks the password and lockout, audit-logs the login
+            Ok(_) => {
+                chosen = Some(acc);
+                break;
+            }
+            Err(e) if e.code == "user_inactive" => last_err = Some(e),
+            Err(e) => return Err(e),
+        }
+    }
+    let Some(acc) = chosen else { return Err(last_err.unwrap_or_else(|| CoreError::new("invalid_credentials", "invalid e-mail address or password"))) };
     if acc.totp_enabled {
         return Ok(LoginStep::SecondFactor(accounts::create_token(&store.conn, &acc.id, "mfa", accounts::MFA_MINUTES)?));
     }
