@@ -95,6 +95,8 @@ export interface AccountInfo {
   trialEndsAt: string;
   trialDaysLeft: number;
   superadmin?: boolean;
+  /** the guided tour was finished or skipped (any device) */
+  tourSeen?: boolean;
 }
 
 /** First sign-in step answer when an authenticator code is needed. */

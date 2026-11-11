@@ -22,7 +22,7 @@ export type Route =
   | { view: "quickEntry" }
   | { view: "settings"; tab?: string }
   | { view: "platform" }
-  | { view: "finance" }
+  | { view: "finance"; tab?: string }
   | { view: "operations" }
   | { view: "help" };
 

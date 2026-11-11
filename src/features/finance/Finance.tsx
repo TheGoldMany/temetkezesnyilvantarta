@@ -83,13 +83,13 @@ interface FinanceStatus {
 type Tab = "charges" | "invoices" | "cash" | "stock" | "bank" | "receivables" | "report" | "setup";
 
 /** W7 – Pénzügy: items, invoices, payments, cash desk, bank, receivables, reports. */
-export function FinanceView() {
+export function FinanceView({ tab: initial }: { tab?: string } = {}) {
   const { t } = useTranslation();
   const { can } = useApp();
   const { current } = useCurrentCemetery();
   const full = can("record_payments");
   const tabs: Tab[] = full ? ["charges", "invoices", "cash", "stock", "bank", "receivables", "report", ...(can("manage_settings") ? (["setup"] as Tab[]) : [])] : ["cash", "stock"];
-  const [tab, setTab] = useState<Tab>(tabs[0]);
+  const [tab, setTab] = useState<Tab>(tabs.includes(initial as Tab) ? (initial as Tab) : tabs[0]);
   if (!current) return <Spinner />;
   return (
     <>
