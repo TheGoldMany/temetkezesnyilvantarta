@@ -68,8 +68,10 @@ function useCardPaymentReturn() {
   const signedIn = Boolean(status?.session);
   useEffect(() => {
     const h = window.location.hash;
-    if (!signedIn || !h.startsWith("#fizetes=")) return;
-    const requestId = h.slice("#fizetes=".length);
+    // #fizetes=: a proforma paid by card; #kartya=: the card check of a new subscription
+    const check = h.startsWith("#kartya=");
+    if (!signedIn || !(h.startsWith("#fizetes=") || check)) return;
+    const requestId = h.slice(h.indexOf("=") + 1);
     history.replaceState(null, "", window.location.pathname + window.location.search);
     nav.go({ view: "settings", tab: "subscription" });
     command<{ status: string }>("billing_card_status", { requestId }).then(
@@ -77,7 +79,7 @@ function useCardPaymentReturn() {
         // the page shows the settled proforma before the message appears
         await qc.invalidateQueries({ queryKey: ["billing"] });
         await refresh();
-        if (state === "Succeeded") toast(t("billing.cardPaid"));
+        if (state === "Succeeded") toast(check ? t("billing.cardChecked") : t("billing.cardPaid"));
         else if (["Canceled", "Failed", "Expired", "Rejected"].includes(state)) toast(t("billing.cardFailed"), "error");
         else toast(t("billing.cardPending"));
       },

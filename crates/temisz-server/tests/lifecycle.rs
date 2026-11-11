@@ -23,6 +23,31 @@ fn new_customer(store: &Store, tag: &str) -> (String, String) {
     (tenant, email)
 }
 
+/// A cemetery of the customer (without a subscription yet) and the admin's session.
+fn cemetery_of(store: &Store, email: &str, name: &str) -> (String, Session) {
+    let (user, schema): (String, String) = store
+        .conn
+        .query_row(
+            "SELECT a.user_id, t.schema_name FROM platform.accounts a JOIN platform.tenants t ON t.id = a.tenant_id WHERE a.email = ?1",
+            lunda_core::params![email],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    store.conn.use_schema(&schema).unwrap();
+    let s = store.session_for(&user).unwrap();
+    let c = api::dispatch(store, &s, "cemeteries.save", &json!({ "cemetery": { "name": name } })).unwrap();
+    (c["id"].as_str().unwrap().to_string(), s)
+}
+
+fn details(store: &Store, tenant: &str, email: &str) {
+    temisz_server::billing::save_details(
+        &store.conn,
+        tenant,
+        &json!({ "name": "Teszt Község Önkormányzata", "postcode": "9999", "city": "Tesztfalva", "address": "Fő tér 1.", "email": email }),
+    )
+    .unwrap();
+}
+
 #[test]
 fn export_covers_every_tenant_table() {
     let store = platform();
@@ -145,15 +170,14 @@ fn bank_statement_settles_proformas() {
     use temisz_server::billing;
     let store = platform();
     let (tenant, email) = new_customer(&store, "bank");
-    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
-    let s = store.session_for(&user).unwrap();
+    let (cem, s) = cemetery_of(&store, &email, "Bankfalvi temető");
     billing::save_details(
         &store.conn,
         &tenant,
         &json!({ "name": "Bankfalva Község Önkormányzata", "postcode": "9999", "city": "Bankfalva", "address": "Fő tér 1.", "email": email }),
     )
     .unwrap();
-    billing::subscribe(&store, &s, &tenant, "yearly", "transfer").unwrap();
+    temisz_server::subscriptions::start_transfer(&store, &s, &tenant, &cem, "yearly").unwrap();
     let (proforma, number, gross): (String, String, i64) = store
         .conn
         .query_row(
@@ -240,75 +264,67 @@ fn daily_job_sends_expiry_reminders() {
     assert_eq!(count("expiry_reminder"), 1);
 }
 
-/// The subscription from the trial to payment, including the loophole of
-/// ordering again to reopen an account whose proforma was never paid.
+/// Transfer: no trial, a proforma at once, the cemetery works while it is
+/// open; unpaid after the grace period it is locked, and ordering again does
+/// not reopen it; the transfer opens it.
 #[test]
-fn subscription_lifecycle_and_unpaid_proformas() {
-    use temisz_server::billing;
+fn transfer_subscription_and_unpaid_proformas() {
+    // the daily job works on every customer: one test at a time
+    let _serial = BARION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    use temisz_server::{billing, subscriptions};
     let store = platform();
     let (tenant, email) = new_customer(&store, "sub");
-    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
-    let s = store.session_for(&user).unwrap();
-    // billing details are needed before ordering
-    assert_eq!(billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap_err().code, "billing_details_missing");
-    billing::save_details(
-        &store.conn,
-        &tenant,
-        &json!({ "name": "Előfizető Község Önkormányzata", "postcode": "9999", "city": "Előfizető", "address": "Fő tér 1.", "email": email }),
-    )
-    .unwrap();
-    // ordered during the trial: the trial runs on, the paid period starts at its end
-    billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap();
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "trial");
-    assert_eq!(billing::subscribe(&store, &s, &tenant, "yearly", "transfer").unwrap_err().code, "already_subscribed");
-    // the trial ends before the transfer arrives: work goes on
-    store.conn.execute("UPDATE platform.tenants SET trial_ends_at = now() - interval '1 hour' WHERE id = ?1", lunda_core::params![tenant]).unwrap();
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
-    // not paid in time: read-only
+    let (cem, s) = cemetery_of(&store, &email, "Előfizetői temető");
+    // without a subscription the cemetery can only be read
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
+    assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap_err().code, "billing_details_missing");
+    details(&store, &tenant, &email);
+    subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap();
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    assert!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap().is_empty(), "no trial with a transfer");
+    assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "yearly").unwrap_err().code, "already_subscribed");
+    // not paid in time: locked
     store
         .conn
         .execute("UPDATE platform.invoices SET due_date = CURRENT_DATE - 30 WHERE tenant_id = ?1 AND kind = 'proforma'", lunda_core::params![tenant])
         .unwrap();
-    billing::daily(&store, "https://www.temisz.hu/app").unwrap();
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
-    let sub: String =
-        store.conn.query_row("SELECT status FROM platform.subscriptions WHERE tenant_id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
-    assert_eq!(sub, "past_due");
+    subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
+    store
+        .conn
+        .use_schema(
+            &store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get::<_, String>(0)).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
     // ordering again does not reopen it
-    let err = billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap_err();
-    assert_eq!(err.code, "unpaid_proforma");
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
-    // the transfer arrives: final invoice, editable again
+    assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap_err().code, "unpaid_proforma");
+    // the transfer arrives: final invoice, writable again
     let proforma: String = store
         .conn
         .query_row("SELECT id FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'", lunda_core::params![tenant], |r| r.get(0))
         .unwrap();
     billing::mark_paid(&store.conn, &proforma).unwrap();
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
-    let (status, start, end): (String, String, String) = store
-        .conn
-        .query_row(
-            "SELECT status, to_char(current_period_start, 'YYYY-MM-DD'), to_char(current_period_end, 'YYYY-MM-DD') FROM platform.subscriptions WHERE tenant_id = ?1",
-            lunda_core::params![tenant],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )
-        .unwrap();
-    assert_eq!(status, "active");
-    assert!(end > start);
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
+    assert_eq!(sub.status, "active");
+    assert!(sub.period_end > sub.period_start);
     // paying twice is refused
     assert_eq!(billing::mark_paid(&store.conn, &proforma).unwrap_err().code, "invoice_not_open");
 }
 
-/// A trial without an order ends read-only; reading and the data export still work.
+/// The sample cemetery is a free demonstration: writable, but in "trial"
+/// (no export); older accounts' cemeteries came over in the migration.
 #[test]
-fn trial_without_order_becomes_read_only() {
-    use temisz_server::billing;
+fn sample_cemetery_is_a_demo() {
+    use temisz_server::subscriptions;
     let store = platform();
-    let (tenant, _) = new_customer(&store, "trialend");
-    store.conn.execute("UPDATE platform.tenants SET trial_ends_at = now() - interval '1 hour' WHERE id = ?1", lunda_core::params![tenant]).unwrap();
-    assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "read_only");
-    assert!(billing::is_read_method("plots.list") && billing::is_read_method("persons.dataExport") && billing::is_read_method("export.file"));
-    assert!(!billing::is_read_method("burial.record") && !billing::is_read_method("users.create"));
+    let (tenant, email) = new_customer(&store, "demo");
+    let (cem, _) = cemetery_of(&store, &email, "Minta temető");
+    subscriptions::register_demo(&store.conn, &tenant, &cem, "Minta temető").unwrap();
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    assert_eq!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap(), vec![cem]);
+    assert!(temisz_server::billing::is_read_method("plots.list") && temisz_server::billing::is_read_method("export.file"));
+    assert!(!temisz_server::billing::is_read_method("burial.record") && !temisz_server::billing::is_read_method("users.create"));
 }
 
 /// A listed platform-admin address gives nothing until it is confirmed and
@@ -416,15 +432,14 @@ fn card_payment_settles_the_proforma_once() {
 
     let store = platform();
     let (tenant, email) = new_customer(&store, "card");
-    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
-    let s = store.session_for(&user).unwrap();
+    let (cem, s) = cemetery_of(&store, &email, "Kártyás temető");
     billing::save_details(
         &store.conn,
         &tenant,
         &json!({ "name": "Kártyás Község", "postcode": "9999", "city": "Kártyás", "address": "Fő tér 1.", "email": email }),
     )
     .unwrap();
-    billing::subscribe(&store, &s, &tenant, "monthly", "transfer").unwrap();
+    temisz_server::subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap();
     let (proforma, gross): (String, i64) = store
         .conn
         .query_row(
@@ -700,4 +715,136 @@ fn older_tenant_is_migrated_when_opened() {
     login(&fresh, &email, "nagyon-titkos-1", &Request::default()).unwrap();
     let n: i64 = fresh.conn.query_row("SELECT count(*) FROM users WHERE cemetery_ids = '[]'", [], |r| r.get(0)).unwrap();
     assert_eq!(n, 1);
+}
+
+/// Card subscription against a stand-in Barion: the card check reserves a
+/// small amount and releases it, the trial runs 15 days with no export,
+/// then the saved card is charged (final invoice, period); a failed charge
+/// is retried, and a cancelled subscription is not charged again.
+#[test]
+fn card_subscription_trial_then_automatic_charges() {
+    let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    use std::sync::{Arc, Mutex};
+    use temisz_server::{barion, subscriptions};
+    #[derive(Default)]
+    struct Mock {
+        check_status: String,
+        finished_with: Option<i64>,
+        charges: Vec<i64>,
+        charge_ok: bool,
+        recurrence: String,
+    }
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let mock = Arc::new(Mutex::new(Mock { check_status: "Prepared".into(), charge_ok: true, ..Default::default() }));
+    let run = lunda_core::util::new_id().replace('-', "");
+    {
+        let mock = mock.clone();
+        let run = run.clone();
+        std::thread::spawn(move || {
+            let mut n = 0;
+            for mut rq in server.incoming_requests() {
+                let mut body = String::new();
+                let _ = rq.as_reader().read_to_string(&mut body);
+                let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                let mut m = mock.lock().unwrap();
+                let url = rq.url().to_string();
+                let answer = if url.starts_with("/v2/Payment/Start") && v["InitiateRecurrence"] == true {
+                    assert_eq!(v["PaymentType"], "Reservation");
+                    m.recurrence = v["RecurrenceId"].as_str().unwrap().to_string();
+                    json!({ "PaymentId": format!("{run}c"), "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=c", "Errors": [] })
+                } else if url.starts_with("/v2/Payment/Start") {
+                    n += 1;
+                    if v["RecurrenceId"].as_str() == Some(m.recurrence.as_str()) {
+                        let total = v["Transactions"][0]["Total"].as_i64().unwrap();
+                        m.charges.push(total);
+                    }
+                    let st = if m.charge_ok { "Succeeded" } else { "Failed" };
+                    json!({ "PaymentId": format!("{run}r{n}"), "Status": st, "Errors": [] })
+                } else if url.starts_with("/v2/Payment/FinishReservation") {
+                    m.finished_with = v["Transactions"][0]["Total"].as_i64();
+                    json!({ "Status": "Succeeded", "Errors": [] })
+                } else {
+                    json!({ "PaymentId": format!("{run}c"), "Status": m.check_status, "Total": 100, "Currency": "HUF", "TraceId": "TRACE-1",
+                            "Transactions": [{ "TransactionId": "T1", "POSTransactionId": "check-x", "Total": 100 }], "Errors": [] })
+                };
+                let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
+            }
+        });
+    }
+    std::env::set_var("BARION_POS_KEY", "11111111-2222-3333-4444-555555555555");
+    std::env::set_var("BARION_PAYEE", "penz@temisz.hu");
+    std::env::set_var("BARION_API_URL", format!("http://127.0.0.1:{port}"));
+
+    let store = platform();
+    // card subscriptions left over from earlier local runs are not charged again
+    store.conn.execute("UPDATE platform.cemetery_subscriptions SET status = 'lapsed' WHERE payment_method = 'card'", []).unwrap();
+    let (tenant, email) = new_customer(&store, "cardsub");
+    let (cem, s) = cemetery_of(&store, &email, "Kártyás temető");
+    details(&store, &tenant, &email);
+    // the daily job goes through every customer: back to ours after it
+    let schema: String = store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
+    let daily = || {
+        subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
+        store.conn.use_schema(&schema).unwrap();
+    };
+    let started = subscriptions::start_card(&store, &s, &tenant, &cem, "monthly", "https://www.temisz.hu/app", "https://www.temisz.hu").unwrap();
+    assert!(started["gatewayUrl"].as_str().unwrap().starts_with("https://"));
+    let pid = started["paymentId"].as_str().unwrap().to_string();
+    // the check is not finished yet: the cemetery stays locked
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
+    assert_eq!(barion::refresh(&store, &pid).unwrap(), "Prepared");
+    // reserved: released at once (0 Ft), the trial starts
+    mock.lock().unwrap().check_status = "Reserved".into();
+    assert_eq!(barion::refresh(&store, &pid).unwrap(), "Succeeded");
+    assert_eq!(mock.lock().unwrap().finished_with, Some(0), "nothing is charged by the check");
+    let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
+    assert_eq!(sub.status, "trial");
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    assert_eq!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap(), vec![cem.clone()], "no export in the trial");
+    // a second callback changes nothing
+    barion::refresh(&store, &pid).unwrap();
+    assert!(mock.lock().unwrap().charges.is_empty());
+    // the trial ends: the period fee is charged with the saved card
+    store
+        .conn
+        .execute("UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE cemetery_id = ?1", lunda_core::params![cem])
+        .unwrap();
+    daily();
+    assert_eq!(mock.lock().unwrap().charges, vec![temisz_server::billing::gross(temisz_server::billing::MONTHLY_NET)]);
+    let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
+    assert_eq!(sub.status, "active");
+    assert!(sub.period_end.is_some());
+    let invoices: i64 = store
+        .conn
+        .query_row(
+            "SELECT count(*) FROM platform.invoices WHERE cemetery_id = ?1 AND kind = 'invoice' AND payment_method = 'card'",
+            lunda_core::params![cem],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(invoices, 1);
+    assert!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap().is_empty(), "paid: export allowed");
+    // the next period: the card is refused, retried the next day, stays writable meanwhile
+    mock.lock().unwrap().charge_ok = false;
+    store
+        .conn
+        .execute("UPDATE platform.cemetery_subscriptions SET current_period_end = CURRENT_DATE WHERE cemetery_id = ?1", lunda_core::params![cem])
+        .unwrap();
+    daily();
+    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "past_due");
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    mock.lock().unwrap().charge_ok = true;
+    daily();
+    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "active");
+    // cancelled: nothing more is charged, locked after the paid period
+    let charges = mock.lock().unwrap().charges.len();
+    subscriptions::cancel(&store, &s, &tenant, &cem, false).unwrap();
+    store
+        .conn
+        .execute("UPDATE platform.cemetery_subscriptions SET current_period_end = CURRENT_DATE WHERE cemetery_id = ?1", lunda_core::params![cem])
+        .unwrap();
+    daily();
+    assert_eq!(mock.lock().unwrap().charges.len(), charges);
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem]);
 }

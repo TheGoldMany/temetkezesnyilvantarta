@@ -65,6 +65,8 @@
   },
   "errors": {
     "generic": "A művelet nem sikerült: {{message}}",
+    "cemetery_locked": "Ennek a temetőnek nincs érvényes előfizetése, ezért csak olvasható. Az Előfizetés oldalon indíthatja.",
+    "trial_no_export": "A próbaidő alatt (és a mintatemetőben) adatot exportálni nem lehet. Az első díj befizetése után az export elérhető.",
     "not_found": "A keresett adat nem található.",
     "forbidden": "Ehhez a művelethez nincs jogosultsága.",
     "validation": "Ellenőrizze a megjelölt mezőt.",
@@ -121,7 +123,8 @@
     "totp_already_enabled": "A kétlépcsős azonosítás már be van kapcsolva.",
     "read_only": "A fiók csak olvasható. Előfizetés után azonnal újra szerkeszthető (Beállítások › Előfizetés).",
     "billing_details_missing": "Először adja meg a számlázási adatokat.",
-    "already_subscribed": "Már van előfizetése.",
+    "already_subscribed": "Ennek a temetőnek már van előfizetése.",
+    "subscription_lapsed": "Az előfizetés már lejárt. Indítson újat.",
     "unpaid_proforma": "A(z) {{number}} díjbekérő még nincs kifizetve. Az átutalás beérkezése után a fiók azonnal újra szerkeszthető, új előfizetés addig nem indítható.",
     "payment_failed": "A fizetési szolgáltató hibát jelzett. Próbálja újra később, vagy válassza az átutalást.",
     "invoicing_failed": "A számla kiállítása nem sikerült. Próbálja újra néhány perc múlva.",
@@ -342,9 +345,9 @@
     "email": "E-mail-cím",
     "submit": "Belépés",
     "noAccount": "Még nincs fiókja?",
-    "toRegister": "Kipróbálom 30 napig ingyen",
+    "toRegister": "Ingyenes regisztráció",
     "registerTitle": "Próbaidő indítása",
-    "registerIntro": "30 napig minden funkció ingyen használható, bankkártya nélkül. A próbaidő végén eldöntheti, előfizet-e.",
+    "registerIntro": "A regisztráció és a szervezet ingyenes. Temetőnként fizet elő: bankkártyával 15 nap próbaidővel, vagy átutalással. A mintatemetővel előfizetés nélkül is körülnézhet.",
     "organization": "Szervezet neve",
     "organizationHint": "Önkormányzat, egyházközség vagy üzemeltető cég",
     "colleagueHint": "Új temetőt vagy üzemeltetőt regisztrál? Akkor jó helyen jár. Ha munkatársként csatlakozna egy temetőhöz, amely már használja a TEMISZ-t, nem kell regisztrálnia: kérjen meghívót a temető adminisztrátorától. Ha már van fiókja, lépjen be: új szervezetet a fiókjából is létrehozhat.",
@@ -986,24 +989,14 @@
     "verifySent": "Elküldtük újra.",
     "resend": "Levél újraküldése",
     "verified": "Az e-mail-cím megerősítve.",
-    "trialLeft_one": "Próbaidő: még {{count}} nap.",
-    "trialLeft_other": "Próbaidő: még {{count}} nap.",
     "subscribe": "Előfizetés",
     "readOnly": "A fiók csak olvasható: a próbaidő lejárt, vagy nem érkezett meg a díj. Az adatok megvannak, nézhetők és letölthetők.",
-    "verifyShort": "Erősítse meg az e-mail-címét."
+    "verifyShort": "Erősítse meg az e-mail-címét.",
+    "trialUntil": "Próbaidő {{date}}-ig: addig az adatok nem exportálhatók, a nyomtatványokon „PRÓBAIDŐ” jelzés van.",
+    "cemeteryLocked": "{{name}}: nincs érvényes előfizetés, a temető csak olvasható."
   },
   "billing": {
-    "statusTitle": "Előfizetés",
-    "inTrial_one": "Próbaidő: még {{count}} nap ({{date}}-ig). Ha most előfizet, a díjköteles időszak a próbaidő végén kezdődik.",
-    "inTrial_other": "Próbaidő: még {{count}} nap ({{date}}-ig). Ha most előfizet, a díjköteles időszak a próbaidő végén kezdődik.",
-    "readOnly": "A fiók csak olvasható. Előfizetés után azonnal újra szerkeszthető.",
-    "pending": "A díjbekérő befizetésére várunk.",
-    "paidUntil": "Kifizetve {{date}}-ig.",
-    "cancelAtEnd": "Az időszak végén megszűnik.",
-    "proformaSent": "Elküldtük a díjbekérőt e-mailben. A befizetés beérkezéséig is zavartalanul dolgozhat.",
     "chooseTitle": "Díjcsomag",
-    "priceIntro_one": "A díj a létrehozott temetők számától függ, a felhasználók száma nem számít. Jelenleg {{count}} temető.",
-    "priceIntro_other": "A díj a létrehozott temetők számától függ, a felhasználók száma nem számít. Jelenleg {{count}} temető.",
     "plan": {
       "monthly": "Havi díj",
       "yearly": "Éves díj"
@@ -1017,9 +1010,10 @@
     "yearlySaving": "2 hónap ingyen",
     "paymentMethod": "Fizetés módja",
     "method": {
-      "transfer": "Átutalás"
+      "transfer": "Átutalás",
+      "card": "Bankkártya, automatikus terheléssel"
     },
-    "transferHint": "Díjbekérőt küldünk 8 napos fizetési határidővel. Kifizetheti átutalással, vagy azonnal bankkártyával a Barion fizetőoldalán. A befizetés után a számlát e-mailben kapja.",
+    "transferHint": "Próbaidő nélkül: azonnal díjbekérőt küldünk 8 napos fizetési határidővel, a temető közben is használható. Kifizetheti átutalással vagy bankkártyával. A befizetés után a számlát e-mailben kapja, a következő időszak díjbekérőjét a lejárat előtt küldjük.",
     "invoiceTo": "A számla adatai",
     "taxNumber": "Adószám",
     "taxHint": "Szervezetnél kötelező, magánszemélynél hagyja üresen.",
@@ -1048,11 +1042,7 @@
       "open": "Nyitott"
     },
     "openUntil": "Fizetendő {{date}}-ig",
-    "cemeteries_one": "{{count}} temető",
-    "cemeteries_other": "{{count}} temető",
     "newCemeteryTitle": "Hatás az előfizetésre",
-    "newCemeteryTrial": "A próbaidő alatt a temetők száma nem számít. Utána a díj temetőnként havi {{monthly}} vagy évi {{yearly}} + ÁFA.",
-    "newCemeteryPaid": "Az új temetőért most {{now}} (bruttó) díjbekérőt vagy terhelést kap a jelenlegi időszak végéig ({{date}}). Utána a díj temetőnként {{unit}} + ÁFA {{per}}.",
     "closeTitle": "Fiók megszüntetése",
     "closeIntro": "A megszüntetés után senki sem tud belépni. A nyilvántartás adatait 30 nap múlva véglegesen töröljük, addig kérésre visszaállítjuk. Előtte töltse le az adatokat a Mentés és adatletöltés oldalon. A számlákat a számviteli törvény szerint megőrizzük.",
     "closeStart": "Fiók megszüntetése…",
@@ -1072,7 +1062,33 @@
     "acceptCard": ", benne a Barionnak továbbított adatokról szóló részt. A kártyás fizetés díjköteles megrendelés.",
     "acceptFirst": "Előbb fogadja el az ÁSZF-et.",
     "cardVia": "A kártyás fizetést a",
-    "cardMethods": "biztonságos fizetőoldala bonyolítja: bankkártya, Apple Pay, Google Pay. A kártyaadatok a TEMISZ-hez nem jutnak el."
+    "cardMethods": "biztonságos fizetőoldala bonyolítja: bankkártya, Apple Pay, Google Pay. A kártyaadatok a TEMISZ-hez nem jutnak el.",
+    "cemeteriesTitle": "Temetők előfizetése",
+    "perCemeteryIntro": "Minden temetőnek saját előfizetése van: havi {{monthly}} vagy évi {{yearly}} + ÁFA temetőnként. A szervezet, a felhasználók és a meghívott irodák ingyenesek. Kártyás előfizetésnél {{days}} nap próbaidő jár; a próbaidő alatt adatot exportálni nem lehet, a nyomtatványok „PRÓBAIDŐ” jelzést kapnak.",
+    "noCemeteries": "Még nincs temető. Hozza létre a Beállítások › Temetők és parcellák alatt, utána itt fizethet elő rá.",
+    "subscribeCemetery": "Előfizetés",
+    "subscribeCard": "Kártya ellenőrzése és indítás",
+    "cardHint": "A Barion fizetőoldalán megadja a kártyát; {{verify}} összeget zárolunk és azonnal feloldunk (ezzel ellenőrizzük a kártyát). Utána {{days}} nap ingyenes próbaidő, majd a mentett kártyáról automatikusan levonjuk a díjat, amíg le nem mondja.",
+    "cardHintNoTrial": "A próbaidőt ez a temető már felhasználta: a kártya ellenőrzése ({{verify}} zárolása és feloldása) után a díjat azonnal levonjuk, majd minden időszak elején automatikusan.",
+    "detailsFirst": "Előbb adja meg lent a számlázási adatokat.",
+    "cancelSub": "Lemondás",
+    "cancelConfirm": "Biztosan lemondja? A kifizetett időszak (vagy a próbaidő) végéig használható, utána csak olvasható. Több terhelés nem lesz.",
+    "cancelFinal": "Lemondom",
+    "resume": "Lemondás visszavonása",
+    "cardChecked": "A kártya rendben van, a temető használható.",
+    "newCemeteryNeedsSub": "Minden temetőnek saját előfizetése van (havi 45 000 Ft vagy évi 450 000 Ft + ÁFA). Mentés után az Előfizetés oldalon indíthatja: kártyával 15 nap próbaidővel, vagy átutalással díjbekérővel. Addig a temető csak olvasható.",
+    "sub": {
+      "none": "Nincs előfizetés: a temető csak olvasható.",
+      "pendingCard": "A kártya ellenőrzése nem fejeződött be.",
+      "trialCard": "Próbaidő {{date}}-ig, utána automatikus kártyás terhelés {{per}}.",
+      "trialOld": "Próbaidő {{date}}-ig. Utána fizessen elő a további munkához.",
+      "activeCard": "Előfizetve, a következő kártyás terhelés: {{date}} ({{per}}).",
+      "activeTransfer": "Előfizetve {{date}}-ig, átutalással.",
+      "pastDue": "A kártyás terhelés nem sikerült, naponta újrapróbáljuk. Ellenőrizze a kártyát, vagy fizessen elő újra.",
+      "canceled": "Lemondva: {{date}}-ig használható, utána csak olvasható.",
+      "demo": "Mintatemető: ingyenes bemutató, export nélkül.",
+      "lapsed": "Lejárt: a temető csak olvasható. Fizessen elő újra a további munkához."
+    }
   },
   "platform": {
     "title": "Ügyfelek",
@@ -1606,7 +1622,7 @@
     "current": "Ebben dolgozik most",
     "open": "Átváltás",
     "newName": "Új szervezet neve",
-    "newHint": "Saját előfizetéssel és 30 napos próbaidővel indul. Ön lesz az adminisztrátora.",
+    "newHint": "Az új szervezet ingyenes, temetőnként fizet elő rá. Ön lesz az adminisztrátora.",
     "create": "Szervezet létrehozása"
   },
   "onlinePay": {

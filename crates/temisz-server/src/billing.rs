@@ -34,7 +34,7 @@ pub fn gross(net: i64) -> i64 {
     net + (net as f64 * VAT_PERCENT as f64 / 100.0).round() as i64
 }
 
-fn today() -> NaiveDate {
+pub(crate) fn today() -> NaiveDate {
     Utc::now().with_timezone(&chrono_tz_budapest()).date_naive()
 }
 
@@ -57,87 +57,24 @@ pub fn period_end(start: NaiveDate, plan: &str) -> NaiveDate {
     start.checked_add_months(Months::new(if plan == "yearly" { 12 } else { 1 })).unwrap_or(start)
 }
 
-fn ymd(d: NaiveDate) -> String {
+pub(crate) fn ymd(d: NaiveDate) -> String {
     d.format("%Y-%m-%d").to_string()
 }
 
-fn hu_date(d: NaiveDate) -> String {
+pub(crate) fn hu_date(d: NaiveDate) -> String {
     d.format("%Y. %m. %d.").to_string()
 }
 
-fn parse(d: &str) -> Result<NaiveDate> {
+pub(crate) fn parse(d: &str) -> Result<NaiveDate> {
     Ok(NaiveDate::parse_from_str(&d[..10.min(d.len())], "%Y-%m-%d")?)
-}
-
-/// Active (not archived) cemeteries in the tenant schema the connection points at.
-pub fn cemetery_count(store: &Store) -> Result<i64> {
-    Ok(store.conn.query_row("SELECT count(*) FROM cemeteries WHERE voided_at IS NULL", [], |r| r.get(0))?)
 }
 
 // ---------------------------------------------------------------- status
 
-pub struct Sub {
-    pub plan: String,
-    pub method: String,
-    pub count: i64,
-    pub status: String,
-    pub start: Option<NaiveDate>,
-    pub end: Option<NaiveDate>,
-    pub cancel_at_end: bool,
-}
-
-pub fn subscription(conn: &Connection, tenant_id: &str) -> Result<Option<Sub>> {
-    let row = conn
-        .query_row(
-            "SELECT plan, payment_method, cemetery_count, status, to_char(current_period_start, 'YYYY-MM-DD'),
-                    to_char(current_period_end, 'YYYY-MM-DD'), cancel_at_period_end
-             FROM platform.subscriptions WHERE tenant_id = ?1",
-            params![tenant_id],
-            |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, i64>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, Option<String>>(4)?,
-                    r.get::<_, Option<String>>(5)?,
-                    r.get::<_, bool>(6)?,
-                ))
-            },
-        )
-        .optional()?;
-    let Some((plan, method, count, status, start, end, cancel)) = row else { return Ok(None) };
-    Ok(Some(Sub {
-        plan,
-        method,
-        count,
-        status,
-        start: start.as_deref().map(parse).transpose()?,
-        end: end.as_deref().map(parse).transpose()?,
-        cancel_at_end: cancel,
-    }))
-}
-
-/// trial | active | read_only | closed – updated here when the trial has run out.
+/// The organisation's state: active, read_only (older accounts) or closed.
+/// Subscriptions are per cemetery (`subscriptions`).
 pub fn effective_status(conn: &Connection, tenant_id: &str) -> Result<String> {
-    let (status, trial_over): (String, bool) =
-        conn.query_row("SELECT status, trial_ends_at <= now() FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    if status == "trial" && trial_over {
-        // ordered during the trial: work goes on while the proforma runs (the
-        // daily job makes the account read-only if it is not paid in time)
-        let ordered: bool = conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM platform.subscriptions WHERE tenant_id = ?1 AND status IN ('active', 'pending'))",
-            params![tenant_id],
-            |r| r.get(0),
-        )?;
-        let next = if ordered { "active" } else { "read_only" };
-        conn.execute(
-            "UPDATE platform.tenants SET status = ?2, read_only_since = CASE WHEN ?2 = 'read_only' THEN now() END WHERE id = ?1 AND status = 'trial'",
-            params![tenant_id, next],
-        )?;
-        return Ok(next.into());
-    }
-    Ok(status)
+    Ok(conn.query_row("SELECT status FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| r.get(0))?)
 }
 
 /// API methods that only read; everything else is refused when the account is read-only.
@@ -194,23 +131,12 @@ pub fn read_only_session(s: &Session) -> Session {
 
 pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
     let conn = &store.conn;
-    let status = effective_status(conn, tenant_id)?;
-    let count = cemetery_count(store)?.max(1);
-    let (trial_ends, trial_days): (String, i64) = conn.query_row(
-        "SELECT to_char(trial_ends_at, 'YYYY-MM-DD'), CAST(CEIL(EXTRACT(EPOCH FROM (trial_ends_at - now())) / 86400) AS BIGINT) FROM platform.tenants WHERE id = ?1",
-        params![tenant_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
     let details: Option<Value> = conn
         .query_row("SELECT name, tax_number, postcode, city, address, email FROM platform.billing_details WHERE tenant_id = ?1", params![tenant_id], |r| {
             Ok(json!({ "name": r.get::<_, String>(0)?, "taxNumber": r.get::<_, String>(1)?, "postcode": r.get::<_, String>(2)?,
                            "city": r.get::<_, String>(3)?, "address": r.get::<_, String>(4)?, "email": r.get::<_, String>(5)? }))
         })
         .optional()?;
-    let sub = subscription(conn, tenant_id)?.map(|s| {
-        json!({ "plan": s.plan, "paymentMethod": s.method, "cemeteryCount": s.count, "status": s.status,
-                "periodStart": s.start.map(ymd), "periodEnd": s.end.map(ymd), "cancelAtPeriodEnd": s.cancel_at_end })
-    });
     let invoices: Vec<Value> = conn
         .prepare(
             "SELECT id, kind, number, description, gross_huf, to_char(created_at, 'YYYY-MM-DD'), to_char(due_date, 'YYYY-MM-DD'), status, pdf IS NOT NULL
@@ -222,20 +148,16 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
                        "status": r.get::<_, String>(7)?, "hasPdf": r.get::<_, bool>(8)? }))
         })?
         .collect::<std::result::Result<_, _>>()?;
-    let plan = |p: &str| {
-        let net = unit_net(p) * count;
-        json!({ "unitNet": unit_net(p), "net": net, "gross": gross(net) })
-    };
+    let plan = |p: &str| json!({ "unitNet": unit_net(p), "net": unit_net(p), "gross": gross(unit_net(p)) });
+    let subs = crate::subscriptions::overview(store, tenant_id)?;
     Ok(json!({
         "cardPayments": crate::barion::config().is_some(),
-        "status": status,
-        "trialEndsAt": trial_ends,
-        "trialDaysLeft": trial_days.max(0),
-        "cemeteryCount": count,
         "vatPercent": VAT_PERCENT,
         "prices": { "monthly": plan("monthly"), "yearly": plan("yearly") },
         "details": details,
-        "subscription": sub,
+        "cemeteries": subs["cemeteries"],
+        "trialDays": subs["trialDays"],
+        "verifyHuf": subs["verifyHuf"],
         "invoices": invoices,
     }))
 }
@@ -264,7 +186,7 @@ pub fn save_details(conn: &Connection, tenant_id: &str, a: &Value) -> Result<()>
     Ok(())
 }
 
-fn buyer(conn: &Connection, tenant_id: &str) -> Result<Party> {
+pub(crate) fn buyer(conn: &Connection, tenant_id: &str) -> Result<Party> {
     conn.query_row("SELECT name, tax_number, postcode, city, address, email FROM platform.billing_details WHERE tenant_id = ?1", params![tenant_id], |r| {
         Ok(Party { name: r.get(0)?, tax_number: r.get(1)?, postcode: r.get(2)?, city: r.get(3)?, address: r.get(4)?, email: r.get(5)? })
     })
@@ -275,7 +197,7 @@ fn buyer(conn: &Connection, tenant_id: &str) -> Result<Party> {
 // ---------------------------------------------------------------- documents
 
 #[allow(clippy::too_many_arguments)]
-fn issue(
+pub(crate) fn issue(
     conn: &Connection,
     tenant_id: &str,
     proforma: bool,
@@ -377,59 +299,6 @@ pub fn fmt_huf(n: i64) -> String {
     }
 }
 
-// ---------------------------------------------------------------- subscribing
-
-pub fn subscribe(store: &Store, s: &Session, tenant_id: &str, plan: &str, method: &str) -> Result<Value> {
-    s.require(Permission::ManageSettings)?;
-    if !matches!(plan, "monthly" | "yearly") || method != "transfer" {
-        return Err(CoreError::new("bad_request", "plan and payment method required"));
-    }
-    let conn = &store.conn;
-    buyer(conn, tenant_id)?; // billing details are required
-    if let Some(sub) = subscription(conn, tenant_id)? {
-        if matches!(sub.status.as_str(), "active" | "pending") {
-            return Err(CoreError::new("already_subscribed", "there is already a subscription"));
-        }
-    }
-    // an unpaid proforma first: otherwise ordering again would reopen a
-    // read-only account for another payment period without paying
-    let unpaid: Option<String> = conn
-        .query_row(
-            "SELECT number FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open' ORDER BY created_at LIMIT 1",
-            params![tenant_id],
-            |r| r.get(0),
-        )
-        .optional()?;
-    if let Some(number) = unpaid {
-        return Err(CoreError::new("unpaid_proforma", "an earlier proforma is still unpaid").with("number", number));
-    }
-    let count = cemetery_count(store)?.max(1);
-    // the paid period starts when the free trial ends
-    let (trial_end, in_trial): (String, bool) =
-        conn.query_row("SELECT to_char(trial_ends_at, 'YYYY-MM-DD'), trial_ends_at > now() FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })?;
-    let start = if in_trial { parse(&trial_end)? } else { today() };
-    let t = lunda_core::db::tx(conn)?;
-    t.execute(
-        "INSERT INTO platform.subscriptions (tenant_id, plan, payment_method, cemetery_count, status, current_period_start, current_period_end)
-         VALUES (?1, ?2, 'transfer', ?3, 'pending', CAST(?4 AS DATE), CAST(?5 AS DATE))
-         ON CONFLICT (tenant_id) DO UPDATE SET plan=excluded.plan, payment_method='transfer', cemetery_count=excluded.cemetery_count,
-             status='pending', current_period_start=excluded.current_period_start, current_period_end=excluded.current_period_end,
-             cancel_at_period_end=false, updated_at=now()",
-        params![tenant_id, plan, count, ymd(start), ymd(period_end(start, plan))],
-    )?;
-    issue(&t, tenant_id, true, "TEMISZ előfizetés", count, unit_net(plan), (start, period_end(start, plan)), "transfer", None)?;
-    // working continues while the proforma is open (a read-only account opens up again)
-    t.execute(
-        "UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status IN ('trial', 'read_only') AND NOT ?2",
-        params![tenant_id, in_trial],
-    )?;
-    t.commit()?;
-    let _ = lunda_core::audit::record_simple(&store.conn, s, "subscription", tenant_id, "subscribe", Some(&format!("{plan}, transfer, {count}")));
-    Ok(json!({ "ok": true }))
-}
-
 /// Platform admin: the transfer arrived. Issues the final invoice and starts/extends the period.
 pub fn mark_paid(conn: &Connection, invoice_id: &str) -> Result<()> {
     mark_paid_by(conn, invoice_id, "transfer")
@@ -462,180 +331,21 @@ pub fn mark_paid_by(conn: &Connection, invoice_id: &str, method: &str) -> Result
         params![tenant, ymd(ps), ymd(pe)],
     )?;
     t.execute("UPDATE platform.tenants SET status = 'active', read_only_since = NULL WHERE id = ?1 AND status <> 'closed'", params![tenant])?;
+    // the cemetery the proforma was for (older proformas: every transfer cemetery)
+    let cem: Option<String> = t.query_row("SELECT cemetery_id FROM platform.invoices WHERE id = ?1", params![invoice_id], |r| r.get(0))?;
+    crate::subscriptions::proforma_paid(&t, &tenant, cem.as_deref(), &ymd(ps), &ymd(pe))?;
     t.commit()?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------- cemetery count changes
-
-/// FR-ELO-01: what one more cemetery costs, shown before it is created.
-pub fn quote_new_cemetery(store: &Store, tenant_id: &str) -> Result<Value> {
-    let status = effective_status(&store.conn, tenant_id)?;
-    let sub = subscription(&store.conn, tenant_id)?.filter(|s| matches!(s.status.as_str(), "active" | "pending"));
-    let Some(sub) = sub else {
-        return Ok(json!({ "inTrial": status == "trial", "monthlyNet": MONTHLY_NET, "yearlyNet": YEARLY_NET, "nowNet": 0 }));
-    };
-    let (now_net, _) = prorate(&sub, 1);
-    Ok(json!({ "inTrial": false, "plan": sub.plan, "unitNet": unit_net(&sub.plan), "nowNet": now_net, "nowGross": gross(now_net),
-               "periodEnd": sub.end.map(ymd), "newCount": sub.count + 1 }))
-}
-
-/// Net amount for `extra` cemeteries for the rest of the current period.
-fn prorate(sub: &Sub, extra: i64) -> (i64, Option<(NaiveDate, NaiveDate)>) {
-    let (Some(start), Some(end)) = (sub.start, sub.end) else { return (0, None) };
-    let from = today().max(start);
-    if from >= end {
-        return (0, None);
-    }
-    let total = (end - start).num_days().max(1) as f64;
-    let left = (end - from).num_days() as f64;
-    ((unit_net(&sub.plan) as f64 * extra as f64 * left / total).round() as i64, Some((from, end)))
-}
-
-/// After cemeteries were created or archived: bill the extra ones for the rest of
-/// the period with a proforma; fewer apply at renewal.
-pub fn sync_cemetery_count(store: &Store, tenant_id: &str) -> Result<()> {
-    let Some(sub) = subscription(&store.conn, tenant_id)?.filter(|s| matches!(s.status.as_str(), "active" | "pending")) else { return Ok(()) };
-    let count = cemetery_count(store)?.max(1);
-    if count == sub.count {
-        return Ok(());
-    }
-    let extra = count - sub.count;
-    if extra > 0 {
-        let (net, period) = prorate(&sub, extra);
-        if let (true, Some(p)) = (net > 0, period) {
-            // one line: N extra cemeteries for the remaining days, as a single priced item
-            issue(&store.conn, tenant_id, true, &format!("TEMISZ előfizetés – {extra} további temető, időarányosan"), 1, net, p, "transfer", None)?;
-        }
-    }
-    if extra > 0 {
-        store.conn.execute("UPDATE platform.subscriptions SET cemetery_count = ?2, updated_at = now() WHERE tenant_id = ?1", params![tenant_id, count])?;
-    }
     Ok(())
 }
 
 // ---------------------------------------------------------------- daily job
 
-fn notify_once(conn: &Connection, tenant_id: &str, key: &str) -> Result<bool> {
+pub(crate) fn notify_once(conn: &Connection, tenant_id: &str, key: &str) -> Result<bool> {
     Ok(conn.execute("INSERT INTO platform.notifications (tenant_id, key) VALUES (?1, ?2) ON CONFLICT DO NOTHING", params![tenant_id, key])? == 1)
 }
 
-fn tenant_email(conn: &Connection, tenant_id: &str) -> Result<(String, String)> {
+pub(crate) fn tenant_email(conn: &Connection, tenant_id: &str) -> Result<(String, String)> {
     Ok(conn.query_row("SELECT billing_email, name FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))?)
-}
-
-/// Runs once a day (Vercel Cron): trial reminders, expiry, renewals, overdue proformas.
-pub fn daily(store: &Store, base_url: &str) -> Result<Value> {
-    let conn = &store.conn;
-    let mut done = serde_json::Map::new();
-    // trial reminders 7 and 2 days before the end
-    let ending: Vec<(String, i64)> = conn
-        .prepare(
-            "SELECT t.id, CAST(CEIL(EXTRACT(EPOCH FROM (t.trial_ends_at - now())) / 86400) AS BIGINT) FROM platform.tenants t
-             WHERE t.status = 'trial' AND t.trial_ends_at > now() AND t.trial_ends_at < now() + interval '8 days'
-               AND NOT EXISTS (SELECT 1 FROM platform.subscriptions s WHERE s.tenant_id = t.id AND s.status IN ('active','pending'))",
-        )?
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<std::result::Result<_, _>>()?;
-    let mut reminders = 0;
-    for (tenant, days) in ending {
-        let key = if days <= 2 {
-            "trial_2"
-        } else if days <= 7 {
-            "trial_7"
-        } else {
-            continue;
-        };
-        if notify_once(conn, &tenant, key)? {
-            let (to, org) = tenant_email(conn, &tenant)?;
-            mail::send(
-                conn,
-                &to,
-                &format!("A TEMISZ próbaidő {days} nap múlva lejár"),
-                &format!(
-                    "Jó napot kívánunk!\n\nA(z) {org} TEMISZ-próbaideje {days} nap múlva lejár. Ezután a nyilvántartás csak olvasható, amíg nem fizet elő.\n\nAz előfizetés temetőnként havi {} Ft + ÁFA, vagy évi {} Ft + ÁFA. Előfizetni a programban, a Beállítások › Előfizetés oldalon lehet:\n{base_url}/{}",
-                    fmt_huf(MONTHLY_NET),
-                    fmt_huf(YEARLY_NET),
-                    mail::FOOTER
-                ),
-                "trial_reminder",
-            )?;
-            reminders += 1;
-        }
-    }
-    done.insert("trialReminders".into(), json!(reminders));
-    // trials that ran out
-    let expired: Vec<String> = conn
-        .prepare("SELECT id FROM platform.tenants WHERE status = 'trial' AND trial_ends_at <= now()")?
-        .query_map([], |r| r.get(0))?
-        .collect::<std::result::Result<_, _>>()?;
-    for tenant in &expired {
-        if effective_status(conn, tenant)? != "read_only" {
-            continue;
-        }
-        if notify_once(conn, tenant, "trial_ended")? {
-            let (to, org) = tenant_email(conn, tenant)?;
-            mail::send(
-                conn,
-                &to,
-                "Lejárt a TEMISZ próbaidő",
-                &format!("Jó napot kívánunk!\n\nA(z) {org} TEMISZ-próbaideje lejárt. Az adatok megmaradtak, olvashatók és letölthetők. A további munkához fizessen elő a Beállítások › Előfizetés oldalon:\n{base_url}/{}", mail::FOOTER),
-                "trial_ended",
-            )?;
-        }
-    }
-    done.insert("trialsEnded".into(), json!(expired.len()));
-    // renewal proformas for transfer subscriptions
-    let due: Vec<(String, String, i64, String)> = conn
-        .prepare(
-            "SELECT s.tenant_id, s.plan, s.cemetery_count, to_char(s.current_period_end, 'YYYY-MM-DD') FROM platform.subscriptions s
-             WHERE s.payment_method = 'transfer' AND s.status = 'active' AND NOT s.cancel_at_period_end
-               AND s.current_period_end <= CAST(?1 AS DATE)
-               AND NOT EXISTS (SELECT 1 FROM platform.invoices i WHERE i.tenant_id = s.tenant_id AND i.kind = 'proforma'
-                               AND i.period_start = s.current_period_end AND i.status <> 'void')",
-        )?
-        .query_map(params![ymd(today() + Duration::days(RENEWAL_NOTICE_DAYS))], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-        .collect::<std::result::Result<_, _>>()?;
-    for (tenant, plan, count, end) in &due {
-        // bill the cemeteries in use now (archived ones drop off at renewal)
-        let schema: String = conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", params![tenant], |r| r.get(0))?;
-        conn.use_schema(&schema)?;
-        let now_count = cemetery_count(store)?.max(1);
-        let start = parse(end)?;
-        issue(conn, tenant, true, "TEMISZ előfizetés – következő időszak", now_count, unit_net(plan), (start, period_end(start, plan)), "transfer", None)?;
-        conn.execute("UPDATE platform.subscriptions SET cemetery_count = ?2 WHERE tenant_id = ?1", params![tenant, now_count])?;
-        let _ = count;
-    }
-    done.insert("renewalProformas".into(), json!(due.len()));
-    // unpaid proformas past the grace period → read-only
-    let overdue: Vec<String> = conn
-        .prepare(
-            "SELECT DISTINCT i.tenant_id FROM platform.invoices i JOIN platform.tenants t ON t.id = i.tenant_id
-             WHERE i.kind = 'proforma' AND i.status = 'open' AND i.due_date + CAST(?1 AS INTEGER) < CAST(?2 AS DATE) AND t.status = 'active'",
-        )?
-        .query_map(params![OVERDUE_GRACE_DAYS as i32, ymd(today())], |r| r.get(0))?
-        .collect::<std::result::Result<_, _>>()?;
-    for tenant in &overdue {
-        conn.execute("UPDATE platform.tenants SET status = 'read_only', read_only_since = now() WHERE id = ?1", params![tenant])?;
-        conn.execute("UPDATE platform.subscriptions SET status = 'past_due' WHERE tenant_id = ?1", params![tenant])?;
-        let (to, org) = tenant_email(conn, tenant)?;
-        mail::send(
-            conn,
-            &to,
-            "A TEMISZ-fiók csak olvasható lett",
-            &format!("Jó napot kívánunk!\n\nA(z) {org} TEMISZ-díjbekérője lejárt, ezért a nyilvántartás csak olvasható. A befizetés beérkezése után azonnal újra szerkeszthető.{}", mail::FOOTER),
-            "overdue",
-        )?;
-    }
-    done.insert("overdue".into(), json!(overdue.len()));
-    // cancelled subscriptions whose period is over
-    let n = conn.execute(
-        "UPDATE platform.tenants t SET status = 'read_only', read_only_since = now() FROM platform.subscriptions s
-         WHERE s.tenant_id = t.id AND s.status = 'canceled' AND s.current_period_end <= CAST(?1 AS DATE) AND t.status = 'active'",
-        params![ymd(today())],
-    )?;
-    done.insert("canceledEnded".into(), json!(n));
-    Ok(Value::Object(done))
 }
 
 // ---------------------------------------------------------------- bank statement matching
@@ -803,24 +513,6 @@ mod tests {
         assert_eq!(period_end(d, "monthly"), NaiveDate::from_ymd_opt(2026, 2, 28).unwrap());
         assert_eq!(period_end(d, "yearly"), NaiveDate::from_ymd_opt(2027, 1, 31).unwrap());
         assert_eq!(fmt_huf(450_000), "450\u{a0}000");
-    }
-
-    #[test]
-    fn proration_for_extra_cemetery() {
-        let start = today() - Duration::days(10);
-        let sub = Sub {
-            plan: "yearly".into(),
-            method: "transfer".into(),
-            count: 1,
-            status: "active".into(),
-            start: Some(start),
-            end: Some(period_end(start, "yearly")),
-            cancel_at_end: false,
-        };
-        let (net, p) = prorate(&sub, 1);
-        let total = (period_end(start, "yearly") - start).num_days() as f64;
-        assert_eq!(net, (YEARLY_NET as f64 * (total - 10.0) / total).round() as i64);
-        assert_eq!(p.unwrap().0, today());
     }
 
     #[test]

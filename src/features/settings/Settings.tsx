@@ -5,7 +5,7 @@ import { OnlinePayTab } from "./OnlinePay";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
-import { api, command, shell } from "../../lib/api";
+import { api, shell } from "../../lib/api";
 import { PERMISSIONS, type Cemetery, type FeeRate, type PlotType, type User } from "../../lib/types";
 import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, TextField, cx, useErrorText } from "../../components/ui";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
@@ -14,7 +14,7 @@ import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
 import { SecurityLogPanel, SecurityPanel } from "../account/Security";
 import { OrganizationsPanel } from "../account/Organizations";
-import { SubscriptionTab, huf } from "../account/Subscription";
+import { SubscriptionTab } from "../account/Subscription";
 import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
 
@@ -275,22 +275,10 @@ function CemeteriesTab() {
   );
 }
 
-/** FR-ELO-01: what a new cemetery adds to the subscription, shown before creating it. */
+/** A new cemetery needs its own subscription (card: trial first; transfer: proforma). */
 function CemeteryPriceNotice() {
   const { t } = useTranslation();
-  const q = useQuery({
-    queryKey: ["billing-quote"],
-    queryFn: () => command<{ inTrial: boolean; monthlyNet?: number; yearlyNet?: number; plan?: string; unitNet?: number; nowGross?: number; periodEnd?: string }>("billing_quote_cemetery"),
-  });
-  if (!q.data) return null;
-  const d = q.data;
-  return (
-    <Alert tone="info" title={t("billing.newCemeteryTitle")}>
-      {d.plan
-        ? t("billing.newCemeteryPaid", { now: huf(d.nowGross ?? 0), date: d.periodEnd, unit: huf(d.unitNet ?? 0), per: t(`billing.per.${d.plan}`) })
-        : t("billing.newCemeteryTrial", { monthly: huf(d.monthlyNet ?? 45000), yearly: huf(d.yearlyNet ?? 450000) })}
-    </Alert>
-  );
+  return <Alert tone="info" title={t("billing.newCemeteryTitle")}>{t("billing.newCemeteryNeedsSub")}</Alert>;
 }
 
 function CemeteryDialog({ cemetery, onClose }: { cemetery: Cemetery; onClose: () => void }) {
@@ -299,6 +287,7 @@ function CemeteryDialog({ cemetery, onClose }: { cemetery: Cemetery; onClose: ()
   const [error, setError] = useState<unknown>(null);
   const invalidate = useInvalidate();
   const { setCemeteryId } = useCurrentCemetery();
+  const { can, nav, refresh } = useApp();
   const set = (k: keyof Cemetery) => (v: string) => setC({ ...c, [k]: v });
   return (
     <Dialog
@@ -315,8 +304,13 @@ function CemeteryDialog({ cemetery, onClose }: { cemetery: Cemetery; onClose: ()
               try {
                 const saved = await api<Cemetery>("cemeteries.save", { cemetery: c });
                 await invalidate();
-                if (!cemetery.id) setCemeteryId(saved.id);
                 onClose();
+                if (!cemetery.id) {
+                  await refresh();
+                  setCemeteryId(saved.id);
+                  // the new cemetery can be written once it has a subscription
+                  if (can("manage_settings")) nav.go({ view: "settings", tab: "subscription" });
+                }
               } catch (e) {
                 setError(e);
               }

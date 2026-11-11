@@ -3,7 +3,7 @@ import { lastMail, linkIn, totp } from "./helpers";
 
 async function register(page: Page, email: string, org = "Próbafalva Önkormányzata") {
   await page.goto("/");
-  await page.getByRole("button", { name: "Kipróbálom 30 napig ingyen" }).click();
+  await page.getByRole("button", { name: "Ingyenes regisztráció" }).click();
   await page.locator("input[name=organization]").fill(org);
   await page.locator("input[name=name]").fill("Teszt Elek");
   await page.locator("input[name=email]").fill(email);
@@ -37,7 +37,8 @@ test("regisztráció: saját, üres nyilvántartás, e-mail-megerősítés", asy
 
   await finishOnboarding(page);
   await expect(page.getByRole("status").filter({ hasText: /Erősítse meg az e-mail-címét/ })).toBeVisible();
-  await expect(page.getByTestId("trial-banner")).toContainText("még 30 nap");
+  // the organisation is free: no trial until a cemetery is subscribed by card
+  await expect(page.getByTestId("trial-banner")).toHaveCount(0);
   const mail = await lastMail(page, email, "verify");
   await page.goto(linkIn(mail.body));
   await expect(page.getByText("Az e-mail-cím megerősítve.")).toBeVisible();

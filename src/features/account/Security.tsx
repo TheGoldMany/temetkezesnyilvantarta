@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck } from "lucide-react";
 import { useApp } from "../../app/context";
+import { useCurrentCemetery } from "../../lib/queries";
 import { shell, type SecurityEvent } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Panel, TextField } from "../../components/ui";
 
@@ -160,6 +161,7 @@ export function AccountBanners() {
   const { t } = useTranslation();
   const { status, can, nav } = useApp();
   const [sent, setSent] = useState(false);
+  const { current } = useCurrentCemetery();
   const acc = status?.account;
   if (!acc) return null;
   return (
@@ -184,9 +186,19 @@ export function AccountBanners() {
           )}
         </div>
       )}
-      {acc.tenantStatus === "trial" && (
+      {current && acc.lockedCemeteries?.includes(current.id) && (
+        <div className="no-print border-b border-accent/40 bg-lichen px-4 py-1.5 text-sm font-semibold sm:px-6 sm:py-2" role="alert" data-testid="locked-banner">
+          <span>{t("account.cemeteryLocked", { name: current.name })} </span>
+          {can("manage_settings") && (
+            <button type="button" className="text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
+              {t("account.subscribe")}
+            </button>
+          )}
+        </div>
+      )}
+      {acc.nextTrialEnd && (
         <div className="no-print border-b border-seam bg-slab px-4 py-1.5 text-sm text-granite sm:px-6 sm:py-2" role="status" data-testid="trial-banner">
-          <span>{t("account.trialLeft", { count: acc.trialDaysLeft, date: acc.trialEndsAt })} </span>
+          <span>{t("account.trialUntil", { date: acc.nextTrialEnd })} </span>
           {can("manage_settings") && (
             <button type="button" className="font-semibold text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "subscription" })}>
               {t("account.subscribe")}

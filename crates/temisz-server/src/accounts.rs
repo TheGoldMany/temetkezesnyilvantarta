@@ -205,7 +205,15 @@ pub fn account_status(store: &Store, acc: &AccountRow, mfa_setup: bool) -> Resul
     let tour_seen: bool = store.conn.query_row("SELECT tour_seen_at IS NOT NULL FROM platform.accounts WHERE id = ?1", params![acc.id], |r| r.get(0))?;
     let orgs: Vec<Value> =
         memberships(&store.conn, &acc.email)?.into_iter().map(|m| json!({ "accountId": m.id, "name": m.organization, "current": m.id == acc.id })).collect();
+    // cemeteries without a usable subscription, and the nearest trial end
+    let locked = crate::subscriptions::locked_cemeteries(store, &acc.tenant_id).unwrap_or_default();
+    let subs = crate::subscriptions::list(&store.conn, &acc.tenant_id).unwrap_or_default();
+    let trial_end = subs.iter().filter(|x| x.status == "trial").filter_map(|x| x.trial_ends.clone()).min();
+    let demo = subs.iter().any(|x| x.status == "demo");
     Ok(json!({
+        "lockedCemeteries": locked,
+        "nextTrialEnd": trial_end,
+        "hasDemo": demo,
         "organizations": orgs,
         "tourSeen": tour_seen,
         "email": acc.email,

@@ -121,59 +121,61 @@ fn denied() -> CoreError {
     CoreError::forbidden("cemetery")
 }
 
-/// Whether the record may be touched. Unknown ids are left to the method
-/// (it answers "not found").
-fn record_allowed(store: &Store, s: &Session, table: &str, id: &str) -> Result<bool> {
+/// The cemeteries a record belongs to (a deceased: those of their burials;
+/// none for unknown ids, which the method answers with "not found").
+fn record_cemeteries(store: &Store, table: &str, id: &str) -> Result<Vec<String>> {
     if table == "deceased" {
-        // a deceased belongs to the cemeteries of their burials (none yet: everyone)
         let mut st = store.conn.prepare("SELECT DISTINCT cemetery_id FROM interment_events WHERE deceased_id = ?1 AND cemetery_id IS NOT NULL")?;
-        let cems: Vec<String> = st.query_map([id], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
-        return Ok(cems.is_empty() || cems.iter().any(|c| s.sees_cemetery(c)));
+        return Ok(st.query_map([id], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?);
     }
-    let Some(sql) = cemetery_sql(table) else { return Ok(true) };
+    let Some(sql) = cemetery_sql(table) else { return Ok(vec![]) };
     let cem: Option<Option<String>> = store.conn.query_row(&sql, [id], |r| r.get(0)).optional()?;
-    Ok(match cem.flatten() {
-        Some(c) => s.sees_cemetery(&c),
-        None => true,
-    })
+    Ok(cem.flatten().into_iter().collect())
 }
 
-fn check_value(store: &Store, s: &Session, v: &Value) -> Result<()> {
+fn collect(store: &Store, v: &Value, out: &mut Vec<Vec<String>>) -> Result<()> {
     match v {
         Value::Object(map) => {
             for (k, x) in map {
                 match (k.as_str(), x) {
-                    ("cemeteryId", Value::String(c)) if !c.is_empty() && !s.sees_cemetery(c) => return Err(denied()),
+                    ("cemeteryId", Value::String(c)) if !c.is_empty() => out.push(vec![c.clone()]),
                     ("plotIds", Value::Array(ids)) => {
                         for id in ids.iter().filter_map(Value::as_str) {
-                            if !record_allowed(store, s, "plots", id)? {
-                                return Err(denied());
-                            }
+                            out.push(record_cemeteries(store, "plots", id)?);
                         }
                     }
                     (key, Value::String(id)) if !id.is_empty() => {
                         if let Some(t) = table_of_key(key) {
-                            if !record_allowed(store, s, t, id)? {
-                                return Err(denied());
-                            }
+                            out.push(record_cemeteries(store, t, id)?);
                         }
                     }
-                    _ => check_value(store, s, x)?,
+                    _ => collect(store, x, out)?,
                 }
             }
             // entity + entityId pairs (attachments, voiding)
             if let (Some(Value::String(e)), Some(Value::String(id))) = (map.get("entity"), map.get("entityId")) {
                 if let Some(t) = table_of_entity(e) {
-                    if !record_allowed(store, s, t, id)? {
-                        return Err(denied());
-                    }
+                    out.push(record_cemeteries(store, t, id)?);
                 }
             }
             Ok(())
         }
-        Value::Array(items) => items.iter().try_for_each(|x| check_value(store, s, x)),
+        Value::Array(items) => items.iter().try_for_each(|x| collect(store, x, out)),
         _ => Ok(()),
     }
+}
+
+/// The cemeteries a call reaches, as groups: a group is reached through one
+/// argument (a deceased through several cemeteries: any of them will do).
+/// Empty: the call names no cemetery (people, settings, organisation-wide lists).
+pub fn cemeteries_of(store: &Store, method: &str, args: &Value) -> Result<Vec<Vec<String>>> {
+    let mut out = vec![];
+    if let (Some(t), Some(id)) = (table_of_method(method), args.get("id").and_then(Value::as_str)) {
+        out.push(record_cemeteries(store, t, id)?);
+    }
+    collect(store, args, &mut out)?;
+    out.retain(|g| !g.is_empty());
+    Ok(out)
 }
 
 /// Refuses a call that reaches into a cemetery the user does not work in.
@@ -185,12 +187,12 @@ pub fn check(store: &Store, s: &Session, method: &str, args: &Value) -> Result<(
     if method == "cemeteries.save" {
         return Err(denied());
     }
-    if let (Some(t), Some(id)) = (table_of_method(method), args.get("id").and_then(Value::as_str)) {
-        if !record_allowed(store, s, t, id)? {
+    for group in cemeteries_of(store, method, args)? {
+        if !group.iter().any(|c| s.sees_cemetery(c)) {
             return Err(denied());
         }
     }
-    check_value(store, s, args)
+    Ok(())
 }
 
 fn keep(store: &Store, s: &Session, row: &Value) -> Result<bool> {
@@ -199,7 +201,7 @@ fn keep(store: &Store, s: &Session, row: &Value) -> Result<bool> {
         return Ok(s.sees_cemetery(c));
     }
     if let Some(p) = obj.get("plotId").and_then(Value::as_str) {
-        return record_allowed(store, s, "plots", p);
+        return Ok(record_cemeteries(store, "plots", p)?.iter().all(|c| s.sees_cemetery(c)));
     }
     Ok(true)
 }

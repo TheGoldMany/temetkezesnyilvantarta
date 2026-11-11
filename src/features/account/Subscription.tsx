@@ -12,24 +12,25 @@ interface Price {
   net: number;
   gross: number;
 }
+interface CemeterySub {
+  cemeteryId: string;
+  name: string;
+  status: "none" | "pending_card" | "trial" | "active" | "past_due" | "canceled" | "lapsed" | "demo";
+  plan?: "monthly" | "yearly";
+  method?: "card" | "transfer" | "demo";
+  trialEndsAt?: string | null;
+  periodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  trialLike: boolean;
+}
 interface Overview {
   cardPayments: boolean;
-  status: "trial" | "active" | "read_only" | "closed";
-  trialEndsAt: string;
-  trialDaysLeft: number;
-  cemeteryCount: number;
   vatPercent: number;
   prices: { monthly: Price; yearly: Price };
   details: { name: string; taxNumber: string; postcode: string; city: string; address: string; email: string } | null;
-  subscription: {
-    plan: "monthly" | "yearly";
-    paymentMethod: "transfer";
-    cemeteryCount: number;
-    status: "pending" | "active" | "past_due" | "canceled";
-    periodStart: string | null;
-    periodEnd: string | null;
-    cancelAtPeriodEnd: boolean;
-  } | null;
+  cemeteries: CemeterySub[];
+  trialDays: number;
+  verifyHuf: number;
   invoices: { id: string; kind: "proforma" | "invoice"; number: string; description: string; grossHuf: number; date: string; dueDate: string | null; status: string; hasPdf: boolean }[];
 }
 
@@ -87,128 +88,70 @@ function TermsCheck({ checked, onChange, card }: { checked: boolean; onChange: (
   );
 }
 
-/** Settings › Előfizetés: price, billing details, payment method, invoices. */
+/** Settings › Előfizetés: one subscription per cemetery, billing details, invoices. */
 export function SubscriptionTab() {
   const { t } = useTranslation();
   const { refresh } = useApp();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["billing"], queryFn: () => command<Overview>("billing_overview") });
-  const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
   const [editDetails, setEditDetails] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const [done, setDone] = useState(false);
-  const [accepted, setAccepted] = useState(false);
   const [cardAccepted, setCardAccepted] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   if (q.isLoading || !q.data) return q.error ? <ErrorAlert error={q.error} /> : <Spinner />;
   const o = q.data;
-  const sub = o.subscription && o.subscription.status !== "canceled" ? o.subscription : null;
   const reload = async () => {
     await qc.invalidateQueries({ queryKey: ["billing"] });
     await refresh();
   };
-  const subscribe = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await command("billing_subscribe", { plan, paymentMethod: "transfer", termsAccepted: accepted });
-      setDone(true);
-      await reload();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <div className="flex flex-col gap-6">
-      <Panel title={t("billing.statusTitle")}>
-        <div className="flex flex-col gap-2" data-testid="billing-status">
-          {o.status === "trial" && !sub && <p>{t("billing.inTrial", { count: o.trialDaysLeft, date: o.trialEndsAt })}</p>}
-          {o.status === "read_only" && <Alert tone="warn">{t("billing.readOnly")}</Alert>}
-          {sub && (
-            <p>
-              {t(`billing.plan.${sub.plan}`)}, {t(`billing.method.${sub.paymentMethod}`)}, {t("billing.cemeteries", { count: sub.cemeteryCount })}.{" "}
-              {sub.status === "pending" ? t("billing.pending") : sub.periodEnd ? t("billing.paidUntil", { date: sub.periodEnd }) : ""}
-              {sub.cancelAtPeriodEnd && ` ${t("billing.cancelAtEnd")}`}
-            </p>
+      <Panel title={t("billing.cemeteriesTitle")}>
+        <div className="flex flex-col gap-4" data-testid="billing-status">
+          <p className="text-granite">{t("billing.perCemeteryIntro", { days: o.trialDays, monthly: huf(o.prices.monthly.net), yearly: huf(o.prices.yearly.net) })}</p>
+          {o.cemeteries.length === 0 ? (
+            <p className="text-granite">{t("billing.noCemeteries")}</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-seam border-y border-seam" data-testid="cemetery-subs">
+              {o.cemeteries.map((c) => (
+                <li key={c.cemeteryId} className="flex flex-col gap-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{c.name}</p>
+                      <p className={cx("text-sm", ["none", "lapsed", "past_due"].includes(c.status) ? "font-semibold text-alert" : "text-granite")}>{subText(t, c)}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {["none", "lapsed", "pending_card", "demo"].includes(c.status) && open !== c.cemeteryId && (
+                        <Button variant="primary" onClick={() => setOpen(c.cemeteryId)}>
+                          {t("billing.subscribeCemetery")}
+                        </Button>
+                      )}
+                      {["trial", "active", "past_due"].includes(c.status) && <CancelButton cemeteryId={c.cemeteryId} onDone={reload} />}
+                      {c.status === "canceled" && <CancelButton cemeteryId={c.cemeteryId} resume onDone={reload} />}
+                    </div>
+                  </div>
+                  {open === c.cemeteryId && (
+                    <SubscribeForm o={o} cemetery={c} onClose={() => setOpen(null)} onDone={async () => (setOpen(null), await reload())} />
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-          {done && <Alert tone="ok">{t("billing.proformaSent")}</Alert>}
         </div>
       </Panel>
 
-      {!sub && (
-        <Panel title={t("billing.chooseTitle")}>
-          <div className="flex flex-col gap-5">
-            <p className="text-granite">{t("billing.priceIntro", { count: o.cemeteryCount })}</p>
-            <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={t("billing.chooseTitle")}>
-              {(["monthly", "yearly"] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={plan === p}
-                  onClick={() => setPlan(p)}
-                  className={cx("rounded-xl border p-4 text-left", plan === p ? "border-moss bg-moss/8 shadow-[inset_0_0_0_1px_var(--c-moss)]" : "border-seam bg-slab hover:border-granite")}
-                >
-                  <span className="block font-semibold">{t(`billing.plan.${p}`)}</span>
-                  <span className="mt-1 block text-2xl font-semibold tabular-nums">{huf(o.prices[p].net)}</span>
-                  <span className="block text-sm text-granite">
-                    {t("billing.netPer", { per: t(`billing.per.${p}`) })}, {t("billing.gross", { amount: huf(o.prices[p].gross) })}
-                  </span>
-                  {p === "yearly" && <span className="mt-2 inline-block bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("billing.yearlySaving")}</span>}
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <p className="mb-1 flex items-center gap-2 font-semibold">
-                <Landmark className="size-5" aria-hidden />
-                {t("billing.paymentMethod")}: {t("billing.method.transfer")}
-              </p>
-              <p className="text-sm text-granite">{t("billing.transferHint")}</p>
-            </div>
-
-            {(!o.details || editDetails) && <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />}
-            {o.details && !editDetails && (
-              <div className="rounded-lg border border-seam bg-limestone/60 px-4 py-3">
-                <p className="text-sm text-granite">{t("billing.invoiceTo")}</p>
-                <p className="font-semibold">{o.details.name}</p>
-                <p>
-                  {o.details.postcode} {o.details.city}, {o.details.address}
-                  {o.details.taxNumber && `, ${t("billing.taxNumber")}: ${o.details.taxNumber}`}
-                </p>
-                <p className="text-granite">{o.details.email}</p>
-                <button type="button" className="mt-1 text-moss underline underline-offset-3" onClick={() => setEditDetails(true)}>
-                  {t("common.edit")}
-                </button>
-              </div>
-            )}
-            <TermsCheck checked={accepted} onChange={setAccepted} />
-            <ErrorAlert error={error} />
-            <div>
-              <Button variant="primary" size="lg" busy={busy} disabled={!o.details || editDetails || !accepted} onClick={subscribe}>
-                {t("billing.subscribeTransfer")}
-              </Button>
-            </div>
+      <Panel title={t("billing.detailsTitle")}>
+        {!o.details || editDetails ? (
+          <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>
+              {o.details.name}, {o.details.postcode} {o.details.city}, {o.details.address}
+              {o.details.taxNumber && `, ${t("billing.taxNumber")}: ${o.details.taxNumber}`} ({o.details.email})
+            </p>
+            <Button onClick={() => setEditDetails(true)}>{t("common.edit")}</Button>
           </div>
-        </Panel>
-      )}
-
-      {sub && o.details && (
-        <Panel title={t("billing.detailsTitle")}>
-          {editDetails ? (
-            <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p>
-                {o.details.name}, {o.details.postcode} {o.details.city}, {o.details.address} ({o.details.email})
-              </p>
-              <Button onClick={() => setEditDetails(true)}>{t("common.edit")}</Button>
-            </div>
-          )}
-        </Panel>
-      )}
+        )}
+      </Panel>
 
       <Panel title={t("billing.invoicesTitle")}>
         {o.invoices.length === 0 ? (
@@ -263,6 +206,151 @@ export function SubscriptionTab() {
         )}
       </Panel>
       <CloseAccount />
+    </div>
+  );
+}
+
+function subText(t: (k: string, o?: Record<string, unknown>) => string, c: CemeterySub): string {
+  const per = c.plan ? t(`billing.per.${c.plan}`) : "";
+  switch (c.status) {
+    case "none":
+      return t("billing.sub.none");
+    case "pending_card":
+      return t("billing.sub.pendingCard");
+    case "trial":
+      return c.method === "card" ? t("billing.sub.trialCard", { date: c.trialEndsAt, per }) : t("billing.sub.trialOld", { date: c.trialEndsAt });
+    case "active":
+      return c.method === "card" ? t("billing.sub.activeCard", { date: c.periodEnd, per }) : t("billing.sub.activeTransfer", { date: c.periodEnd });
+    case "past_due":
+      return t("billing.sub.pastDue");
+    case "canceled":
+      return t("billing.sub.canceled", { date: c.periodEnd ?? c.trialEndsAt });
+    case "demo":
+      return t("billing.sub.demo");
+    default:
+      return t("billing.sub.lapsed");
+  }
+}
+
+function CancelButton({ cemeteryId, resume, onDone }: { cemeteryId: string; resume?: boolean; onDone: () => Promise<void> }) {
+  const { t } = useTranslation();
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const run = async () => {
+    setError(null);
+    try {
+      await command("cemetery_cancel", { cemeteryId, resume: !!resume });
+      setConfirm(false);
+      await onDone();
+    } catch (e) {
+      setError(e);
+    }
+  };
+  if (resume) return <Button onClick={run}>{t("billing.resume")}</Button>;
+  return (
+    <span className="flex flex-col items-end gap-2">
+      {confirm ? (
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm">{t("billing.cancelConfirm")}</span>
+          <Button onClick={() => setConfirm(false)}>{t("common.cancel")}</Button>
+          <Button variant="danger" onClick={run}>
+            {t("billing.cancelFinal")}
+          </Button>
+        </span>
+      ) : (
+        <Button variant="quiet" onClick={() => setConfirm(true)}>
+          {t("billing.cancelSub")}
+        </Button>
+      )}
+      <ErrorAlert error={error} />
+    </span>
+  );
+}
+
+/** Plan and payment method for one cemetery: card (check, trial, automatic charges) or transfer (proforma now). */
+function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery: CemeterySub; onClose: () => void; onDone: () => Promise<void> }) {
+  const { t } = useTranslation();
+  const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
+  const [method, setMethod] = useState<"card" | "transfer">(o.cardPayments ? "card" : "transfer");
+  const [accepted, setAccepted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const trialUsed = cemetery.status === "lapsed" || cemetery.status === "pending_card";
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-seam bg-limestone/50 p-4" data-testid="subscribe-form">
+      <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={t("billing.chooseTitle")}>
+        {(["monthly", "yearly"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="radio"
+            aria-checked={plan === p}
+            onClick={() => setPlan(p)}
+            className={cx("rounded-xl border p-4 text-left", plan === p ? "border-moss bg-moss/8 shadow-[inset_0_0_0_1px_var(--c-moss)]" : "border-seam bg-slab hover:border-granite")}
+          >
+            <span className="block font-semibold">{t(`billing.plan.${p}`)}</span>
+            <span className="mt-1 block text-2xl font-semibold tabular-nums">{huf(o.prices[p].net)}</span>
+            <span className="block text-sm text-granite">
+              {t("billing.netPer", { per: t(`billing.per.${p}`) })}, {t("billing.gross", { amount: huf(o.prices[p].gross) })}
+            </span>
+            {p === "yearly" && <span className="mt-2 inline-block bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("billing.yearlySaving")}</span>}
+          </button>
+        ))}
+      </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 font-semibold">{t("billing.paymentMethod")}</legend>
+        {o.cardPayments && (
+          <label className="flex items-start gap-3">
+            <input type="radio" name="method" className="mt-1 size-4 accent-[var(--c-moss)]" checked={method === "card"} onChange={() => setMethod("card")} />
+            <span>
+              <span className="flex items-center gap-2 font-semibold">
+                <CreditCard className="size-4" aria-hidden />
+                {t("billing.method.card")}
+              </span>
+              <span className="block text-sm text-granite">{trialUsed ? t("billing.cardHintNoTrial", { verify: huf(o.verifyHuf) }) : t("billing.cardHint", { days: o.trialDays, verify: huf(o.verifyHuf) })}</span>
+            </span>
+          </label>
+        )}
+        <label className="flex items-start gap-3">
+          <input type="radio" name="method" className="mt-1 size-4 accent-[var(--c-moss)]" checked={method === "transfer"} onChange={() => setMethod("transfer")} />
+          <span>
+            <span className="flex items-center gap-2 font-semibold">
+              <Landmark className="size-4" aria-hidden />
+              {t("billing.method.transfer")}
+            </span>
+            <span className="block text-sm text-granite">{t("billing.transferHint")}</span>
+          </span>
+        </label>
+      </fieldset>
+      {!o.details && <Alert tone="warn">{t("billing.detailsFirst")}</Alert>}
+      <TermsCheck checked={accepted} onChange={setAccepted} card={method === "card"} />
+      <ErrorAlert error={error} />
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={onClose}>{t("common.cancel")}</Button>
+        <Button
+          variant="primary"
+          busy={busy}
+          disabled={!o.details || !accepted}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              const r = await command<{ gatewayUrl?: string }>("cemetery_subscribe", { cemeteryId: cemetery.cemeteryId, plan, paymentMethod: method, termsAccepted: accepted });
+              if (r.gatewayUrl) {
+                window.location.assign(r.gatewayUrl);
+                return;
+              }
+              await onDone();
+            } catch (e) {
+              setError(e);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {method === "card" ? t("billing.subscribeCard") : t("billing.subscribeTransfer")}
+        </Button>
+      </div>
     </div>
   );
 }

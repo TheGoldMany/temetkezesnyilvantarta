@@ -13,6 +13,7 @@ pub mod lifecycle;
 pub mod mail;
 pub mod reminders;
 pub mod resident_pay;
+pub mod subscriptions;
 pub mod tenant_data;
 pub mod totp;
 
@@ -42,6 +43,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (9, include_str!("../migrations/0009_resident_payments.sql")),
     (10, include_str!("../migrations/0010_tour.sql")),
     (11, include_str!("../migrations/0011_memberships.sql")),
+    (12, include_str!("../migrations/0012_cemetery_subscriptions.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -158,7 +160,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             if !ok {
                 return Response::text(401, "unauthorized");
             }
-            let res = billing::daily(store, &accounts::base_url(req))
+            let res = subscriptions::daily(store, &accounts::base_url(req))
                 .and_then(|b| Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)?, "reminders": reminders::daily(store)? })));
             match res {
                 Ok(v) => Response::json(&v),
@@ -503,12 +505,38 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 if c.mfa_setup {
                     return Err(CoreError::new("totp_required", "turn on two-factor sign-in first"));
                 }
-                // after the trial or an unpaid proforma the register can only be read
+                // a closed or (older) read-only account can only be read
                 let read_only = billing::effective_status(&store.conn, &c.tenant_id)? == "read_only";
                 if read_only && !billing::is_read_method(&method) {
                     return Err(CoreError::new("read_only", "the account is read-only until a subscription is paid"));
                 }
                 let session = if read_only { billing::read_only_session(&c.session) } else { c.session.clone() };
+                // a cemetery without a usable subscription can only be read
+                let reached = lunda_core::access::cemeteries_of(store, &method, a)?;
+                if !billing::is_read_method(&method) && method != "sample.load" {
+                    let locked = subscriptions::locked_cemeteries(store, &c.tenant_id)?;
+                    if let Some(g) = reached.iter().find(|g| g.iter().all(|c| locked.contains(c))) {
+                        return Err(CoreError::new("cemetery_locked", "this cemetery has no subscription").with("cemeteryId", &g[0]));
+                    }
+                }
+                // in a trial no data leaves the program; prints carry a mark
+                let mut a = a.clone();
+                if matches!(method.as_str(), "export.file" | "print.document") {
+                    let trial = subscriptions::trial_cemeteries(&store.conn, &c.tenant_id)?;
+                    let in_trial = if reached.is_empty() { !trial.is_empty() } else { reached.iter().any(|g| g.iter().any(|c| trial.contains(c))) };
+                    let book = matches!(a["doc"].as_str().unwrap_or(""), "register" | "crypt_book" | "index" | "inspection");
+                    if in_trial && (method == "export.file" || book) {
+                        return Err(CoreError::new("trial_no_export", "no data export during the trial"));
+                    }
+                    if in_trial {
+                        if let Some(inner) = a.get_mut("args").and_then(|x| x.as_object_mut()) {
+                            inner.insert("watermark".into(), json!(true));
+                        } else {
+                            a["args"] = json!({ "watermark": true });
+                        }
+                    }
+                }
+                let a = &a;
                 match method.as_str() {
                     "users.create" => accounts::invite(store, &session, &c.tenant_id, a, req),
                     "users.update" => {
@@ -593,10 +621,29 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                             "iframe": format!("<iframe src=\"{base}/kereso?t={token}\" title=\"Sírkereső\" style=\"width:100%;min-height:480px;border:0\" loading=\"lazy\"></iframe>"),
                         }))
                     }
-                    "cemeteries.save" | "records.void" => {
+                    "cemeteries.save" => {
                         let v = call_api(store, &session, &method, a)?;
-                        // a new or archived cemetery changes the subscription quantity
-                        billing::sync_cemetery_count(store, &c.tenant_id)?;
+                        if let (Some(id), Some(name)) = (v["id"].as_str(), v["name"].as_str()) {
+                            store.conn.execute(
+                                "UPDATE platform.cemetery_subscriptions SET cemetery_name = ?3 WHERE tenant_id = ?1 AND cemetery_id = ?2",
+                                params![c.tenant_id, id, name],
+                            )?;
+                        }
+                        Ok(v)
+                    }
+                    // the sample cemetery is a free demonstration
+                    "sample.load" => {
+                        let v = call_api(store, &session, &method, a)?;
+                        let cems: Vec<(String, String)> = store
+                            .conn
+                            .prepare("SELECT id, name FROM cemeteries WHERE voided_at IS NULL")?
+                            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                            .collect::<std::result::Result<_, _>>()?;
+                        for (id, name) in cems {
+                            if subscriptions::get(&store.conn, &c.tenant_id, &id)?.is_none() {
+                                subscriptions::register_demo(&store.conn, &c.tenant_id, &id, &name)?;
+                            }
+                        }
                         Ok(v)
                     }
                     _ => call_api(store, &session, &method, a),
@@ -613,10 +660,28 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 billing::save_details(&store.conn, &c.tenant_id, args)?;
                 billing::overview(store, &c.tenant_id)
             }
-            "billing_subscribe" => {
+            // a subscription for one cemetery: card (check, trial, automatic charges) or transfer (proforma)
+            "cemetery_subscribe" => {
                 let c = require(store, req)?;
                 accept_terms(store, &c, args, "subscribe")?;
-                billing::subscribe(store, &c.session, &c.tenant_id, &s("plan"), &s("paymentMethod"))
+                match s("paymentMethod").as_str() {
+                    "card" => subscriptions::start_card(
+                        store,
+                        &c.session,
+                        &c.tenant_id,
+                        &s("cemeteryId"),
+                        &s("plan"),
+                        &accounts::base_url(req),
+                        &accounts::site_url(req),
+                    ),
+                    "transfer" => subscriptions::start_transfer(store, &c.session, &c.tenant_id, &s("cemeteryId"), &s("plan")),
+                    _ => Err(CoreError::new("bad_request", "payment method required")),
+                }
+            }
+            "cemetery_cancel" => {
+                let c = require(store, req)?;
+                subscriptions::cancel(store, &c.session, &c.tenant_id, &s("cemeteryId"), args["resume"].as_bool() == Some(true))?;
+                subscriptions::overview(store, &c.tenant_id)
             }
             "billing_pay_card" => {
                 let c = require(store, req)?;
@@ -637,10 +702,6 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     return Err(CoreError::new("read_only", "the account is read-only"));
                 }
                 resident_pay::settings_save(&store.conn, &c.session, &c.tenant_id, args)
-            }
-            "billing_quote_cemetery" => {
-                let c = require(store, req)?;
-                billing::quote_new_cemetery(store, &c.tenant_id)
             }
             "close_account" => {
                 let c = require(store, req)?;
@@ -685,9 +746,11 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     }
                     "admin_extend_trial" => {
                         let days = args["days"].as_i64().unwrap_or(14).clamp(1, 90) as i32;
+                        // the cemeteries in trial (or whose trial ran out) get more days
                         store.conn.execute(
-                            "UPDATE platform.tenants SET trial_ends_at = greatest(trial_ends_at, now()) + make_interval(days => ?2),
-                                    status = CASE WHEN status = 'read_only' THEN 'trial' ELSE status END WHERE id = ?1",
+                            "UPDATE platform.cemetery_subscriptions SET trial_ends_at = greatest(coalesce(trial_ends_at, now()), now()) + make_interval(days => ?2),
+                                    status = CASE WHEN status = 'lapsed' AND current_period_end IS NULL THEN 'trial' ELSE status END, updated_at = now()
+                             WHERE tenant_id = ?1 AND (status = 'trial' OR (status = 'lapsed' AND current_period_end IS NULL))",
                             params![s("tenantId"), days],
                         )?;
                         admin_overview(store)
@@ -719,7 +782,7 @@ fn accept_terms(store: &Store, c: &Current, args: &Value, what: &str) -> Result<
 }
 
 /// Effective date of the ÁSZF on the website (website/aszf.html).
-pub const TERMS_VERSION: &str = "2026-11-09";
+pub const TERMS_VERSION: &str = "2026-11-11";
 
 /// Runs an API method; generated files come back inline (base64).
 fn call_api(store: &Store, s: &Session, method: &str, args: &Value) -> Result<Value> {
@@ -867,8 +930,8 @@ pub fn register(store: &Store, organization: &str, name: &str, email: &str, pass
     let account_id = new_id();
     let t = db::tx(&store.conn)?;
     t.execute(
-        "INSERT INTO platform.tenants (id, name, schema_name, trial_ends_at, billing_email)
-         VALUES (?1, ?2, ?3, now() + make_interval(days => ?4), ?5)",
+        "INSERT INTO platform.tenants (id, name, schema_name, trial_ends_at, billing_email, status)
+         VALUES (?1, ?2, ?3, now() + make_interval(days => ?4), ?5, 'active')",
         params![tenant_id, organization, schema, TRIAL_DAYS as i32, email],
     )?;
     db::open_tenant(&store.conn, &schema)?;
@@ -893,8 +956,8 @@ pub fn create_org(store: &Store, c: &Current, organization: &str, req: &Request)
     let account_id = new_id();
     let t = db::tx(&store.conn)?;
     t.execute(
-        "INSERT INTO platform.tenants (id, name, schema_name, trial_ends_at, billing_email)
-         VALUES (?1, ?2, ?3, now() + make_interval(days => ?4), ?5)",
+        "INSERT INTO platform.tenants (id, name, schema_name, trial_ends_at, billing_email, status)
+         VALUES (?1, ?2, ?3, now() + make_interval(days => ?4), ?5, 'active')",
         params![tenant_id, organization, schema, TRIAL_DAYS as i32, me.email],
     )?;
     db::open_tenant(&store.conn, &schema)?;
@@ -1031,6 +1094,20 @@ pub fn ensure_sample_account(store: &Store) -> Result<()> {
     register(store, "Mintavölgy Község Önkormányzata", "Minta Adminisztrátor", SAMPLE_EMAIL, SAMPLE_PASSWORD, &req)?;
     let sys = Session::system();
     lunda_core::api::dispatch(store, &sys, "sample.load", &json!({}))?;
+    // the development/E2E account works as a paying customer (prints, exports)
+    let tenant: String = store.conn.query_row("SELECT tenant_id FROM platform.accounts WHERE lower(email) = ?1", params![SAMPLE_EMAIL], |r| r.get(0))?;
+    let cems: Vec<(String, String)> = store
+        .conn
+        .prepare("SELECT id, name FROM cemeteries WHERE voided_at IS NULL")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    for (id, name) in cems {
+        store.conn.execute(
+            "INSERT INTO platform.cemetery_subscriptions (tenant_id, cemetery_id, cemetery_name, plan, payment_method, status, current_period_start, current_period_end)
+             VALUES (?1, ?2, ?3, 'yearly', 'transfer', 'active', CURRENT_DATE, CURRENT_DATE + 3650) ON CONFLICT DO NOTHING",
+            params![tenant, id, name],
+        )?;
+    }
     settings::set_many(&store.conn, &sys, None, &[("onboarding.completed".to_string(), "true".to_string())].into_iter().collect())?;
     store
         .conn
@@ -1051,6 +1128,7 @@ pub fn drop_sample_account(store: &Store) -> Result<()> {
         let t = db::tx(&store.conn)?;
         t.execute("DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![id])?;
         t.execute("DELETE FROM platform.tokens WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![id])?;
+        t.execute("DELETE FROM platform.cemetery_subscriptions WHERE tenant_id = ?1", params![id])?;
         t.execute("DELETE FROM platform.accounts WHERE tenant_id = ?1", params![id])?;
         t.execute("DELETE FROM platform.tenants WHERE id = ?1", params![id])?;
         t.execute_batch(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))?;
