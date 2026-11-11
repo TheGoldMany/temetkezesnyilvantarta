@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useApp, type Route } from "../../app/context";
 import type { Permission } from "../../lib/types";
 import { Button } from "../../components/ui";
+import { shell } from "../../lib/api";
 
 /**
  * Guided tour for first users: goes through the modules one by one, opens
@@ -30,13 +31,13 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Üdvözöljük a TEMISZ-ben!",
-    body: "Ez a bemutató végigvezeti a program fő részein: mire való, hol találja, mivel kezdje. Néhány perc az egész, és bármikor újraindíthatja a Súgó oldalon.",
+    body: "Ez a bemutató végigvezeti a program fő részein: mire való, hol találja, mivel kezdje. Csak azt mutatja, amihez a szerepköre jogot ad. Néhány perc az egész; bármikor kihagyhatja, és a Súgó oldalon újraindíthatja.",
   },
   {
     route: { view: "dashboard" },
     target: "nav",
     title: "A főmenü",
-    body: "Innen éri el a program minden részét. Telefonon oldalra görgethető. Mindig az látszik, amihez a szerepköre jogot ad.",
+    body: "Innen éri el a program minden részét. Telefonon oldalra görgethető. A Kezdőlap a teendőket mutatja: lejárt megváltások, értesítésre váró helyek, hiteles másolat esedékessége.",
   },
   {
     route: { view: "settings", tab: "cemeteries" },
@@ -54,27 +55,27 @@ const STEPS: Step[] = [
   {
     route: { view: "plots" },
     target: "nav-plots",
-    title: "Temetési helyek",
-    body: "Az összes sírhely listája szűrőkkel: parcella, állapot, helytípus, lejárat. Egy helyre kattintva megnyílik az adatlapja: kik nyugszanak ott, ki a rendelkezési jogosult, meddig van megváltva.",
+    title: "Temetési helyek és a terepen",
+    body: "Az összes sírhely listája szűrőkkel. Egy helyre kattintva megnyílik az adatlap: kik nyugszanak ott, ki a jogosult, meddig van megváltva. Telefonon, a sírnál állva az „Itt állok” gomb elmenti a sír GPS-helyét, a fényképezőgéppel sírkőfotót tölthet fel, és útvonalat kérhet a sírhoz.",
   },
   {
     route: { view: "dashboard" },
     target: "new-burial",
     title: "Temetés rögzítése",
-    body: "Ez a leggyakoribb feladat. A varázsló lépésenként kérdez: az elhunyt adatai, a hely (vagy urna hazavitele, szórás máshol), az eltemettető és a jogosult, a megváltás. A program ellenőrzi a nyugvási időt és a hely szabályait, és folyószámot ad.",
+    body: "Ez a leggyakoribb feladat. A varázsló lépésenként kérdez: az elhunyt adatai, a hely (vagy urna hazavitele, szórás máshol), az eltemettető és a jogosult, a megváltás. A program ellenőrzi a nyugvási időt, a minimális használati időt és a hely szabályait, és folyószámot ad.",
     needs: "record_events",
   },
   {
     route: { view: "burials" },
     target: "nav-burials",
     title: "Nyilvántartó könyv",
-    body: "Itt látja az összes bejegyzést folyószám szerint. Hibás bejegyzést nem törölni kell, hanem javítani vagy érvényteleníteni, indoklással; minden változás a változásnaplóba kerül.",
+    body: "Itt látja az összes bejegyzést folyószám szerint. Hibás bejegyzést nem törölni kell, hanem javítani vagy érvényteleníteni, indoklással; minden változás a módosíthatatlan változásnaplóba kerül.",
   },
   {
     route: { view: "persons" },
     target: "nav-persons",
     title: "Személyek",
-    body: "Rendelkezési jogosultak, eltemettetők, kapcsolattartók. Ha megadja az e-mail-címüket, a lejárati értesítők e-mailben is mehetnek.",
+    body: "Rendelkezési jogosultak, eltemettetők, kapcsolattartók. Ha megadja az e-mail-címüket, az értesítők e-mailben is mehetnek. Ha valaki kéri, az „Adatkiadás (GDPR)” gomb letölti mindazt, amit róla tárolunk.",
   },
   {
     route: { view: "expiries" },
@@ -87,21 +88,35 @@ const STEPS: Step[] = [
     route: { view: "operations" },
     target: "new-booking",
     title: "Üzemeltetés: temetési naptár",
-    body: "Ide kerülnek a temetési időpontok, a ravatalozó és a hűtő foglalásával; az ütközést a program jelzi. A temetkezési irodákat meghívhatja (Beállítások › Felhasználók, szerepkör: Temetkezési iroda): ők a közös naptárt látják, és maguk foglalhatnak időpontot. Ugyanitt vannak a munkalapok, az ügyiratok, a vállalkozók és a temetőbejárás.",
+    body: "Ide kerülnek a temetési időpontok, a ravatalozó és a hűtő foglalásával; az ütközést a program jelzi. A temetkezési irodákat meghívhatja: ők a közös naptárt látják, és maguk foglalhatnak időpontot. Ugyanitt vannak a munkalapok, az ügyiratok, a vállalkozók és a temetőbejárás.",
     needs: "operations",
   },
   {
     route: { view: "finance" },
     target: "nav-finance",
     title: "Pénzügy",
-    body: "Díjtételek a díjrendelet szerint, számla a saját Számlázz.hu-fiókjával (vagy ASP-be előkészítve), befizetések, házipénztár napi zárással, banki kivonat párosítása, kintlévőségek.",
+    body: "Díjtételek a díjrendelet szerint, számla a saját Számlázz.hu-fiókjával (vagy ASP-be előkészítve), befizetések, házipénztár napi zárással, banki kivonat párosítása, kintlévőségek. A számla mellett a „Fizetési link” gombbal online fizetést kérhet.",
     needs: "record_payments",
+  },
+  {
+    route: { view: "finance", tab: "stock" },
+    target: "tab-stock",
+    title: "Készlet és leltár",
+    body: "Az irodában árult termékek (mécses, koszorú, sírtábla, urna) és a munkákhoz használt anyagok. Rögzítse a beérkezést, adjon el pénztárbizonylattal vagy számlára, és év végén vegye fel a leltárt; a program figyelmeztet, ha valamiből kevés van.",
+    needs: "cash_desk",
+  },
+  {
+    route: { view: "settings", tab: "onlinePay" },
+    target: "tab-onlinePay",
+    title: "Online fizetés a befizetőknek",
+    body: "Ha összeköti a temető saját Barion-fiókjával, a befizetők a számlát otthonról, bankkártyával fizethetik ki. A pénz a temető Barion-tárcájába érkezik, a befizetés pedig magától rákerül a számlára. A fizetési emlékeztető levél a linket is tartalmazza.",
+    needs: "manage_settings",
   },
   {
     route: { view: "prints" },
     target: "nav-prints",
     title: "Nyomtatványok",
-    body: "A hiteles nyilvántartó könyv és sírbolt könyv, mutató, igazolások, megváltási okirat, díjbekérő, térkép PDF-ben.",
+    body: "A hiteles nyilvántartó könyv és sírbolt könyv, mutató, igazolások, megváltási okirat, díjbekérő, térkép PDF-ben. Elektronikus vezetésnél havonta készítsen hiteles másolatot; a Kezdőlap emlékeztet rá.",
   },
   {
     route: { view: "reports" },
@@ -113,15 +128,42 @@ const STEPS: Step[] = [
     route: { view: "importExport" },
     target: "nav-importExport",
     title: "Adatok betöltése",
-    body: "A régi nyilvántartást Excelből vagy CSV-ből töltheti be: a program felismeri az oszlopokat, és előbb próbaként futtatja le, hogy lássa a hibákat. Innen exportálhatja az adatokat is.",
+    body: "A régi nyilvántartást Excelből vagy CSV-ből töltheti be: a program felismeri az oszlopokat, és előbb próbaként futtatja le, hogy lássa a hibákat. Innen exportálhatja az adatokat is, a NÖRI-listával együtt.",
     needs: "import",
   },
   {
     route: { view: "settings", tab: "users" },
-    target: "nav-settings",
+    target: "tab-users",
     title: "Kollégák és irodák meghívása",
-    body: "A Beállítások › Felhasználók alatt hívhat meg kollégákat e-mailben, szerepkörrel: ügyintéző, pénzügyes, pénztáros, temetői dolgozó, olvasó vagy meghívott temetkezési iroda. Itt adja meg az üzemeltető adatait, a díjtételeket és a nyilvános sírkeresőt is.",
+    body: "Itt hívhat meg kollégákat e-mailben, szerepkörrel: ügyintéző, pénzügyes, pénztáros, temetői dolgozó, olvasó vagy meghívott temetkezési iroda. Mindenki a saját fiókjával dolgozik, a program naplózza, ki mit csinált.",
     needs: "manage_users",
+  },
+  {
+    route: { view: "settings", tab: "public" },
+    target: "tab-public",
+    title: "Nyilvános sírkereső",
+    body: "Közzéteheti a temető honlapján: a látogatók név alapján megkereshetik a sírt a térképen, útvonallal együtt, és látják a nyitvatartást és a hirdetményeket. Lakcím és jogosult nem jelenik meg.",
+    needs: "manage_settings",
+  },
+  {
+    route: { view: "settings", tab: "subscription" },
+    target: "tab-subscription",
+    title: "Előfizetés",
+    body: "A próbaidő 30 napig tart. Itt adhatja meg a számlázási adatokat és rendelheti meg az előfizetést; a díjbekérőt átutalással vagy bankkártyával fizetheti, a számlát e-mailben kapja.",
+    needs: "manage_settings",
+  },
+  {
+    route: { view: "settings", tab: "account" },
+    target: "tab-account",
+    title: "A fiókja biztonsága",
+    body: "Kapcsolja be a kétlépcsős azonosítást (rendszergazdáknak kötelező), és itt változtathat jelszót. A rendszergazda a belépési naplóban látja a sikeres és sikertelen belépéseket.",
+  },
+  {
+    route: { view: "settings", tab: "backup" },
+    target: "tab-backup",
+    title: "Mentés és adatletöltés",
+    body: "Az adatokról folyamatos és napi, titkosított mentés készül. Innen bármikor letöltheti a teljes nyilvántartást, és ide töltheti be a régi asztali TEMISZ mentését.",
+    needs: "backup",
   },
   {
     route: { view: "dashboard" },
@@ -132,8 +174,26 @@ const STEPS: Step[] = [
   {
     route: { view: "help" },
     target: "help",
+    title: "Kész is! Röviden:",
+    body: "• Kezdés: Beállítások › Temetők és parcellák, majd a Térkép.\n• Napi munka: Temetés rögzítése, Temetési helyek, Lejáratok.\n• Pénz: Pénzügy (számla, pénztár, készlet), online fizetés.\n• Együttműködés: kollégák és temetkezési irodák meghívása, közös naptár.\n• Nyilvánosság: sírkereső a honlapon.\n\nA Súgó oldalon minden feladathoz lépésenkénti leírást talál, és innen indíthatja újra ezt a bemutatót. Jó munkát kívánunk!",
+  },
+];
+
+/** The tour of an invited funeral office: only the shared calendar. */
+const OFFICE_STEPS: Step[] = [
+  {
+    title: "Üdvözöljük a közös temetési naptárban!",
+    body: "A temető meghívta irodáját, hogy a temetési időpontokat közösen egyeztessék. Csak a naptárat és a foglaláshoz szükséges adatokat látja, a temető nyilvántartását nem.",
+  },
+  {
+    route: { view: "operations" },
+    target: "new-booking",
+    title: "Időpont foglalása",
+    body: "Válasszon temetőt, napot és időpontot, a ravatalozóval vagy a hűtővel együtt. Ha valami már foglalt, a program jelzi. A temető megerősíti vagy módosítja a foglalást, és Ön itt látja az állapotát.",
+  },
+  {
     title: "Kész is!",
-    body: "A Súgó oldalon részletes leírásokat talál minden feladathoz, és innen indíthatja újra ezt a bemutatót. Jó munkát kívánunk!",
+    body: "Kérdés esetén forduljon a temető irodájához. A bemutatót a jobb felső sarokban lévő Súgó gombbal indíthatja újra.",
   },
 ];
 
@@ -141,20 +201,23 @@ type Rect = { top: number; left: number; width: number; height: number };
 
 export function Tour() {
   const { nav, can, status } = useApp();
-  const steps = STEPS.filter((s) => !s.needs || can(s.needs));
+  const office = status?.session?.role === "undertaker";
+  const steps = (office ? OFFICE_STEPS : STEPS).filter((s) => !s.needs || can(s.needs));
   const [i, setI] = useState<number | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
 
-  // start: after the first-run wizard, or from the Súgó page
+  // start: at each user's first sign-in (remembered with the account, on any
+  // device), after the first-run wizard, or from the Súgó page
+  const firstTime = status?.account ? status.account.tourSeen === false : localStorage.getItem(TOUR_KEY) === "start";
   useEffect(() => {
     const start = () => setI(0);
     window.addEventListener(TOUR_EVENT, start);
-    if (localStorage.getItem(TOUR_KEY) === "start" && status?.session?.role !== "undertaker") {
+    if (firstTime) {
       localStorage.setItem(TOUR_KEY, "seen");
       setI(0);
     }
     return () => window.removeEventListener(TOUR_EVENT, start);
-  }, [status?.session?.role]);
+  }, [firstTime, status?.session?.userId]);
 
   const step = i === null ? null : steps[i];
 
@@ -196,7 +259,9 @@ export function Tour() {
   const close = useCallback(() => {
     localStorage.setItem(TOUR_KEY, "seen");
     setI(null);
-  }, []);
+    // remembered with the account: not offered again on another device
+    if (status?.account && !status.account.tourSeen) void shell.tourSeen().catch(() => undefined);
+  }, [status?.account]);
 
   useEffect(() => {
     if (i === null) return;
@@ -257,7 +322,7 @@ export function Tour() {
         <h2 id="tour-title" className="mt-1 text-lg">
           {step.title}
         </h2>
-        <p className="mt-2 text-[0.95rem] leading-relaxed">{step.body}</p>
+        <p className="mt-2 text-[0.95rem] leading-relaxed whitespace-pre-line">{step.body}</p>
         <div className="mt-4 flex items-center justify-between gap-2">
           <Button variant="quiet" onClick={close}>
             {last ? "Bezárás" : "Kihagyom"}

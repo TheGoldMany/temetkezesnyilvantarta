@@ -58,6 +58,7 @@ export const shell = {
   totpDisable: (password: string) => command<void>("totp_disable", { password }),
   userSendLink: (id: string) => command<void>("user_send_link", { id }),
   securityLog: () => command<SecurityEvent[]>("security_log"),
+  tourSeen: () => command<void>("tour_seen"),
 };
 
 export interface SecurityEvent {

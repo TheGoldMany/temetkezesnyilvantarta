@@ -91,7 +91,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # the browser itself, then its system packages: the Ubuntu mirrors are
+      # sometimes unreachable from the runners, so retry, and go on with the
+      # libraries the runner image already has if they stay unreachable
+      - name: Install the browser
+        run: |
+          pnpm exec playwright install chromium
+          for i in 1 2 3; do pnpm exec playwright install-deps chromium && break || sleep 20; done || echo "::warning::system packages for the browser could not be installed"
       - run: cargo build -p temisz-server
       - run: pnpm e2e
         env:

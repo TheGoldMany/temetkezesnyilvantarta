@@ -127,6 +127,8 @@ Még nyitott a tervből: ügyfelenkénti titkosítási kulcs (az adatbázis a Ne
 
 Lakossági online fizetés: a temető a saját Barion-fiókját köti be (Beállítások › Online fizetés, titkosítva tárolt kulccsal); a számlához fizetési link készül, amely a fizetési emlékeztető levélben is szerepel; a befizető bejelentkezés nélkül, kártyával fizet a /fizetes oldalon, a befizetés automatikusan a számlára kerül.
 
+Árukészlet és leltár (Pénzügy › Készlet): termékek és anyagok nettó árral, ÁFA-val és minimum készlettel; beérkezés, eladás pénztárbizonylattal vagy számlázandó tételként, anyagfelhasználás, leltár az eltérések korrekciójával; a készlet nem mehet mínuszba.
+
 **Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
 
 - FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).

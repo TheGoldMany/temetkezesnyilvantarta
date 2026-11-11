@@ -40,6 +40,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (7, include_str!("../migrations/0007_security_log.sql")),
     (8, include_str!("../migrations/0008_card_payments.sql")),
     (9, include_str!("../migrations/0009_resident_payments.sql")),
+    (10, include_str!("../migrations/0010_tour.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -418,6 +419,12 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             "touch" => {
                 require(store, req)?;
+                Ok(Value::Null)
+            }
+            // the guided tour was finished or skipped: not offered again by itself
+            "tour_seen" => {
+                let c = require(store, req)?;
+                store.conn.execute("UPDATE platform.accounts SET tour_seen_at = coalesce(tour_seen_at, now()) WHERE id = ?1", params![c.account_id])?;
                 Ok(Value::Null)
             }
             "resend_verification" => {
@@ -931,6 +938,8 @@ pub fn ensure_sample_account(store: &Store) -> Result<()> {
     store
         .conn
         .execute("DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE lower(email) = ?1)", params![SAMPLE_EMAIL])?;
+    // the demo account starts without the tour (the Súgó page starts it)
+    store.conn.execute("UPDATE platform.accounts SET tour_seen_at = now() WHERE lower(email) = ?1", params![SAMPLE_EMAIL])?;
     Ok(())
 }
 

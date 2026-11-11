@@ -168,7 +168,9 @@ pub fn account_status(store: &Store, acc: &AccountRow, mfa_setup: bool) -> Resul
         params![acc.tenant_id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
+    let tour_seen: bool = store.conn.query_row("SELECT tour_seen_at IS NOT NULL FROM platform.accounts WHERE id = ?1", params![acc.id], |r| r.get(0))?;
     Ok(json!({
+        "tourSeen": tour_seen,
         "email": acc.email,
         "organization": acc.organization,
         "emailVerified": acc.verified,

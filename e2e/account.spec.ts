@@ -70,6 +70,10 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
   await other.locator("input[name=password2]").fill("kollega-jelszo-1");
   await other.getByRole("button", { name: "Fiók aktiválása" }).click();
   await expect(other.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  // the colleague's first sign-in starts the guided tour; once closed it stays closed
+  await expect(other.getByTestId("tour")).toContainText("Üdvözöljük");
+  await other.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
+  await expect(other.getByTestId("tour")).toHaveCount(0);
 
   // forgotten password
   await rpc(other, "logout");
@@ -84,6 +88,7 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
   await other.locator("input[name=password2]").fill("uj-kollega-jelszo-2");
   await other.getByRole("button", { name: "Jelszó mentése és belépés" }).click();
   await expect(other.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  await expect(other.getByTestId("tour")).toHaveCount(0);
 
   // with a colleague on board, the admin must turn on two-factor sign-in
   await rpc(page, "logout");

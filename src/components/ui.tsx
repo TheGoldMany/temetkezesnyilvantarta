@@ -389,6 +389,7 @@ export function Tabs<T extends string>({ value, onChange, items }: { value: T; o
           key={it.value}
           role="tab"
           type="button"
+          data-tour={`tab-${it.value}`}
           aria-selected={value === it.value}
           onClick={() => onChange(it.value)}
           className={cx("-mb-px min-h-11 border-b-3 px-4 font-semibold", value === it.value ? "border-moss text-slate" : "border-transparent text-granite hover:text-slate")}

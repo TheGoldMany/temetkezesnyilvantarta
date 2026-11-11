@@ -216,6 +216,18 @@ const GUIDES: { group: string; items: Guide[] }[] = [
           "Bank: töltse be a bankszámlakivonatot (CSV), a program párosítja a befizetéseket a számlákkal.",
         ],
       },
+      {
+        id: "stock",
+        title: "Árukészlet és leltár",
+        steps: [
+          "Pénzügy › Készlet › Új termék: megnevezés, nettó ár, ÁFA, minimum készlet. Az anyagoknál (homok, cement) kapcsolja ki az „Eladható áru” jelölőt.",
+          "Beérkezés: a szállítás után rögzítse a mennyiséget (és ha szeretné, a beszerzési árat).",
+          "Eladás: válassza ki a termékeket és a mennyiséget. Készpénznél pénztárbizonylat készül, vagy rögzítheti tételként a számlázáshoz.",
+          "Felhasználás: a munkákhoz felhasznált anyagot vonja le a készletből.",
+          "Leltár: írja be a megszámolt mennyiségeket (telefonon is). Az eltérést a program korrekcióként rögzíti, a leltár megmarad.",
+        ],
+        tips: ["Ha egy termék a minimum alá csökken, a Készlet fül tetején figyelmeztetés jelenik meg.", "Nincs elég készlet? A program nem enged eladni; előbb rögzítse a beérkezést."],
+      },
     ],
   },
   {

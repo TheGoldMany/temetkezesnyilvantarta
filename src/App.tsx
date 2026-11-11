@@ -118,7 +118,7 @@ export function App() {
       {r.view === "quickEntry" && <QuickEntry />}
       {r.view === "settings" && <SettingsView key={r.tab ?? ""} tab={r.tab} />}
       {r.view === "platform" && <PlatformAdmin />}
-      {r.view === "finance" && <FinanceView />}
+      {r.view === "finance" && <FinanceView key={r.tab ?? ""} tab={r.tab} />}
       {r.view === "operations" && <OperationsView />}
       {r.view === "help" && <Help />}
     </Shell>

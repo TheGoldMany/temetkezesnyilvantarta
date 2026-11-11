@@ -40,6 +40,10 @@ pub const TABLES: &[&str] = &[
     "cash_closings",
     "bank_transactions",
     "reminders",
+    // stock
+    "stock_items",
+    "stock_moves",
+    "stocktakes",
     // operations (W8–W11)
     "facilities",
     "contractors",
