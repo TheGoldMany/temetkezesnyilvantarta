@@ -113,7 +113,8 @@ test("UC-03: lejáratkezelés – értesítés rögzítése és levelek nyomtat�
 
 test("UC-05: átállás – Excel/CSV import próbafuttatással, gyors bevitel, ellenőrzés", async ({ page }) => {
   await login(page);
-  await nav(page, "Import és export");
+  await nav(page, "Beállítások");
+  await page.getByRole("button", { name: /Import és export/ }).click();
   await page.getByTestId("import-file").setInputFiles(path.resolve("e2e/fixtures/regi-konyv.csv"));
   await expect(page.getByText("3 adatsor")).toBeVisible();
   // automatikus oszlop-hozzárendelés
@@ -131,7 +132,8 @@ test("UC-05: átállás – Excel/CSV import próbafuttatással, gyors bevitel, 
   await page.locator("#quicksearch-results").getByRole("option").first().click();
   await expect(page.getByText("9001.")).toBeVisible();
   // gyors bevitel papírkönyvből, billentyűzettel
-  await nav(page, "Import és export");
+  await nav(page, "Beállítások");
+  await page.getByRole("button", { name: /Import és export/ }).click();
   await page.getByRole("button", { name: "Gyors bevitel papírkönyvből" }).click();
   const form = page.getByTestId("quick-entry");
   await form.getByLabel("Régi (papír) folyószám").fill("9010");
@@ -146,14 +148,15 @@ test("UC-05: átállás – Excel/CSV import próbafuttatással, gyors bevitel, 
   await page.keyboard.press("Control+Enter");
   await expect(page.getByTestId("quick-recent")).toContainText("9010. Gyors Gizella");
   // átállási ellenőrző riport
-  await nav(page, "Import és export");
+  await nav(page, "Beállítások");
+  await page.getByRole("button", { name: /Import és export/ }).click();
   await page.getByRole("button", { name: "Ellenőrzés" }).click();
   await expect(page.getByTestId("migration-check")).toContainText("Elhunytak hely nélkül: 0");
 });
 
 test("Hiteles nyilvántartó könyv nyomtatása", async ({ page }) => {
   await login(page);
-  await nav(page, "Nyomtatványok");
+  await nav(page, "Nyomtatás és riportok");
   await page.getByLabel("ettől").fill("1950.01.01");
   expect(await openedPdf(page, () => page.getByRole("button", { name: "PDF készítése" }).first().click())).toBe("%PDF-");
   await expect(page.getByText(/Kötet azonosító/)).toBeVisible();
@@ -161,7 +164,7 @@ test("Hiteles nyilvántartó könyv nyomtatása", async ({ page }) => {
 
 test("díjtáblázat a hirdetőtáblára", async ({ page }) => {
   await login(page);
-  await nav(page, "Nyomtatványok");
+  await nav(page, "Nyomtatás és riportok");
   const card = page.locator("section, div").filter({ has: page.getByRole("heading", { name: "Díjtáblázat a hirdetőtáblára" }) }).last();
   expect(await openedPdf(page, () => card.getByRole("button", { name: "PDF készítése" }).click())).toBe("%PDF-");
 });
