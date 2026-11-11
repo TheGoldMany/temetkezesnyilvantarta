@@ -21,7 +21,7 @@ import { PlotsList } from "./features/plots/PlotsList";
 import { PlotDetailView } from "./features/plots/PlotDetail";
 import { PersonsList, PersonView } from "./features/persons/Persons";
 import { Expiries } from "./features/expiries/Expiries";
-import { AccountView, SettingsView } from "./features/settings/Settings";
+import { SettingsView } from "./features/settings/Settings";
 import { MapView } from "./features/map/MapView";
 import { Prints } from "./features/prints/Prints";
 import { Reports } from "./features/reports/Reports";
@@ -116,8 +116,7 @@ export function App() {
       {r.view === "reports" && <Reports />}
       {r.view === "importExport" && <ImportExport />}
       {r.view === "quickEntry" && <QuickEntry />}
-      {r.view === "settings" && (r.tab === "account" ? <AccountView /> : <SettingsView key={r.tab ?? ""} tab={r.tab} />)}
-      {r.view === "account" && <AccountView />}
+      {r.view === "settings" && <SettingsView key={r.tab ?? ""} tab={r.tab} />}
       {r.view === "platform" && <PlatformAdmin />}
       {r.view === "finance" && <FinanceView key={r.tab ?? ""} tab={r.tab} />}
       {r.view === "operations" && <OperationsView />}

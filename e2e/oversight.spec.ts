@@ -6,8 +6,7 @@ test("fenntartói beszámoló, e-mail értesítő, nyilvános sírkereső", asyn
   await login(page);
 
   // annual report of the current year (the sample data has burials in it)
-  await nav(page, "Nyomtatás és riportok");
-  await page.getByRole("tab", { name: "Riportok" }).click();
+  await nav(page, "Riportok");
   await page.locator("select[name=annualYear]").selectOption(String(new Date().getFullYear()));
   const report = page.getByTestId("annual-report");
   await expect(report).toContainText("Temetések fajtánként");

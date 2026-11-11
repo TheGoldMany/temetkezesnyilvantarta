@@ -24,7 +24,7 @@ const GUIDES: { group: string; items: Guide[] }[] = [
           "Beállítások › Üzemeltető: töltse ki az üzemeltető nevét, címét, telefonszámát és e-mail-címét. Ezek kerülnek a nyomtatványok fejlécére és a levelekre.",
           "Beállítások › Temetők és parcellák: hozza létre a temetőt, majd a parcellákat (lásd lent).",
           "Beállítások › Helytípusok és Díjtételek: ellenőrizze a megváltási időket és a díjrendelet szerinti díjakat.",
-          "Ha van régi nyilvántartása, töltse be: Beállítások › Adatok › Import és export (Excel vagy CSV).",
+          "Ha van régi nyilvántartása, töltse be az Import és export menüben (Excel vagy CSV).",
           "Hívja meg a kollégáit: Beállítások › Felhasználók.",
         ],
         tips: ["A bemutatót bármikor újraindíthatja ezen az oldalon, a „Bemutató indítása” gombbal."],
@@ -37,7 +37,7 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         ],
         steps: [
           "Hozzon létre egy temetőt, például „Nagyvölgyi köztemető” néven.",
-          "Beállítások › Adatok › Import és export › Excel/CSV import: válassza ki az első fájlt.",
+          "Import és export › Excel/CSV import: válassza ki az első fájlt.",
           "Jelölje be a „folyószámok megtartása” és a „megváltások létrehozása” lehetőséget.",
           "Futtassa le próbaként, majd élesben. Ismételje meg a többi fájllal, sorrendben.",
         ],
@@ -139,8 +139,8 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         id: "legal",
         title: "Jogszabályi kötelezettségek, amelyekben a program segít",
         text: [
-          "Elektronikus nyilvántartásnál hiteles biztonsági másolat kell (145/1999. Korm. rendelet 41. § (3)): a Nyomtatás és riportok › Nyomtatványok › Nyilvántartó könyv hiteles nyomtatása kötetazonosítóval és ellenőrzőkóddal készül, a Kezdőlap figyelmeztet, ha egy hónapja nem készült. A program naponta automatikus mentést is készít.",
-          "A nemzeti sírkert részét képező sírok adatait át kell adni a NÖRI-nek (1999. évi XLIII. törvény 18. § (9)): Beállítások › Adatok › Import és export › Nemzeti sírkert adatai.",
+          "Elektronikus nyilvántartásnál hiteles biztonsági másolat kell (145/1999. Korm. rendelet 41. § (3)): a Nyomtatványok › Nyilvántartó könyv hiteles nyomtatása kötetazonosítóval és ellenőrzőkóddal készül, a Kezdőlap figyelmeztet, ha egy hónapja nem készült. A program naponta automatikus mentést is készít.",
+          "A nemzeti sírkert részét képező sírok adatait át kell adni a NÖRI-nek (1999. évi XLIII. törvény 18. § (9)): Import és export › Nemzeti sírkert adatai.",
           "A temetőn kívül elhelyezett urnáról nyilatkozat kell, amelyet a temető fennállásáig meg kell őrizni (18. § (1a), (8)): az urna-átvételi elismervény ezt tartalmazza.",
           "A temetőtérképet a bejáratnál ki kell függeszteni és évente frissíteni (17. §): Térkép › Térkép PDF-be.",
         ],
@@ -251,7 +251,7 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         tips: [
           "A kereső csak nevet, évszámokat, temetőt és sírhelyet mutat. Pontos dátumot, lakcímet, jogosultat nem.",
           "A kereső alatt a ma érvényes díjak is látszanak bruttó összeggel, a Beállítások › Díjtételek alapján. Ha nem szeretné, a Sírkereső fülön kapcsolja ki.",
-          "A hirdetőtáblára szánt díjtáblázatot a Nyomtatás és riportok oldalon vagy a Díjtételek fülön nyomtathatja ki.",
+          "A hirdetőtáblára szánt díjtáblázatot a Nyomtatványok oldalon vagy a Díjtételek fülön nyomtathatja ki.",
         ],
       },
       {
@@ -289,7 +289,7 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         text: [
           "Aki több önkormányzatnak vagy temetőnek dolgozik, ugyanazzal az e-mail-címmel és jelszóval éri el mindegyiket. A szervezetek közt a felső sávban válthat.",
           "Ha egy szervezet olyan kollégát hív meg, aki máshol már használja a TEMISZ-t, a kolléga nem kap új jelszót: a meglévő belépésével éri el az új szervezetet is.",
-          "Új szervezetet (saját előfizetéssel és próbaidővel) a Fiókom › Szervezeteim részen (a jobb felső sarokban a nevére kattintva) hozhat létre. Ehhez nem kell újra regisztrálnia.",
+          "Új szervezetet (saját előfizetéssel és próbaidővel) a Beállítások › Fiókom › Szervezeteim részen hozhat létre. Ehhez nem kell újra regisztrálnia.",
           "Az előfizetés szervezetenként és temetőnként fizetendő. A jelszó és a kétlépcsős belépés minden szervezetben ugyanaz.",
         ],
       },

@@ -9,8 +9,9 @@ import {
   Users,
   CalendarClock,
   Printer,
+  BarChart3,
+  ArrowDownUp,
   Settings,
-  CircleUserRound,
   LogOut,
   Search,
   ArrowLeft,
@@ -28,19 +29,19 @@ import { AccountBanners } from "../features/account/Security";
 import { OrgSwitcher } from "../features/account/Organizations";
 import { Tour } from "../features/help/Tour";
 
-/** Main menu in three groups: the register (daily work), running the
- *  cemetery, then documents and settings. A thin rule separates the groups. */
-const NAV: { view: Route["view"]; key: string; icon: typeof Home; group: number }[] = [
-  { view: "dashboard", key: "nav.dashboard", icon: Home, group: 0 },
-  { view: "burials", key: "nav.burials", icon: BookOpenText, group: 0 },
-  { view: "plots", key: "nav.plots", icon: LayoutGrid, group: 0 },
-  { view: "map", key: "nav.map", icon: MapIcon, group: 0 },
-  { view: "persons", key: "nav.persons", icon: Users, group: 0 },
-  { view: "expiries", key: "nav.expiries", icon: CalendarClock, group: 0 },
-  { view: "operations", key: "nav.operations", icon: ClipboardList, group: 1 },
-  { view: "finance", key: "nav.finance", icon: Wallet, group: 1 },
-  { view: "prints", key: "nav.printsReports", icon: Printer, group: 2 },
-  { view: "settings", key: "nav.settings", icon: Settings, group: 2 },
+const NAV: { view: Route["view"]; key: string; icon: typeof Home }[] = [
+  { view: "dashboard", key: "nav.dashboard", icon: Home },
+  { view: "burials", key: "nav.burials", icon: BookOpenText },
+  { view: "plots", key: "nav.plots", icon: LayoutGrid },
+  { view: "map", key: "nav.map", icon: MapIcon },
+  { view: "persons", key: "nav.persons", icon: Users },
+  { view: "expiries", key: "nav.expiries", icon: CalendarClock },
+  { view: "operations", key: "nav.operations", icon: ClipboardList },
+  { view: "finance", key: "nav.finance", icon: Wallet },
+  { view: "prints", key: "nav.prints", icon: Printer },
+  { view: "reports", key: "nav.reports", icon: BarChart3 },
+  { view: "importExport", key: "nav.importExport", icon: ArrowDownUp },
+  { view: "settings", key: "nav.settings", icon: Settings },
 ];
 
 const SECTION_OF: Partial<Record<Route["view"], Route["view"]>> = {
@@ -48,9 +49,7 @@ const SECTION_OF: Partial<Record<Route["view"], Route["view"]>> = {
   plot: "plots",
   person: "persons",
   deceased: "burials",
-  reports: "prints",
-  importExport: "settings",
-  quickEntry: "settings",
+  quickEntry: "importExport",
 };
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -116,7 +115,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </div>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1 border-l border-seam pl-2 sm:gap-3 sm:pl-5">
+          <div className="flex shrink-0 items-center gap-3 border-l border-seam pl-5">
             <button
               type="button"
               className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm text-granite hover:bg-limestone hover:text-slate"
@@ -128,23 +127,10 @@ export function Shell({ children }: { children: ReactNode }) {
               <span className="sr-only">{t("nav.help")}</span>
             </button>
             <OrgSwitcher />
-            {/* the person's own account: password, two-factor sign-in, organisations */}
-            <button
-              type="button"
-              onClick={() => nav.go({ view: "account" })}
-              title={t("nav.account")}
-              data-tour="account-button"
-              aria-label={`${t("nav.account")}: ${status?.session?.displayName ?? ""}`}
-              aria-current={nav.route.view === "account" ? "page" : undefined}
-              className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-left text-granite hover:bg-limestone hover:text-slate"
-            >
-              <CircleUserRound className="size-6 shrink-0 lg:hidden" aria-hidden />
-              <span className="hidden leading-tight lg:block">
-                <span className="block text-sm font-semibold text-slate">{status?.session?.displayName}</span>
-                <span className="block text-sm">{status?.session ? t(`role.${status.session.role}`) : ""}</span>
-              </span>
-              <span className="sr-only lg:hidden">{t("nav.account")}</span>
-            </button>
+            <span className="hidden text-right leading-tight lg:block">
+              <span className="block text-sm font-semibold">{status?.session?.displayName}</span>
+              <span className="block text-sm text-granite">{status?.session ? t(`role.${status.session.role}`) : ""}</span>
+            </span>
             {status?.loginRequired && (
               <button
                 type="button"
@@ -160,19 +146,18 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Fő menü" className="scroll-thin overflow-x-auto px-4" data-tour="nav">
           <ul className="flex min-w-max">
-            {[...NAV.filter((n) => status?.session?.role !== "undertaker" || n.view === "operations").filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work") || can("calendar"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2, group: 3 }] : [])].map((n, i, all) => {
+            {[...NAV.filter((n) => status?.session?.role !== "undertaker" || n.view === "operations").filter((n) => (n.view !== "finance" || can("record_payments") || can("cash_desk")) && (n.view !== "operations" || can("operations") || can("complete_work") || can("calendar"))), ...(status?.account?.superadmin ? [{ view: "platform" as Route["view"], key: "nav.platform", icon: Building2 }] : [])].map((n) => {
               const Icon = n.icon;
               const on = active === n.view;
-              const first = i > 0 && all[i - 1].group !== n.group;
               return (
-                <li key={n.view} className={cx(first && "ml-1 border-l border-seam pl-1")}>
+                <li key={n.view}>
                   <button
                     type="button"
                     onClick={() => nav.go({ view: n.view } as Route)}
                     data-tour={`nav-${n.view}`}
                     aria-current={on ? "page" : undefined}
                     className={cx(
-                      "flex h-12 items-center gap-1.5 px-2.5 text-[0.9rem] font-medium whitespace-nowrap 2xl:gap-2 2xl:px-3 2xl:text-[0.9375rem] shadow-[inset_0_-3px_0_transparent] transition-colors",
+                      "flex h-12 items-center gap-2 px-3 text-[0.9375rem] font-medium whitespace-nowrap shadow-[inset_0_-3px_0_transparent] transition-colors",
                       on ? "text-slate shadow-[inset_0_-4px_0_var(--c-moss)] font-semibold" : "text-granite hover:text-slate",
                     )}
                   >
@@ -269,7 +254,7 @@ function QuickSearch() {
             setOpen(false);
           }
         }}
-        className="min-h-11 w-full min-w-0 rounded-lg border border-transparent bg-limestone pr-3 pl-10 sm:pr-20 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
+        className="min-h-11 w-full rounded-lg border border-transparent bg-limestone pr-3 pl-10 sm:pr-20 focus:border-moss focus:bg-slab focus:outline-none focus-visible:outline-3 focus-visible:outline-accent"
       />
       <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border sm:block border-seam bg-slab px-1.5 text-sm text-granite">{t("search.shortcut")}</kbd>
       {open && debounced.length >= 2 && (

@@ -5,7 +5,6 @@ import { api } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Field, PageHeader, Panel, Select, TextField } from "../../components/ui";
 import { useCurrentCemetery } from "../../lib/queries";
 import { openGenerated, type GeneratedFile } from "./PrintButton";
-import { ToolsTabs } from "./ToolsTabs";
 import { useApp } from "../../app/context";
 
 /** FR-NYO-01, FR-KER-03, FR-TER-05, JOG-16 */
@@ -52,8 +51,7 @@ export function Prints() {
   );
   return (
     <>
-      <PageHeader title={t("nav.printsReports")} subtitle={current?.name} />
-      <ToolsTabs value="prints" />
+      <PageHeader title={t("prints.title")} subtitle={current?.name} />
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-seam bg-slab px-5 py-4">
         <span className="font-semibold">{t("prints.period")}</span>
         <TextField label={t("common.from")} type="date" value={from} onChange={setFrom} />

@@ -121,7 +121,7 @@ test("meghívó, elfelejtett jelszó, kétlépcsős belépés", async ({ page, b
 
   // the sign-in log shows the colleague's password reset and the wrong code
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
-  await page.getByRole("tab", { name: "Belépési napló" }).click();
+  await page.getByRole("tab", { name: "Fiókom" }).click();
   const log = page.getByTestId("security-log");
   await expect(log).toContainText("Hibás azonosító kód");
   await expect(log).toContainText("Új jelszó e-mailes hivatkozással");
@@ -132,7 +132,8 @@ test("egy belépés, több szervezet: új szervezet és váltás", async ({ page
   const email = `tobb-${Date.now()}@pelda.hu`;
   await register(page, email, "Elsőfalva Önkormányzata");
   await finishOnboarding(page);
-  await page.getByRole("button", { name: /^Fiókom/ }).click();
+  await page.getByRole("button", { name: "Beállítások" }).first().click();
+  await page.getByRole("tab", { name: "Fiókom" }).click();
   await expect(page.getByTestId("org-list")).toContainText("Elsőfalva Önkormányzata");
   await page.getByLabel("Új szervezet neve").fill("Másodfalva Egyházközség");
   await page.getByRole("button", { name: "Szervezet létrehozása" }).click();

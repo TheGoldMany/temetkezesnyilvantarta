@@ -115,20 +115,20 @@ const STEPS: Step[] = [
   {
     route: { view: "prints" },
     target: "nav-prints",
-    title: "Nyomtatás és riportok: nyomtatványok",
+    title: "Nyomtatványok",
     body: "A hiteles nyilvántartó könyv és sírbolt könyv, mutató, igazolások, megváltási okirat, díjbekérő, térkép PDF-ben. Elektronikus vezetésnél havonta készítsen hiteles másolatot; a Kezdőlap emlékeztet rá.",
   },
   {
     route: { view: "reports" },
-    target: "tab-reports",
+    target: "nav-reports",
     title: "Riportok és éves beszámoló",
     body: "Kihasználtság parcellánként, éves statisztika, és az éves beszámoló a fenntartónak a kapacitás-előrejelzéssel együtt. Mind letölthető Excelben is.",
   },
   {
-    route: { view: "settings", tab: "backup" },
-    target: "tab-importExport",
+    route: { view: "importExport" },
+    target: "nav-importExport",
     title: "Adatok betöltése",
-    body: "Beállítások › Adatok › Import és export: a régi nyilvántartást Excelből vagy CSV-ből töltheti be: a program felismeri az oszlopokat, és előbb próbaként futtatja le, hogy lássa a hibákat. Innen exportálhatja az adatokat is, a NÖRI-listával együtt.",
+    body: "A régi nyilvántartást Excelből vagy CSV-ből töltheti be: a program felismeri az oszlopokat, és előbb próbaként futtatja le, hogy lássa a hibákat. Innen exportálhatja az adatokat is, a NÖRI-listával együtt.",
     needs: "import",
   },
   {
@@ -153,10 +153,10 @@ const STEPS: Step[] = [
     needs: "manage_settings",
   },
   {
-    route: { view: "account" },
-    target: "account-button",
-    title: "Fiókom: a saját belépése",
-    body: "A jobb felső sarokban a nevére kattintva éri el: itt kapcsolhatja be a kétlépcsős azonosítást (rendszergazdáknak kötelező), itt változtathat jelszót, és itt látja a szervezeteit, ha többhöz is tartozik. A rendszergazda a Beállítások › Belépési napló alatt látja a sikeres és sikertelen belépéseket.",
+    route: { view: "settings", tab: "account" },
+    target: "tab-account",
+    title: "A fiókja biztonsága",
+    body: "Kapcsolja be a kétlépcsős azonosítást (rendszergazdáknak kötelező), és itt változtathat jelszót. A rendszergazda a belépési naplóban látja a sikeres és sikertelen belépéseket.",
   },
   {
     route: { view: "settings", tab: "backup" },
