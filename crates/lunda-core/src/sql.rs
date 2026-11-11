@@ -606,6 +606,8 @@ pub struct Connection {
     schema: RefCell<Option<String>>,
     /// Drop this schema when the connection is dropped (tests).
     temp_schema: Cell<bool>,
+    /// Tenant schemas already brought to the latest version on this connection.
+    current: RefCell<std::collections::HashSet<String>>,
 }
 
 static SP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -618,6 +620,7 @@ impl Connection {
             cache: RefCell::new(HashMap::new()),
             schema: RefCell::new(None),
             temp_schema: Cell::new(false),
+            current: RefCell::new(std::collections::HashSet::new()),
         }
     }
 
@@ -650,6 +653,12 @@ impl Connection {
         // search_path changes, and every tenant schema has the same tables.
         self.client.borrow_mut().batch_execute(&format!("SET search_path TO \"{schema}\", public"))?;
         *self.schema.borrow_mut() = Some(schema.to_string());
+        // a tenant created by an older version gets the newer migrations the
+        // first time it is opened (once per connection)
+        if schema.starts_with("t_") && !self.current.borrow().contains(schema) {
+            crate::db::migrate(self).map_err(|e| Error::Conversion(format!("migrating {schema}: {e}")))?;
+            self.current.borrow_mut().insert(schema.to_string());
+        }
         Ok(())
     }
 
