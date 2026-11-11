@@ -801,7 +801,7 @@ pub fn login(store: &Store, email: &str, password: &str, req: &Request) -> Resul
 // ---------------------------------------------------------------- static files
 
 /// Content Security Policy of the app (also set by vercel.json in production).
-pub const APP_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+pub const APP_CSP: &str = "default-src 'self'; script-src 'self' https://pixel.barion.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://pixel.barion.com; font-src 'self'; connect-src 'self' blob: https://pixel.barion.com; frame-src 'self' blob: https://pixel.barion.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
 fn serve_static(dir: &Path, path: &str) -> Response {
     let rel = path.trim_start_matches('/');
