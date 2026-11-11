@@ -31,6 +31,11 @@ test("UC-01: új temetés új helyre, folyószámmal és megváltással", async 
   // 5. ellenőrzés és mentés
   await page.getByRole("button", { name: "Temetés rögzítése" }).click();
   await expect(page.getByTestId("burial-done")).toContainText(/Rögzítve a \d+\. folyószámon/);
+  // nyomtatványcsomag: előre kijelölve, egy PDF-ben
+  const pack = page.getByTestId("burial-pack");
+  await expect(pack.getByLabel(/Gyászlap/)).toBeChecked();
+  await expect(pack.getByLabel(/Sírásási munkalap/)).toBeChecked();
+  expect(await openedPdf(page, () => pack.getByRole("button", { name: /Kijelöltek nyomtatása/ }).click())).toBe("%PDF-");
   await page.getByRole("button", { name: "Hely adatlapja" }).click();
   await expect(page.getByText("Teszt Tivadar").first()).toBeVisible();
   await expect(page.getByText("Foglalt").first()).toBeVisible();

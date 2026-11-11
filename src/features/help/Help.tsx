@@ -103,7 +103,13 @@ const GUIDES: { group: string; items: Guide[] }[] = [
           "Hely: válassza ki a temetés módját és a helyet. A program ellenőrzi a nyugvási időt és a hely szabályait.",
           "Eltemettető és rendelkezési jogosult: ha a helynek még nincs jogosultja, itt kell megadni.",
           "Megváltás: a program javasolja az időtartamot és a díjat a díjrendelet alapján.",
-          "Ellenőrzés után a bejegyzés folyószámot kap. Innen nyomtathat igazolást vagy megváltási okiratot.",
+          "Ellenőrzés után a bejegyzés folyószámot kap.",
+          "Nyomtatványcsomag: a program előre kijelöli, amire szükség lesz: gyászlap, temetési értesítő a hirdetőtáblára, sírásási munkalap térképrészlettel, ideiglenes sírjel, megváltási igazolás, díjbekérő, felvilágosítás a családnak. A „Kijelöltek nyomtatása” gomb egy PDF-ben adja ki az összeset.",
+        ],
+        tips: [
+          "A csomagot később is kinyomtathatja: a sírhely adatlapján, a temetések között a „Nyomtatványok” gombbal.",
+          "A gyászlapra kérésre keresztet tehet. A program megjegyzi a választást.",
+          "A temetési értesítőn a nap és az óra a naptárbeli foglalásból jön. Ha nincs foglalás, csak a dátum szerepel.",
         ],
       },
       {

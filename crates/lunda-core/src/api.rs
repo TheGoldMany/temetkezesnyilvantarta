@@ -205,6 +205,10 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
             ok(store.list_charges(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "personId")?.as_deref())?)
         }
         "charges.add" => ok(store.add_charge(s, &arg(a, "charge")?)?),
+        "print.burialItems" => {
+            s.require(crate::auth::Permission::Print)?;
+            ok(crate::pdf::docs::burial_items(store, &arg::<String>(a, "eventId")?)?)
+        }
         // goods and materials
         "stock.list" => ok(store.list_stock(&arg::<String>(a, "cemeteryId")?, opt::<bool>(a, "includeInactive")?.unwrap_or(false))?),
         "stock.save" => ok(store.save_stock_item(s, &arg(a, "item")?)?),

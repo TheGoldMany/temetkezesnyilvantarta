@@ -642,6 +642,16 @@
     "daysLeftValue": "{{count}} nap",
     "overdueValue": "{{count}} napja lejárt"
   },
+  "burialPack": {
+    "title": "Nyomtatványcsomag",
+    "open": "Nyomtatványok",
+    "hint": "A temetéshez szükséges nyomtatványok előre kijelölve. Egy PDF-ben nyomtathatja ki az összeset.",
+    "symbol": "Jelkép a gyászlapon",
+    "symbolNone": "Nincs",
+    "symbolCross": "Kereszt",
+    "print": "Kijelöltek nyomtatása ({{count}} db)",
+    "none": "Jelöljön ki legalább egy nyomtatványt."
+  },
   "prints": {
     "title": "Nyomtatványok",
     "register": "Hiteles nyilvántartó könyv",

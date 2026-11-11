@@ -177,6 +177,7 @@ pub fn is_read_method(m: &str) -> bool {
                 | "conditions.plot"
                 | "persons.dataExport"
                 | "stock.moves"
+                | "print.burialItems"
                 | "stock.stocktakes"
         )
 }

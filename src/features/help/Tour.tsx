@@ -62,7 +62,7 @@ const STEPS: Step[] = [
     route: { view: "dashboard" },
     target: "new-burial",
     title: "Temetés rögzítése",
-    body: "Ez a leggyakoribb feladat. A varázsló lépésenként kérdez: az elhunyt adatai, a hely (vagy urna hazavitele, szórás máshol), az eltemettető és a jogosult, a megváltás. A program ellenőrzi a nyugvási időt, a minimális használati időt és a hely szabályait, és folyószámot ad.",
+    body: "Ez a leggyakoribb feladat. A varázsló lépésenként kérdez: az elhunyt adatai, a hely (vagy urna hazavitele, szórás máshol), az eltemettető és a jogosult, a megváltás. A program ellenőrzi a nyugvási időt, a minimális használati időt és a hely szabályait, és folyószámot ad. A végén egy gombbal kinyomtathatja a temetéshez szükséges nyomtatványokat: gyászlapot, hirdetőtáblára szánt értesítőt, sírásási munkalapot, ideiglenes sírjelet, igazolást, díjbekérőt.",
     needs: "record_events",
   },
   {

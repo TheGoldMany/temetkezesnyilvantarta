@@ -731,6 +731,23 @@ fn all_documents_render_from_sample_data() {
         assert!(bytes.starts_with(b"%PDF-"), "{doc}");
         assert!(f.pages >= 1, "{doc}");
     }
+    // a burial's pack: the right documents are offered, and all of them in one PDF
+    let burial: String = store
+        .conn
+        .query_row("SELECT id FROM interment_events WHERE event_type = 'coffin_burial' AND plot_id IS NOT NULL AND voided_at IS NULL LIMIT 1", [], |r| r.get(0))
+        .unwrap();
+    let offered = lunda_core::api::dispatch(&store, &s, "print.burialItems", &serde_json::json!({ "eventId": burial })).unwrap();
+    let keys: Vec<String> = offered["items"].as_array().unwrap().iter().map(|i| i["key"].as_str().unwrap().to_string()).collect();
+    for k in ["mourning_card", "funeral_notice", "dig_sheet", "grave_marker", "information"] {
+        assert!(keys.contains(&k.to_string()), "{k} offered: {keys:?}");
+    }
+    let pack = lunda_core::pdf::generate(&store, &s, "burial_pack", &serde_json::json!({ "eventId": burial, "items": keys, "symbol": "cross" }), &dir).unwrap();
+    assert!(std::fs::read(&pack.path).unwrap().starts_with(b"%PDF-"));
+    assert!(pack.pages >= keys.len(), "one page or more per document");
+    assert_eq!(
+        lunda_core::pdf::generate(&store, &s, "burial_pack", &serde_json::json!({ "eventId": burial, "items": [] }), &dir).unwrap_err().code,
+        "validation"
+    );
     // the register is paged, authenticated and logged
     let f = lunda_core::pdf::generate(&store, &s, "register", &serde_json::json!({"cemeteryId": cem}), &dir).unwrap();
     assert!(f.pages > 2);
