@@ -85,6 +85,7 @@ pnpm e2e
 | `SZAMLAZZ_AGENT_KEY` | élesben | Számlázz.hu Számla Agent kulcs; nélküle TESZT-sorszámú bizonylatok készülnek |
 | `BLOB_READ_WRITE_TOKEN` | ajánlott | Napi teljes export a Vercel Blobba |
 | `BARION_POS_KEY`, `BARION_PAYEE`, `BARION_ENV` | kártyás fizetéshez | Díjbekérő fizetése bankkártyával a Barionon; `BARION_ENV=prod` élesben, különben tesztrendszer |
+| `SECRETS_KEY` | nem kötelező | Az ügyfelek tárolt titkos kulcsainak (pl. saját Barion-kulcs) titkosítása; hiányában a `CRON_SECRET` |
 | `BACKUP_KEY` | ajánlott | A napi export titkosító kulcsa (AES-256-GCM); hiányában a `CRON_SECRET` |
 
 ## Adatbiztonság

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Számla befizetése – TEMISZ</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="barion-pixel.js" defer></script>
+    <script src="fizetes.js" defer></script>
+  </head>
+  <body>
+    <main class="pay">
+      <p class="wordmark pay-mark">TEMISZ</p>
+      <h1 id="pay-title">Számla befizetése</h1>
+      <p id="pay-status" class="pay-status" role="status" aria-live="polite">Betöltés…</p>
+
+      <section id="pay-card" class="pay-card" hidden>
+        <dl class="pay-facts">
+          <div><dt>Kedvezményezett</dt><dd id="pay-operator"></dd></div>
+          <div><dt>Temető</dt><dd id="pay-cemetery"></dd></div>
+          <div><dt>Számla</dt><dd id="pay-number"></dd></div>
+          <div><dt>Befizető</dt><dd id="pay-payer"></dd></div>
+          <div><dt>Fizetési határidő</dt><dd id="pay-due"></dd></div>
+        </dl>
+        <p class="pay-amount"><span>Fizetendő</span> <b id="pay-amount"></b></p>
+
+        <form id="pay-form" class="pay-form" hidden>
+          <label class="pay-check">
+            <input type="checkbox" id="pay-terms" />
+            <span>Elfogadom a kedvezményezett <a id="pay-terms-link" target="_blank" rel="noopener">fizetési feltételeit</a>, és tudomásul veszem, hogy a fizetés lebonyolításához a számla száma, összege és e-mail-címem a Barion Payment Zrt.-hez kerül.</span>
+          </label>
+          <button type="submit" class="btn btn-solid" id="pay-button" disabled>Fizetés bankkártyával</button>
+          <p class="pay-methods"><span>A fizetést a</span> <img src="barion-logo.svg" alt="Barion" width="84" height="22" /> <span>biztonságos oldala bonyolítja: bankkártya, Apple Pay, Google Pay. A kártyaadatok a kedvezményezetthez nem jutnak el.</span></p>
+        </form>
+      </section>
+      <p class="pay-foot">A fizetési oldalt a <a href="./">TEMISZ</a> temetőnyilvántartó szolgáltatás működteti. <a href="adatkezeles.html">Adatkezelés</a> · <a href="impresszum.html">Impresszum</a></p>
+    </main>
+  </body>
+</html>

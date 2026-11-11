@@ -168,7 +168,11 @@
     "gps_invalid": "Érvénytelen GPS-pozíció.",
     "card_unavailable": "A bankkártyás fizetés jelenleg nem érhető el. Fizessen átutalással.",
     "card_failed": "A Barion fizetőoldalt most nem sikerült megnyitni. Próbálja újra pár perc múlva, vagy fizessen átutalással.",
-    "terms_required": "Az előfizetéshez és a fizetéshez el kell fogadni az Általános Szerződési Feltételeket."
+    "terms_required": "Az előfizetéshez és a fizetéshez el kell fogadni az Általános Szerződési Feltételeket.",
+    "online_payment_off": "Az online fizetés nincs bekapcsolva. Beállítások › Online fizetés.",
+    "secrets_key_missing": "A szerveren nincs beállítva a titkos adatok kulcsa (CRON_SECRET vagy SECRETS_KEY). Szóljon az üzemeltetőnek.",
+    "pos_key_invalid": "Ez nem Barion titkos kulcs. Az elfogadóhely Biztonság menüjéből másolja ki (36 karakter, kötőjelekkel).",
+    "url_invalid": "Adjon meg egy https:// kezdetű címet."
   },
   "fields": {
     "familyName": "Családi név",
@@ -683,7 +687,8 @@
       "about": "Névjegy és frissítés",
       "account": "Fiókom",
       "subscription": "Előfizetés",
-      "public": "Sírkereső"
+      "public": "Sírkereső",
+      "onlinePay": "Online fizetés"
     },
     "operatorName": "Üzemeltető neve",
     "operatorAddress": "Címe",
@@ -1287,7 +1292,9 @@
       "KBAET": "KBAET",
       "ATK": "ÁFA tv. hatályán kívül (ATK)"
     },
-    "remindEmail": "Emlékeztető e-mailben"
+    "remindEmail": "Emlékeztető e-mailben",
+    "payLink": "Fizetési link",
+    "payLinkReady": "A(z) {{number}} számla fizetési linkje (vágólapra másolva). Elküldheti a befizetőnek e-mailben vagy SMS-ben:"
   },
   "ops": {
     "title": "Üzemeltetés",
@@ -1618,5 +1625,27 @@
       "totp_on": "Kétlépcsős azonosítás bekapcsolva",
       "totp_off": "Kétlépcsős azonosítás kikapcsolva"
     }
+  },
+  "onlinePay": {
+    "title": "Online fizetés bankkártyával",
+    "intro": "Ha összeköti a temető saját Barion-fiókjával, a befizetők a számlát otthonról, bankkártyával is kifizethetik. A pénz a temető Barion-tárcájába érkezik, a befizetés pedig automatikusan rákerül a számlára. A fizetési linket a fizetési emlékeztető levél is tartalmazza.",
+    "step1": "Regisztráljon kereskedőként a barion.com-on, és hozzon létre egy elfogadóhelyet a temető nevével.",
+    "step2": "Az elfogadóhely Biztonság menüjéből másolja ide a titkos kulcsot (POSKey), és adja meg a Barion-tárca e-mail-címét.",
+    "step3": "Adja meg a temető fizetési feltételeinek (ÁSZF) címét a temető honlapján: a befizetőnek ezt el kell fogadnia.",
+    "posKey": "Barion titkos kulcs (POSKey)",
+    "posKeyHint": "36 karakteres kód, kötőjelekkel. Titkosítva tároljuk, és többé nem jelenik meg.",
+    "posKeyKeep": "Már be van állítva. Csak akkor írja be, ha cserélni szeretné.",
+    "payee": "Barion-tárca e-mail-címe",
+    "payeeHint": "Erre a Barion-fiókra érkezik a pénz.",
+    "termsUrl": "Fizetési feltételek (ÁSZF) címe",
+    "termsHint": "A temető vagy az önkormányzat honlapján, https:// kezdettel.",
+    "live": "Éles fizetés",
+    "liveHint": "Kikapcsolva a Barion tesztrendszere fut (próbakártyákkal). Csak akkor kapcsolja be, ha a Barion jóváhagyta az elfogadóhelyet.",
+    "onLive": "Bekapcsolva, éles fizetéssel. A pénz ide érkezik: {{payee}}.",
+    "onTest": "Bekapcsolva, tesztüzemben (Barion tesztrendszer). Tárca: {{payee}}.",
+    "save": "Mentés",
+    "saved": "Mentve.",
+    "remove": "Online fizetés kikapcsolása",
+    "removeConfirm": "Kikapcsolja az online fizetést? A kiküldött fizetési linkek ezután nem működnek."
   }
 }
