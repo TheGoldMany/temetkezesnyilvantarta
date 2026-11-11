@@ -767,7 +767,7 @@ impl Store {
     // ---------------------------------------------------------------- cash desk (FR-PEN-06)
 
     #[allow(clippy::too_many_arguments)]
-    fn insert_cash_entry(
+    pub(crate) fn insert_cash_entry(
         &self,
         conn: &crate::sql::Connection,
         s: &Session,

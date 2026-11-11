@@ -9,6 +9,7 @@ pub mod oversight;
 mod people;
 mod reports;
 mod search;
+pub mod stock;
 mod structure;
 mod users;
 

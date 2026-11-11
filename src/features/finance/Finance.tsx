@@ -8,6 +8,7 @@ import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { fmtDate, fmtHuf, todayIso } from "../../lib/format";
 import { Alert, Button, Checkbox, DateInput, Dialog, Empty, ErrorAlert, Field, PageHeader, Panel, Select, Spinner, Tabs, TextField, cx } from "../../components/ui";
 import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
+import { StockTab } from "./Stock";
 import type { FeeRate } from "../../lib/types";
 
 export interface Charge {
@@ -79,7 +80,7 @@ interface FinanceStatus {
   vatCodes: string[];
 }
 
-type Tab = "charges" | "invoices" | "cash" | "bank" | "receivables" | "report" | "setup";
+type Tab = "charges" | "invoices" | "cash" | "stock" | "bank" | "receivables" | "report" | "setup";
 
 /** W7 – Pénzügy: items, invoices, payments, cash desk, bank, receivables, reports. */
 export function FinanceView() {
@@ -87,7 +88,7 @@ export function FinanceView() {
   const { can } = useApp();
   const { current } = useCurrentCemetery();
   const full = can("record_payments");
-  const tabs: Tab[] = full ? ["charges", "invoices", "cash", "bank", "receivables", "report", ...(can("manage_settings") ? (["setup"] as Tab[]) : [])] : ["cash"];
+  const tabs: Tab[] = full ? ["charges", "invoices", "cash", "stock", "bank", "receivables", "report", ...(can("manage_settings") ? (["setup"] as Tab[]) : [])] : ["cash", "stock"];
   const [tab, setTab] = useState<Tab>(tabs[0]);
   if (!current) return <Spinner />;
   return (
@@ -98,6 +99,7 @@ export function FinanceView() {
         {tab === "charges" && <ChargesTab cemeteryId={current.id} />}
         {tab === "invoices" && <InvoicesTab cemeteryId={current.id} />}
         {tab === "cash" && <CashTab cemeteryId={current.id} />}
+        {tab === "stock" && <StockTab cemeteryId={current.id} />}
         {tab === "bank" && <BankTab cemeteryId={current.id} />}
         {tab === "receivables" && <ReceivablesTab cemeteryId={current.id} />}
         {tab === "report" && <ReportTab cemeteryId={current.id} />}

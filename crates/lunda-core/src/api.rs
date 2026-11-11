@@ -205,6 +205,28 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
             ok(store.list_charges(&arg::<String>(a, "cemeteryId")?, opt::<String>(a, "status")?.as_deref(), opt::<String>(a, "personId")?.as_deref())?)
         }
         "charges.add" => ok(store.add_charge(s, &arg(a, "charge")?)?),
+        // goods and materials
+        "stock.list" => ok(store.list_stock(&arg::<String>(a, "cemeteryId")?, opt::<bool>(a, "includeInactive")?.unwrap_or(false))?),
+        "stock.save" => ok(store.save_stock_item(s, &arg(a, "item")?)?),
+        "stock.receive" => ok(store.stock_receive(
+            s,
+            &arg::<String>(a, "itemId")?,
+            arg::<i64>(a, "qty")?,
+            opt::<i64>(a, "unitCostHuf")?,
+            &opt::<String>(a, "partner")?.unwrap_or_default(),
+            &opt::<String>(a, "note")?.unwrap_or_default(),
+        )?),
+        "stock.use" => ok(store.stock_use(s, &arg::<String>(a, "itemId")?, arg::<i64>(a, "qty")?, &opt::<String>(a, "note")?.unwrap_or_default())?),
+        "stock.sell" => ok(store.stock_sell(s, &arg(a, "sale")?)?),
+        "stock.moves" => ok(store.stock_moves(&arg::<String>(a, "itemId")?)?),
+        "stock.stocktake" => ok(store.stocktake(
+            s,
+            &arg::<String>(a, "cemeteryId")?,
+            &arg::<Vec<crate::store::stock::Count>>(a, "counts")?,
+            &opt::<String>(a, "note")?.unwrap_or_default(),
+            opt::<String>(a, "date")?.as_deref(),
+        )?),
+        "stock.stocktakes" => ok(store.stocktakes(&arg::<String>(a, "cemeteryId")?)?),
         "charges.void" => {
             store.void_charge(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
             ok(true)

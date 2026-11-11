@@ -16,6 +16,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (2, include_str!("../migrations/pg/0002_finance.sql")),
     (3, include_str!("../migrations/pg/0003_operations.sql")),
     (4, include_str!("../migrations/pg/0004_calendar.sql")),
+    (5, include_str!("../migrations/pg/0005_stock.sql")),
 ];
 
 /// Hungarian collation for ORDER BY (ICU).
