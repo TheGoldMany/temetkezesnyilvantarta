@@ -20,6 +20,7 @@ fn map_user(r: &crate::sql::Row) -> crate::sql::Result<User> {
         locked_until: r.get("locked_until")?,
         must_change_password: r.get("must_change_password")?,
         last_login_at: r.get("last_login_at")?,
+        cemetery_ids: serde_json::from_str(&r.get::<_, String>("cemetery_ids")?).unwrap_or_default(),
     })
 }
 
@@ -126,8 +127,14 @@ impl Store {
                 }
             }
         }
-        let sys =
-            Session { user_id: Some(id.clone()), user_name: uname.clone(), display_name: display.clone(), role: Role::parse(&role)?, permissions: vec![] };
+        let sys = Session {
+            user_id: Some(id.clone()),
+            user_name: uname.clone(),
+            display_name: display.clone(),
+            role: Role::parse(&role)?,
+            permissions: vec![],
+            cemeteries: None,
+        };
         if !verify_password(password, &hash) {
             let failed = if locked_until.is_some() { 1 } else { failed + 1 };
             let lock = if failed >= MAX_FAILED_ATTEMPTS {
@@ -153,7 +160,38 @@ impl Store {
         if !u.active {
             return Err(CoreError::new("user_inactive", "user is inactive"));
         }
-        Ok(Session::for_role(Some(u.id.clone()), &u.username, &u.display_name, Role::parse(&u.role)?, &parse_perms(&u.extra_permissions)))
+        let role = Role::parse(&u.role)?;
+        let mut s = Session::for_role(Some(u.id.clone()), &u.username, &u.display_name, role, &parse_perms(&u.extra_permissions));
+        // administrators always see every cemetery
+        if role != Role::Admin && !u.cemetery_ids.is_empty() {
+            s.cemeteries = Some(u.cemetery_ids.clone());
+        }
+        Ok(s)
+    }
+
+    /// Limits a colleague to some cemeteries (empty = every cemetery).
+    pub fn set_user_cemeteries(&self, s: &Session, user_id: &str, cemetery_ids: &[String]) -> Result<User> {
+        s.require(Permission::ManageUsers)?;
+        let old = self.get_user(user_id)?;
+        let mut ids: Vec<String> = vec![];
+        for id in cemetery_ids {
+            let known: Option<i64> = self.conn.query_row("SELECT 1 FROM cemeteries WHERE id = ?1 AND voided_at IS NULL", [id], |r| r.get(0)).optional()?;
+            if known.is_none() {
+                return Err(CoreError::not_found("cemetery", id));
+            }
+            if !ids.contains(id) {
+                ids.push(id.clone());
+            }
+        }
+        let tx = crate::db::tx(&self.conn)?;
+        tx.execute(
+            "UPDATE users SET cemetery_ids = ?2, updated_at = ?3, updated_by = ?4 WHERE id = ?1",
+            params![user_id, serde_json::to_string(&ids)?, now_ts(), s.user_name],
+        )?;
+        let new = tx.query_row("SELECT * FROM users WHERE id=?1", [user_id], map_user)?;
+        audit::record(&tx, s, "user", user_id, "cemeteries", Some(&old), Some(&new), None)?;
+        tx.commit()?;
+        Ok(new)
     }
 
     pub fn change_password(&self, s: &Session, user_id: &str, old_password: Option<&str>, new_password: &str) -> Result<()> {

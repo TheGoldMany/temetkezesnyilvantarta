@@ -169,6 +169,9 @@ pub struct Session {
     pub display_name: String,
     pub role: Role,
     pub permissions: Vec<Permission>,
+    /// The cemeteries the user works in; `None` = every cemetery.
+    #[serde(default)]
+    pub cemeteries: Option<Vec<String>>,
 }
 
 impl Session {
@@ -179,12 +182,17 @@ impl Session {
                 permissions.push(*p);
             }
         }
-        Self { user_id, user_name: user_name.into(), display_name: display_name.into(), role, permissions }
+        Self { user_id, user_name: user_name.into(), display_name: display_name.into(), role, permissions, cemeteries: None }
     }
 
     /// Internal system actor (migrations, scheduled backups, sample data).
     pub fn system() -> Self {
         Self::for_role(None, "system", "Rendszer", Role::Admin, &[])
+    }
+
+    /// Whether the user may work in this cemetery.
+    pub fn sees_cemetery(&self, cemetery_id: &str) -> bool {
+        self.cemeteries.as_ref().is_none_or(|c| c.iter().any(|x| x == cemetery_id))
     }
 
     pub fn can(&self, p: Permission) -> bool {

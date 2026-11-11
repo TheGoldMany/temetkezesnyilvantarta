@@ -280,6 +280,17 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         text: [
           "Rendszergazda: mindenhez hozzáfér. Ügyintéző: nyilvántartás, üzemeltetés, pénzügy. Pénzügyes: pénzügy és pénztár. Pénztáros: csak a házipénztár. Temetői dolgozó: munkalapok. Olvasó: csak olvas és nyomtat. Temetkezési iroda: csak a közös naptár.",
           "A rendszergazdáknak kötelező a kétlépcsős belépés (hitelesítő alkalmazással).",
+          "Ha a szervezetnek több temetője van, a kolléga adatlapján a Temetők résznél kijelölheti, melyikben dolgozhat. A többi temető adatait nem látja, és nem is módosíthatja. A rendszergazdák mindig minden temetőt látnak. A személyek (jogosultak, befizetők) az egész szervezethez tartoznak.",
+        ],
+      },
+      {
+        id: "orgs",
+        title: "Több szervezet egy belépéssel",
+        text: [
+          "Aki több önkormányzatnak vagy temetőnek dolgozik, ugyanazzal az e-mail-címmel és jelszóval éri el mindegyiket. A szervezetek közt a felső sávban válthat.",
+          "Ha egy szervezet olyan kollégát hív meg, aki máshol már használja a TEMISZ-t, a kolléga nem kap új jelszót: a meglévő belépésével éri el az új szervezetet is.",
+          "Új szervezetet (saját előfizetéssel és próbaidővel) a Beállítások › Fiókom › Szervezeteim részen hozhat létre. Ehhez nem kell újra regisztrálnia.",
+          "Az előfizetés szervezetenként és temetőnként fizetendő. A jelszó és a kétlépcsős belépés minden szervezetben ugyanaz.",
         ],
       },
       {

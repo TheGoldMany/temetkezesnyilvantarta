@@ -59,16 +59,26 @@ pub fn call(store: &Store, s: &Session, method: &str, args: &Value, work_dir: &P
         // an invited office reaches only the calendar methods of the API
         return crate::api::dispatch(store, s, method, args);
     }
+    // a colleague limited to some cemeteries: documents and exports of those only
+    crate::access::check(store, s, method, args)?;
+    let mut scoped = args.get("args").cloned().unwrap_or_else(|| empty.clone());
+    if let (Some(allowed), Value::Object(m)) = (&s.cemeteries, &mut scoped) {
+        if !m.contains_key("cemeteryId") {
+            if let Some(first) = allowed.first() {
+                m.insert("cemeteryId".into(), Value::String(first.clone()));
+            }
+        }
+    }
     match method {
         "print.document" => {
             let doc = str_arg("doc")?;
-            let a = args.get("args").unwrap_or(&empty);
+            let a = &scoped;
             Ok(serde_json::to_value(crate::pdf::generate(store, s, &doc, a, work_dir)?)?)
         }
         "export.file" => {
             let kind = str_arg("kind")?;
             let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("xlsx").to_string();
-            let a = args.get("args").unwrap_or(&empty);
+            let a = &scoped;
             Ok(serde_json::to_value(crate::io::export(store, s, &kind, &format, a, work_dir)?)?)
         }
         "import.read" | "import.run" => {
