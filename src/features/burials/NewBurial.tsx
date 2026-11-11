@@ -10,6 +10,7 @@ import { DeceasedForm, PersonPicker, PlotPicker, ReasonField, VerdictView, empty
 import { fmtDate, fmtHuf, fullName, todayIso } from "../../lib/format";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { PrintButton } from "../prints/PrintButton";
+import { BurialPack } from "../prints/BurialPack";
 
 const STEPS = ["deceased", "place", "people", "lease", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -167,10 +168,12 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
               ...(result.lease ? ([[t(`leaseKind.${result.lease.kind}`), `${fmtDate(result.lease.startDate)} – ${fmtDate(result.lease.expiryDate)}, ${fmtHuf(result.lease.feeHuf)}`]] as [string, string][]) : []),
             ]}
           />
+          {can("print") ? (
+            <BurialPack eventId={result.event.id} />
+          ) : (
+            offSite === "home" && <PrintButton doc="urn_receipt" args={{ eventId: result.event.id }} label={t("removal.printReceipt")} />
+          )}
           <div className="flex flex-wrap gap-3">
-            {offSite === "home" && <PrintButton doc="urn_receipt" args={{ eventId: result.event.id }} label={t("removal.printReceipt")} />}
-            {result.lease && <PrintButton doc="lease_certificate" args={{ leaseId: result.lease.id }} label={t("wizard.printCertificate")} />}
-            {result.lease && result.lease.feeHuf > 0 && <PrintButton doc="fee_request" args={{ leaseId: result.lease.id }} label={t("wizard.printFeeRequest")} />}
             {!offSite && <Button onClick={() => plotId && nav.go({ view: "plot", id: plotId })}>{t("wizard.openPlot")}</Button>}
             <Button variant="quiet" onClick={() => nav.go({ view: "newBurial" })}>
               {t("wizard.another")}

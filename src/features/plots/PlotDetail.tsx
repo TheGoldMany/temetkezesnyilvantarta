@@ -6,9 +6,10 @@ import { BookPlus, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { useApp } from "../../app/context";
 import { api } from "../../lib/api";
 import type { EventRow, PlotDetail } from "../../lib/types";
-import { Alert, Button, DefinitionList, Empty, PageHeader, Panel, Plaque, Spinner, StatusBadge, cx } from "../../components/ui";
+import { Alert, Button, DefinitionList, Dialog, Empty, PageHeader, Panel, Plaque, Spinner, StatusBadge, cx } from "../../components/ui";
 import { fmtDate, fmtHuf } from "../../lib/format";
 import { PrintButton } from "../prints/PrintButton";
+import { BurialPack } from "../prints/BurialPack";
 import { VoidEventDialog } from "../burials/DeceasedView";
 import { EditPlotDialog, HolderDialog, LeaseDialog, MonumentDialog, RemovalDialog, ResellableDialog, RestrictionDialog } from "./PlotDialogs";
 
@@ -20,6 +21,7 @@ export function PlotDetailView({ id }: { id: string }) {
   const { data, isLoading } = useQuery({ queryKey: ["plot", id], queryFn: () => api<PlotDetail>("plots.get", { id }) });
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [voiding, setVoiding] = useState<EventRow | null>(null);
+  const [packFor, setPackFor] = useState<EventRow | null>(null);
   if (isLoading || !data) return <Spinner />;
   const d = data;
   const p = d.plot;
@@ -150,7 +152,12 @@ export function PlotDetailView({ id }: { id: string }) {
                       <td className="py-2 pr-3 whitespace-nowrap">{fmtDate(e.eventDate)}</td>
                       <td className="py-2 pr-3">{t(`eventType.${e.eventType}`)}</td>
                       <td className="py-2 pr-3">{e.deceasedName}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-2 text-right whitespace-nowrap">
+                        {!e.voidedAt && can("print") && (
+                          <Button variant="quiet" className="min-h-9 text-sm" onClick={() => setPackFor(e)}>
+                            {t("burialPack.open")}
+                          </Button>
+                        )}
                         {!e.voidedAt && can("void_entries") && (
                           <Button variant="quiet" className="min-h-9 text-sm" onClick={() => setVoiding(e)}>
                             {t("common.void")}
@@ -310,6 +317,11 @@ export function PlotDetailView({ id }: { id: string }) {
       {dialog === "resellable" && <ResellableDialog plotId={id} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === "object" && <RemovalDialog detail={d} type={dialog.removal} onClose={() => setDialog(null)} />}
       {voiding && <VoidEventDialog event={voiding} onClose={() => setVoiding(null)} />}
+      {packFor && (
+        <Dialog open wide onClose={() => setPackFor(null)} title={`${t("burialPack.title")} – ${packFor.deceasedName ?? ""}`}>
+          <BurialPack eventId={packFor.id} />
+        </Dialog>
+      )}
     </>
   );
 }

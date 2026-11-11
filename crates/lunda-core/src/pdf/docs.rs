@@ -186,6 +186,11 @@ pub fn generate(store: &Store, s: &Session, doc: &str, args: &Value, out_dir: &P
         "urn_receipt" => urn_receipt(store, &op, &s_arg(args, "eventId")?)?,
         "monument_permit" => monument_permit(store, &op, &s_arg(args, "monumentId")?)?,
         "case_document" => case_document(store, &op, &s_arg(args, "caseId")?)?,
+        "burial_pack" => {
+            let symbol =
+                opt_arg(args, "symbol").unwrap_or_else(|| settings::get_or(&store.conn, "print.mourning_symbol", "none").unwrap_or_else(|_| "none".into()));
+            burial_pack(store, &op, &s_arg(args, "eventId")?, &ids_arg(args, "items"), &symbol)?
+        }
         "map" => map_doc(store, &op, &s_arg(args, "cemeteryId")?, Paper::parse(&opt_arg(args, "paper").unwrap_or_else(|| "A3".into())))?,
         "report_utilization" | "report_yearly" => report_doc(store, &op, doc, opt_arg(args, "cemeteryId").as_deref())?,
         _ => return Err(CoreError::new("bad_request", format!("unknown document {doc}"))),
@@ -1214,4 +1219,328 @@ fn report_doc(store: &Store, op: &Operator, doc: &str, cemetery_id: Option<&str>
     let mut pages = l.pages;
     add_footers(&mut pages, 14.0 * MM, &op.name);
     Ok((pages, title.into(), None))
+}
+
+// ---------------------------------------------------------------- burial documents (pack)
+
+/// What a burial needs on paper, gathered once.
+struct BurialCtx {
+    event_id: String,
+    event_type: String,
+    container: String,
+    event_date: String,
+    historical: bool,
+    cemetery: String,
+    plot: Option<Plot>,
+    deceased: crate::model::Deceased,
+    name: String,
+    /// "2026-11-14T11:00" and the facility (chapel) of the booking, if any
+    starts_at: Option<String>,
+    facility: Option<String>,
+    work: Option<(String, String)>,
+    lease_id: Option<String>,
+    lease_fee: i64,
+}
+
+const WEEKDAYS: [&str; 7] = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"];
+
+fn hu_datetime(starts_at: &str) -> String {
+    let date = &starts_at[..10.min(starts_at.len())];
+    let wd = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").map(|d| WEEKDAYS[d.weekday().num_days_from_monday() as usize]).unwrap_or("");
+    let time = starts_at.get(11..16).unwrap_or("");
+    format!("{} {wd}{}", hu_date(date), if time.is_empty() { String::new() } else { format!(", {time} óra") })
+}
+
+/// Age at death in full years.
+fn age_at_death(d: &crate::model::Deceased) -> Option<i32> {
+    let b = chrono::NaiveDate::parse_from_str(d.birth_date.as_deref()?, "%Y-%m-%d").ok()?;
+    let x = chrono::NaiveDate::parse_from_str(d.death_date.as_deref()?, "%Y-%m-%d").ok()?;
+    let mut age = x.year() - b.year();
+    if (x.month(), x.day()) < (b.month(), b.day()) {
+        age -= 1;
+    }
+    Some(age).filter(|a| *a >= 0)
+}
+
+fn burial_ctx(store: &Store, event_id: &str) -> Result<BurialCtx> {
+    let row: Option<(String, String, String, i64, String, Option<String>, String)> = store
+        .conn
+        .query_row(
+            "SELECT e.event_type, e.container, e.event_date, e.historical, c.name, e.plot_id, e.deceased_id
+             FROM interment_events e JOIN cemeteries c ON c.id = e.cemetery_id WHERE e.id = ?1 AND e.voided_at IS NULL",
+            params![event_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)),
+        )
+        .optional()?;
+    let Some((event_type, container, event_date, historical, cemetery, plot_id, deceased_id)) = row else {
+        return Err(CoreError::not_found("event", event_id));
+    };
+    let deceased = store.get_deceased(&deceased_id)?;
+    let name = crate::text::full_name(&deceased.name_prefix, &deceased.family_name, &deceased.given_name);
+    let plot = match &plot_id {
+        Some(p) => Some(store.get_plot(p)?),
+        None => None,
+    };
+    let booking: Option<(String, Option<String>, String)> = store
+        .conn
+        .query_row(
+            "SELECT b.starts_at, f.name, b.id FROM bookings b LEFT JOIN facilities f ON f.id = b.facility_id WHERE b.event_id = ?1 AND b.status <> 'cancelled' ORDER BY b.starts_at LIMIT 1",
+            params![event_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?;
+    let work: Option<(String, String)> = match &booking {
+        Some((_, _, bid)) => store
+            .conn
+            .query_row(
+                "SELECT assignee, details FROM work_orders WHERE booking_id = ?1 AND kind = 'grave_digging' AND status <> 'cancelled' LIMIT 1",
+                params![bid],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?,
+        None => None,
+    };
+    // the lease of the plot made at this burial (or the one in force)
+    let lease = match &plot_id {
+        Some(p) => store.leases_for_plot(p)?.into_iter().filter(|l| l.voided_at.is_none()).max_by(|a, b| a.start_date.cmp(&b.start_date)),
+        None => None,
+    };
+    Ok(BurialCtx {
+        event_id: event_id.to_string(),
+        event_type,
+        container,
+        event_date,
+        historical: historical != 0,
+        cemetery,
+        plot,
+        deceased,
+        name,
+        starts_at: booking.as_ref().map(|b| b.0.clone()),
+        facility: booking.and_then(|b| b.1),
+        work,
+        lease_id: lease.as_ref().map(|l| l.id.clone()),
+        lease_fee: lease.map(|l| l.fee_huf).unwrap_or(0),
+    })
+}
+
+fn is_burial(t: &str) -> bool {
+    matches!(t, "coffin_burial" | "urn_placement" | "common_grave" | "ash_scattering" | "reburial")
+}
+
+/// The documents that belong to this event, with whether they are usually needed.
+pub fn burial_items(store: &Store, event_id: &str) -> Result<Value> {
+    let c = burial_ctx(store, event_id)?;
+    let mut items = vec![];
+    let mut add = |key: &str, title: &str, default: bool| items.push(serde_json::json!({ "key": key, "title": title, "default": default }));
+    let burial = is_burial(&c.event_type);
+    if burial {
+        add("mourning_card", "Gyászlap (ravatalozóba, hirdetőtáblára)", !c.historical);
+        add("funeral_notice", "Temetési értesítő a temető hirdetőtáblájára", !c.historical && c.starts_at.is_some());
+    }
+    if c.plot.is_some() && matches!(c.event_type.as_str(), "coffin_burial" | "urn_placement" | "reburial" | "common_grave") {
+        add("dig_sheet", "Sírásási munkalap térképrészlettel", !c.historical);
+        add("grave_marker", "Ideiglenes sírjel (fejfatábla)", !c.historical);
+    }
+    if c.lease_id.is_some() {
+        add("lease_certificate", "Megváltási igazolás", true);
+        if c.lease_fee > 0 {
+            add("fee_request", "Díjbekérő", true);
+        }
+    }
+    if c.event_type == "urn_release" {
+        add("urn_receipt", "Urna-átvételi elismervény és nyilatkozat", true);
+    }
+    if c.plot.is_some() {
+        add("information", "Felvilágosítás a családnak (térképpel)", true);
+    }
+    Ok(serde_json::json!({ "name": c.name, "items": items }))
+}
+
+fn frame(page: &mut Page, inset: f32, width: f32) {
+    page.ops.push(Op::Rect { x: inset, y: inset, w: page.w - 2.0 * inset, h: page.h - 2.0 * inset, fill: None, stroke: Some((BLACK, width)), rot: 0.0 });
+}
+
+fn centered(page: &mut Page, y: f32, size: f32, font: FontKind, text: &str, color: Color) {
+    let w = text_width(font, size, text);
+    page.ops.push(Op::Text { x: (page.w - w) / 2.0, y, size, font, text: text.into(), color });
+}
+
+/// Gyászlap: a mourning card for the chapel and the notice board (A4 landscape).
+fn mourning_card(c: &BurialCtx, symbol: &str) -> Vec<Page> {
+    let (pw, ph) = Paper::A4.size();
+    let mut p = Page { w: ph, h: pw, ops: vec![] };
+    frame(&mut p, 10.0 * MM, 4.0);
+    frame(&mut p, 13.0 * MM, 0.8);
+    let mut y = 34.0 * MM;
+    if symbol == "cross" {
+        let cx = p.w / 2.0;
+        p.ops.push(Op::Rect { x: cx - 1.6 * MM, y: y - 12.0 * MM, w: 3.2 * MM, h: 20.0 * MM, fill: Some(BLACK), stroke: None, rot: 0.0 });
+        p.ops.push(Op::Rect { x: cx - 6.0 * MM, y: y - 7.0 * MM, w: 12.0 * MM, h: 3.0 * MM, fill: Some(BLACK), stroke: None, rot: 0.0 });
+        y += 14.0 * MM;
+    }
+    centered(&mut p, y, 15.0, FontKind::Serif, "Fájó szívvel tudatjuk, hogy", BLACK);
+    y += 20.0 * MM;
+    centered(&mut p, y, 40.0, FontKind::SerifBold, &c.name, BLACK);
+    y += 14.0 * MM;
+    let birth = c.deceased.birth_date.as_deref().map(|d| &d[..4]).unwrap_or("");
+    let death = c.deceased.death_date.as_deref().map(|d| &d[..4]).unwrap_or("");
+    if !birth.is_empty() || !death.is_empty() {
+        centered(&mut p, y, 18.0, FontKind::Serif, &format!("{birth} – {death}"), BLACK);
+        y += 12.0 * MM;
+    }
+    let lived = match age_at_death(&c.deceased) {
+        Some(a) => format!("életének {}. évében elhunyt.", a + 1),
+        None => "elhunyt.".to_string(),
+    };
+    centered(&mut p, y, 15.0, FontKind::Serif, &lived, BLACK);
+    y += 18.0 * MM;
+    let when = match &c.starts_at {
+        Some(s) => format!("Búcsúztatása {}", hu_datetime(s)),
+        None => format!("Temetése {}", hu_date(&c.event_date)),
+    };
+    let place = match &c.facility {
+        Some(f) => format!("{}, {}.", c.cemetery, f.to_lowercase()),
+        None => format!("{}.", c.cemetery),
+    };
+    centered(&mut p, y, 14.0, FontKind::Serif, &format!("{when},"), BLACK);
+    y += 8.0 * MM;
+    centered(&mut p, y, 14.0, FontKind::Serif, &place, BLACK);
+    y += 20.0 * MM;
+    centered(&mut p, y, 16.0, FontKind::SerifBold, "Emlékét megőrizzük.", BLACK);
+    let bottom = p.h - 22.0 * MM;
+    centered(&mut p, bottom, 13.0, FontKind::Serif, "A gyászoló család", BLACK);
+    vec![p]
+}
+
+/// Temetési értesítő: today's funeral on the cemetery notice board (A4 portrait).
+fn funeral_notice(op: &Operator, c: &BurialCtx) -> Vec<Page> {
+    let (w, h) = Paper::A4.size();
+    let mut p = Page { w, h, ops: vec![] };
+    frame(&mut p, 12.0 * MM, 2.5);
+    let mut y = 40.0 * MM;
+    centered(&mut p, y, 30.0, FontKind::SerifBold, "TEMETÉS", BLACK);
+    y += 24.0 * MM;
+    centered(&mut p, y, 32.0, FontKind::SerifBold, &c.name, BLACK);
+    y += 12.0 * MM;
+    let years =
+        format!("{} – {}", c.deceased.birth_date.as_deref().map(|d| &d[..4]).unwrap_or("?"), c.deceased.death_date.as_deref().map(|d| &d[..4]).unwrap_or("?"));
+    centered(&mut p, y, 16.0, FontKind::Serif, &years, BLACK);
+    y += 24.0 * MM;
+    let when = c.starts_at.as_deref().map(hu_datetime).unwrap_or_else(|| hu_date(&c.event_date));
+    centered(&mut p, y, 20.0, FontKind::SansBold, &when, BLACK);
+    y += 12.0 * MM;
+    if let Some(f) = &c.facility {
+        centered(&mut p, y, 16.0, FontKind::Sans, f, BLACK);
+        y += 10.0 * MM;
+    }
+    if let Some(pl) = &c.plot {
+        centered(&mut p, y, 16.0, FontKind::Sans, &format!("Sírhely: {}", pl.identifier), BLACK);
+    }
+    centered(&mut p, h - 30.0 * MM, 11.0, FontKind::Sans, &c.cemetery, GREY);
+    if !op.name.is_empty() {
+        centered(&mut p, h - 24.0 * MM, 10.0, FontKind::Sans, &op.name, GREY);
+    }
+    vec![p]
+}
+
+/// Ideiglenes sírjel: the label for the temporary wooden marker (two per A4, cut in half).
+fn grave_marker(c: &BurialCtx) -> Vec<Page> {
+    let (w, h) = Paper::A4.size();
+    let mut p = Page { w, h, ops: vec![] };
+    for half in 0..2 {
+        let top = half as f32 * h / 2.0;
+        let (x, bw, bh) = (15.0 * MM, w - 30.0 * MM, h / 2.0 - 30.0 * MM);
+        p.ops.push(Op::Rect { x, y: top + 15.0 * MM, w: bw, h: bh, fill: None, stroke: Some((BLACK, 1.6)), rot: 0.0 });
+        let mid = |p: &mut Page, y: f32, size: f32, font: FontKind, t: &str| {
+            let tw = text_width(font, size, t);
+            p.ops.push(Op::Text { x: (w - tw) / 2.0, y, size, font, text: t.into(), color: BLACK });
+        };
+        mid(&mut p, top + 50.0 * MM, 34.0, FontKind::SerifBold, &c.name);
+        let years = format!(
+            "{} – {}",
+            c.deceased.birth_date.as_deref().map(hu_date).unwrap_or_else(|| "?".into()),
+            c.deceased.death_date.as_deref().map(hu_date).unwrap_or_else(|| "?".into())
+        );
+        mid(&mut p, top + 66.0 * MM, 18.0, FontKind::Serif, &years);
+        if let Some(pl) = &c.plot {
+            mid(&mut p, top + 90.0 * MM, 22.0, FontKind::SansBold, &pl.identifier);
+        }
+        mid(&mut p, top + 102.0 * MM, 11.0, FontKind::Sans, &c.cemetery);
+        if half == 0 {
+            p.ops.push(Op::Line { x1: 8.0 * MM, y1: h / 2.0, x2: w - 8.0 * MM, y2: h / 2.0, color: LIGHT, width: 0.5 });
+        }
+    }
+    vec![p]
+}
+
+/// Sírásási munkalap: for the grave digger, with the map around the plot.
+fn dig_sheet(store: &Store, op: &Operator, c: &BurialCtx) -> Result<Vec<Page>> {
+    let Some(plot) = &c.plot else { return Err(CoreError::validation("plotId", "no plot for this event")) };
+    let mut l = Layout::a4(false);
+    letterhead(&mut l, op, "Sírásási munkalap");
+    let occupied: i64 = store.conn.query_row(
+        "SELECT count(*) FROM interment_events WHERE plot_id = ?1 AND voided_at IS NULL AND id <> ?2 AND event_type IN ('coffin_burial', 'urn_placement', 'reburial', 'common_grave')",
+        params![plot.id, c.event_id],
+        |r| r.get(0),
+    )?;
+    let what = match c.container.as_str() {
+        "urn" => "urna",
+        _ => "koporsó",
+    };
+    l.fields(
+        &[
+            ("Temető", c.cemetery.clone()),
+            ("Temetési hely", plot.identifier.clone()),
+            ("Elhunyt", c.name.clone()),
+            ("Temetés ideje", c.starts_at.as_deref().map(hu_datetime).unwrap_or_else(|| hu_date(&c.event_date))),
+            ("Ravatalozó", c.facility.clone().unwrap_or_default()),
+            ("Elhelyezés", what.to_string()),
+            ("Rátemetés", if occupied > 0 { format!("igen, a helyen már {occupied} elhelyezés van") } else { "nem, üres hely".to_string() }),
+            ("Felelős", c.work.as_ref().map(|w| w.0.clone()).unwrap_or_default()),
+            ("Megjegyzés", c.work.as_ref().map(|w| w.1.clone()).unwrap_or_default()),
+        ],
+        11.0,
+    );
+    l.gap(6.0);
+    let m = l.margin;
+    l.text(m, 11.0, FontKind::SansBold, "Térképrészlet", BLACK);
+    l.gap(18.0);
+    let (w, h) = (l.content_width(), 95.0 * MM);
+    map_excerpt(store, &mut l, plot, w, h)?;
+    l.gap(h + 8.0);
+    l.fields(&[("Sírásás mélysége", "________ m".to_string()), ("Elkészült", "____ év ____ hó ____ nap  ____ óra".to_string())], 11.0);
+    l.signature(&place_date(op), "", "a munkát végző aláírása");
+    let mut pages = l.pages;
+    add_footers(&mut pages, 18.0 * MM, &op.name);
+    Ok(pages)
+}
+
+/// Everything chosen for one burial in one PDF.
+fn burial_pack(store: &Store, op: &Operator, event_id: &str, items: &[String], symbol: &str) -> Result<(Vec<Page>, String, Option<(String, String)>)> {
+    let c = burial_ctx(store, event_id)?;
+    if items.is_empty() {
+        return Err(CoreError::validation("items", "choose at least one document").with("code", "required"));
+    }
+    let mut pages = vec![];
+    for it in items {
+        let mut more = match it.as_str() {
+            "mourning_card" => mourning_card(&c, symbol),
+            "funeral_notice" => funeral_notice(op, &c),
+            "grave_marker" => grave_marker(&c),
+            "dig_sheet" => dig_sheet(store, op, &c)?,
+            "lease_certificate" => match &c.lease_id {
+                Some(id) => lease_certificate(store, op, id)?.0,
+                None => continue,
+            },
+            "fee_request" => match &c.lease_id {
+                Some(id) => fee_request(store, op, id)?.0,
+                None => continue,
+            },
+            "urn_receipt" => urn_receipt(store, op, event_id)?.0,
+            "information" => information(store, op, &c.deceased.id)?.0,
+            other => return Err(CoreError::new("bad_request", format!("unknown document {other}"))),
+        };
+        pages.append(&mut more);
+    }
+    Ok((pages, format!("Temetési nyomtatványok – {}", c.name), None))
 }
