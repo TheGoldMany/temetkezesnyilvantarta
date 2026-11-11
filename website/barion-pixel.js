@@ -3,8 +3,10 @@
 // Policy needs no inline script. Set BARION_PIXEL_ID to the "BP-…" id shown
 // at the Barion shop's details.
 (function () {
-  var BARION_PIXEL_ID = "BP-XXXXXXXXXX-XX";
-  if (!/^BP-\d{10}-\d{2}$/.test(BARION_PIXEL_ID)) return;
+  var BARION_PIXEL_ID = "BP-0ng5kIdpqJ-7D";
+  if (!/^BP-[A-Za-z0-9]{10}-[A-Za-z0-9]{2}$/.test(BARION_PIXEL_ID)) return;
+  // not from local development and the automated tests
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
   window.bp =
     window.bp ||
     function () {

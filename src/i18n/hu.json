@@ -1097,7 +1097,9 @@
     "acceptPrivacy": "adatkezelési tájékoztatót",
     "acceptAfter": ". Az előfizetés díjköteles.",
     "acceptCard": ", benne a Barionnak továbbított adatokról szóló részt. A kártyás fizetés díjköteles megrendelés.",
-    "acceptFirst": "Előbb fogadja el az ÁSZF-et."
+    "acceptFirst": "Előbb fogadja el az ÁSZF-et.",
+    "cardVia": "A kártyás fizetést a",
+    "cardMethods": "biztonságos fizetőoldala bonyolítja: bankkártya, Apple Pay, Google Pay. A kártyaadatok a TEMISZ-hez nem jutnak el."
   },
   "platform": {
     "title": "Ügyfelek",
