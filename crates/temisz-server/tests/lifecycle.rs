@@ -683,3 +683,21 @@ fn one_person_in_several_organisations() {
     assert_eq!(s.role.as_str(), "admin");
     assert_eq!(accounts::memberships(&store.conn, &email).unwrap().len(), 3);
 }
+
+/// A customer created by an older version gets the newer tenant migrations
+/// when it is next opened (sign-in), instead of failing on a missing column.
+#[test]
+fn older_tenant_is_migrated_when_opened() {
+    use temisz_server::{accounts, login};
+    let store = platform();
+    let (_, email) = new_customer(&store, "old");
+    let acc = accounts::account_by_email(&store.conn, &email).unwrap().unwrap();
+    // as it was before the per-cemetery limit existed
+    store.conn.use_schema(&acc.schema).unwrap();
+    store.conn.execute_batch("ALTER TABLE users DROP COLUMN cemetery_ids; DELETE FROM schema_version WHERE version >= 6").unwrap();
+    // a new server process (cold start) signs in
+    let fresh = Store::new(Connection::connect(&db::database_url()).unwrap());
+    login(&fresh, &email, "nagyon-titkos-1", &Request::default()).unwrap();
+    let n: i64 = fresh.conn.query_row("SELECT count(*) FROM users WHERE cemetery_ids = '[]'", [], |r| r.get(0)).unwrap();
+    assert_eq!(n, 1);
+}
