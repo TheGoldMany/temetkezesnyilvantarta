@@ -125,6 +125,8 @@ Biztonsági és előfizetési átvizsgálás (2026. november): a platform-admini
 
 Még nyitott a tervből: ügyfelenkénti titkosítási kulcs (az adatbázis a Neonnál titkosítva tárol, de ügyfelenként külön kulcs nincs), külső elérhetőségfigyelés és riasztás, külső biztonsági átvizsgálás.
 
+Lakossági online fizetés: a temető a saját Barion-fiókját köti be (Beállítások › Online fizetés, titkosítva tárolt kulccsal); a számlához fizetési link készül, amely a fizetési emlékeztető levélben is szerepel; a befizető bejelentkezés nélkül, kártyával fizet a /fizetes oldalon, a befizetés automatikusan a számlára kerül.
+
 **Még nincs meg** (az FRS-UZEMELTETES „S” és „C” tételeiből):
 
 - FR-FEN-03: több üzemeltető összesített fenntartói nézete (egy fiókon belül az Olvasó szerepkör ad csak olvasó hozzáférést).

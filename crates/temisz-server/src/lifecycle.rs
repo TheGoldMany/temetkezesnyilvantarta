@@ -139,6 +139,15 @@ pub fn backup_key() -> Option<[u8; 32]> {
     Some(Sha256::digest(format!("temisz-backup:{}", secret.trim()).as_bytes()).into())
 }
 
+/// Key for secrets stored in the database (customers' payment keys):
+/// SECRETS_KEY, else CRON_SECRET, under a label of its own.
+pub fn secrets_key() -> Option<[u8; 32]> {
+    use sha2::{Digest, Sha256};
+    let secret =
+        std::env::var("SECRETS_KEY").ok().filter(|k| !k.trim().is_empty()).or_else(|| std::env::var("CRON_SECRET").ok().filter(|k| !k.trim().is_empty()))?;
+    Some(Sha256::digest(format!("temisz-secrets:{}", secret.trim()).as_bytes()).into())
+}
+
 const SEAL_MAGIC: &[u8] = b"TEMISZ-BACKUP-1\n";
 
 /// AES-256-GCM: magic, 12-byte nonce, ciphertext with tag.

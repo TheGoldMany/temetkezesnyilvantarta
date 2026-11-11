@@ -7,6 +7,9 @@ use lunda_core::{api, db, Store};
 use serde_json::json;
 use temisz_server::{migrate_platform, register, tenant_data, Request};
 
+/// The Barion tests point BARION_API_URL at their own stand-in server: one at a time.
+static BARION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn platform() -> Store {
     let store = Store::new(Connection::connect(&db::database_url()).unwrap());
     migrate_platform(&store.conn).unwrap();
@@ -373,6 +376,7 @@ fn security_log_records_sign_ins() {
 /// callback alone settles nothing; Barion's own answer does, exactly once.
 #[test]
 fn card_payment_settles_the_proforma_once() {
+    let _serial = BARION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     use std::sync::{Arc, Mutex};
     use temisz_server::{barion, billing};
     // stand-in Barion: Payment/Start answers a payment; paymentstate answers the current state
@@ -444,16 +448,16 @@ fn card_payment_settles_the_proforma_once() {
 
     // a callback while Barion still says "in progress" settles nothing
     state.lock().unwrap().0 = "Started".into();
-    assert_eq!(barion::refresh(&store.conn, &payment).unwrap(), "Started");
+    assert_eq!(barion::refresh(&store, &payment).unwrap(), "Started");
     assert_eq!(paid(&store), "open");
     // Barion reports less than the proforma: not settled
     *state.lock().unwrap() = ("Succeeded".into(), gross - 1);
-    barion::refresh(&store.conn, &payment).unwrap();
+    barion::refresh(&store, &payment).unwrap();
     assert_eq!(paid(&store), "open");
     store.conn.execute("UPDATE platform.card_payments SET status = 'Started' WHERE payment_id = ?1", lunda_core::params![payment]).unwrap();
     // succeeded in full: final invoice paid by card, the account stays open
     *state.lock().unwrap() = ("Succeeded".into(), gross);
-    assert_eq!(barion::refresh(&store.conn, &payment).unwrap(), "Succeeded");
+    assert_eq!(barion::refresh(&store, &payment).unwrap(), "Succeeded");
     assert_eq!(paid(&store), "paid");
     let invoices: i64 = store
         .conn
@@ -465,15 +469,159 @@ fn card_payment_settles_the_proforma_once() {
         .unwrap();
     assert_eq!(invoices, 1);
     // repeated callbacks change nothing
-    barion::refresh(&store.conn, &payment).unwrap();
-    barion::refresh(&store.conn, &payment).unwrap();
+    barion::refresh(&store, &payment).unwrap();
+    barion::refresh(&store, &payment).unwrap();
     let again: i64 =
         store.conn.query_row("SELECT count(*) FROM platform.invoices WHERE proforma_id = ?1", lunda_core::params![proforma], |r| r.get(0)).unwrap();
     assert_eq!(again, 1);
     // a forged payment id is ignored
-    assert_eq!(barion::refresh(&store.conn, "deadbeef").unwrap_err().code, "not_found");
+    assert_eq!(barion::refresh(&store, "deadbeef").unwrap_err().code, "not_found");
     assert_eq!(billing::effective_status(&store.conn, &tenant).unwrap(), "active");
     // the callback carries the id in the query or in the body
     assert_eq!(barion::payment_id_from("paymentId=abc", b"").as_deref(), Some("abc"));
     assert_eq!(barion::payment_id_from("", b"PaymentId=def").as_deref(), Some("def"));
+}
+
+/// A resident pays an operator's invoice online into the operator's own
+/// Barion (stand-in server): the key is stored encrypted, the link shows only
+/// what is needed, the payment is recorded on the invoice exactly once.
+#[test]
+fn resident_pays_an_invoice_online() {
+    let _serial = BARION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    use lunda_core::store::finance::{ChargeInput, InvoiceInput};
+    use std::sync::{Arc, Mutex};
+    use temisz_server::resident_pay;
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let state = Arc::new(Mutex::new(("Prepared".to_string(), 0i64)));
+    let seen = Arc::new(Mutex::new((String::new(), String::new())));
+    let pid: String = lunda_core::util::new_id().replace('-', "");
+    {
+        let (state, seen, pid) = (state.clone(), seen.clone(), pid.clone());
+        std::thread::spawn(move || {
+            for mut rq in server.incoming_requests() {
+                let mut body = String::new();
+                let _ = rq.as_reader().read_to_string(&mut body);
+                let key = rq.headers().iter().find(|h| h.field.equiv("x-pos-key")).map(|h| h.value.to_string()).unwrap_or_default();
+                let answer = if rq.url().starts_with("/v2/Payment/Start") {
+                    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+                    *seen.lock().unwrap() = (key, v["Transactions"][0]["Payee"].as_str().unwrap_or("").to_string());
+                    state.lock().unwrap().1 = v["Transactions"][0]["Total"].as_i64().unwrap();
+                    json!({ "PaymentId": pid, "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=x", "Errors": [] })
+                } else {
+                    let (status, total) = state.lock().unwrap().clone();
+                    json!({ "PaymentId": pid, "Status": status, "Total": total, "Currency": "HUF", "Errors": [] })
+                };
+                let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
+            }
+        });
+    }
+    std::env::set_var("BARION_API_URL", format!("http://127.0.0.1:{port}"));
+    std::env::set_var("CRON_SECRET", "teszt-titok-a-kulcsokhoz");
+
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "resident");
+    let user: String = store.conn.query_row("SELECT user_id FROM platform.accounts WHERE email = ?1", lunda_core::params![email], |r| r.get(0)).unwrap();
+    let schema: String = store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
+    store.conn.use_schema(&schema).unwrap();
+    let s = store.session_for(&user).unwrap();
+    lunda_core::sample::load_sample(&store, &s).unwrap();
+    let cem: String = store.conn.query_row("SELECT id FROM cemeteries LIMIT 1", [], |r| r.get(0)).unwrap();
+    let rate = store
+        .add_fee_rate(
+            &s,
+            &lunda_core::model::FeeRate {
+                cemetery_id: cem.clone(),
+                fee_kind: "renewal".into(),
+                name: "Sírhely újraváltása".into(),
+                amount_huf: 40_000,
+                vat_rate: "27".into(),
+                valid_from: "2020-01-01".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let charge = store
+        .add_charge(&s, &ChargeInput { cemetery_id: cem.clone(), payer_name: Some("Kovács János".into()), fee_rate_id: Some(rate.id), ..Default::default() })
+        .unwrap();
+    let inv = store
+        .create_invoice(
+            &s,
+            &InvoiceInput {
+                cemetery_id: cem.clone(),
+                charge_ids: vec![charge.id],
+                buyer_name: "Kovács János".into(),
+                buyer_postcode: "9999".into(),
+                buyer_city: "Mintavölgy".into(),
+                buyer_address: "Fő utca 1.".into(),
+                buyer_email: "kovacs@pelda.hu".into(),
+                payment_method: "transfer".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(inv.gross_huf, 50_800);
+
+    // no link before the operator connects its Barion
+    assert_eq!(resident_pay::pay_link(&store, &s, &tenant, &inv.id, "https://www.temisz.hu").unwrap_err().code, "online_payment_off");
+    let bad = json!({ "posKey": "nem-kulcs", "payee": "temeto@pelda.hu", "termsUrl": "https://temeto.pelda.hu/aszf", "live": false });
+    assert_eq!(resident_pay::settings_save(&store.conn, &s, &tenant, &bad).unwrap_err().code, "validation");
+    let key = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    let saved = resident_pay::settings_save(
+        &store.conn,
+        &s,
+        &tenant,
+        &json!({ "posKey": key, "payee": "Temeto@Pelda.hu", "termsUrl": "https://temeto.pelda.hu/aszf", "live": false }),
+    )
+    .unwrap();
+    assert_eq!(saved["configured"], true);
+    assert!(saved.get("posKey").is_none(), "the key is never returned");
+    let enc: Vec<u8> =
+        store.conn.query_row("SELECT pos_key_enc FROM platform.tenant_barion WHERE tenant_id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
+    assert!(!String::from_utf8_lossy(&enc).contains(key), "stored encrypted");
+    // saving again without a key keeps the stored one
+    resident_pay::settings_save(
+        &store.conn,
+        &s,
+        &tenant,
+        &json!({ "posKey": "", "payee": "temeto@pelda.hu", "termsUrl": "https://temeto.pelda.hu/aszf", "live": false }),
+    )
+    .unwrap();
+
+    let link = resident_pay::pay_link(&store, &s, &tenant, &inv.id, "https://www.temisz.hu").unwrap();
+    let token = link["token"].as_str().unwrap().to_string();
+    assert_eq!(link["url"], format!("https://www.temisz.hu/fizetes?t={token}"));
+    let again = resident_pay::pay_link(&store, &s, &tenant, &inv.id, "https://www.temisz.hu").unwrap();
+    assert_eq!(again["token"], token, "one link per invoice");
+
+    let info = resident_pay::public_info(&store, &token).unwrap();
+    assert_eq!((info["state"].as_str(), info["dueHuf"].as_i64(), info["payer"].as_str()), (Some("open"), Some(50_800), Some("Kovács J.")));
+    assert!(info.get("buyerEmail").is_none() && !info.to_string().contains("Fő utca"), "no address or e-mail on the page");
+    assert_eq!(resident_pay::public_start(&store, &token, "https://www.temisz.hu", false).unwrap_err().code, "terms_required");
+    let started = resident_pay::public_start(&store, &token, "https://www.temisz.hu", true).unwrap();
+    assert!(started["gatewayUrl"].as_str().unwrap().starts_with("https://"));
+    assert_eq!(*seen.lock().unwrap(), (key.to_string(), "temeto@pelda.hu".to_string()), "the operator's own key and wallet");
+
+    let paid = |store: &lunda_core::Store| -> (i64, String) {
+        store.conn.use_schema(&schema).unwrap();
+        let i = store.get_invoice(&inv.id).unwrap();
+        (i.paid_huf, i.status)
+    };
+    // in progress: nothing recorded
+    state.lock().unwrap().0 = "Started".into();
+    assert_eq!(temisz_server::barion::refresh(&store, &pid).unwrap(), "Started");
+    assert_eq!(paid(&store).0, 0);
+    // succeeded: recorded once, by card, the invoice is paid
+    state.lock().unwrap().0 = "Succeeded".into();
+    assert_eq!(temisz_server::barion::refresh(&store, &pid).unwrap(), "Succeeded");
+    temisz_server::barion::refresh(&store, &pid).unwrap();
+    assert_eq!(paid(&store), (50_800, "paid".to_string()));
+    let n: i64 =
+        store.conn.query_row("SELECT count(*) FROM payments WHERE invoice_id = ?1 AND method = 'card'", lunda_core::params![inv.id], |r| r.get(0)).unwrap();
+    assert_eq!(n, 1);
+    // the page now says paid, and a new payment cannot start
+    assert_eq!(resident_pay::public_info(&store, &token).unwrap()["state"], "paid");
+    assert_eq!(resident_pay::public_start(&store, &token, "https://www.temisz.hu", true).unwrap_err().code, "invoice_not_open");
+    // unknown links are not found
+    assert_eq!(resident_pay::public_info(&store, "00000000000000000000000000000000").unwrap_err().code, "not_found");
 }

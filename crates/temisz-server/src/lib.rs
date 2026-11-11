@@ -12,6 +12,7 @@ pub mod billing;
 pub mod lifecycle;
 pub mod mail;
 pub mod reminders;
+pub mod resident_pay;
 pub mod tenant_data;
 pub mod totp;
 
@@ -38,6 +39,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (6, include_str!("../migrations/0006_bank.sql")),
     (7, include_str!("../migrations/0007_security_log.sql")),
     (8, include_str!("../migrations/0008_card_payments.sql")),
+    (9, include_str!("../migrations/0009_resident_payments.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -129,6 +131,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Err(_) => Response::text(503, "database unavailable"),
         },
         ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map" | "/api/public/notices") => public_search(store, req),
+        ("GET", "/api/public/pay") | ("POST", "/api/public/pay/start") | ("GET", "/api/public/pay/status") => public_pay(store, req),
         // Barion tells that a payment changed; the state is asked from Barion
         ("POST" | "GET", "/api/barion/callback") => {
             if accounts::rate_limit(&store.conn, &format!("barion:{}", req.ip), 120, 1).is_err() {
@@ -136,7 +139,7 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             let query = req.path.split_once('?').map(|(_, q)| q).unwrap_or("");
             match barion::payment_id_from(query, &req.body) {
-                Some(id) => match barion::refresh(&store.conn, &id) {
+                Some(id) => match barion::refresh(store, &id) {
                     Ok(_) => Response::text(200, "ok"),
                     // unknown payments are answered like known ones; Barion retries on errors
                     Err(e) if e.code == "not_found" => Response::text(200, "ok"),
@@ -238,6 +241,47 @@ fn public_search(store: &Store, req: &Request) -> Response {
     resp.headers.retain(|(k, _)| k != "Cache-Control");
     resp.headers.push(("Cache-Control".into(), "public, max-age=60".into()));
     cors(resp)
+}
+
+/// The payment page of an operator's invoice (resident_pay): no sign-in, the
+/// link's token is the key; rate limited.
+fn public_pay(store: &Store, req: &Request) -> Response {
+    let path = req.path.split('?').next().unwrap_or("");
+    let query = req.path.split_once('?').map(|(_, q)| q).unwrap_or("");
+    let param = |k: &str| query.split('&').find_map(|kv| kv.split_once('=').filter(|(a, _)| *a == k).map(|(_, v)| url_decode(v))).unwrap_or_default();
+    let out = (|| -> Result<Value> {
+        accounts::rate_limit(&store.conn, &format!("pay:{}", req.ip), 30, 1)?;
+        let token = param("t");
+        if token.len() != 32 || !token.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(CoreError::not_found("link", &token));
+        }
+        match path {
+            "/api/public/pay/start" => {
+                // a JSON body: a cross-site form cannot start a payment
+                if !req.header("content-type").map(|c| c.starts_with("application/json")).unwrap_or(false) {
+                    return Err(CoreError::new("forbidden", "json required"));
+                }
+                let body: Value = serde_json::from_slice(&req.body).unwrap_or(Value::Null);
+                resident_pay::public_start(store, &token, &accounts::site_url(req), body["termsAccepted"].as_bool() == Some(true))
+            }
+            "/api/public/pay/status" => resident_pay::public_status(store, &token, &param("r")),
+            _ => resident_pay::public_info(store, &token),
+        }
+    })();
+    match out {
+        Ok(v) => Response::json(&v),
+        Err(e) => {
+            let mut r = Response::json(&json!({ "error": e.code }));
+            r.status = match e.code.as_str() {
+                "not_found" => 404,
+                "rate_limited" => 429,
+                "forbidden" => 403,
+                "terms_required" | "invoice_not_open" | "online_payment_off" => 409,
+                _ => 502,
+            };
+            r
+        }
+    }
 }
 
 fn url_decode(s: &str) -> String {
@@ -464,7 +508,12 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                         Ok(json!({ "sent": sent, "withoutEmail": prep["withoutEmail"] }))
                     }
                     "invoices.reminder" if a["channel"].as_str() == Some("email") => {
-                        let m: lunda_core::store::oversight::OutMail = serde_json::from_value(call_api(store, &session, "invoices.reminderMail", a)?)?;
+                        let mut m: lunda_core::store::oversight::OutMail = serde_json::from_value(call_api(store, &session, "invoices.reminderMail", a)?)?;
+                        if let Some(url) = resident_pay::link_for_mail(store, &c.tenant_id, a["id"].as_str().unwrap_or(""), &accounts::site_url(req)) {
+                            if let Some(at) = m.body.find("\n\nÜdvözlettel") {
+                                m.body.insert_str(at, &format!("\n\nOnline, bankkártyával is kifizetheti:\n{url}"));
+                            }
+                        }
                         mail::send_for(&store.conn, Some(&c.tenant_id), &m.to, m.reply_to.as_deref(), &m.subject, &m.body, "payment_reminder")?;
                         call_api(store, &session, &method, a)
                     }
@@ -481,6 +530,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                         )?;
                         Ok(serde_json::from_str(&text)?)
                     }
+                    "invoices.payLink" => resident_pay::pay_link(store, &session, &c.tenant_id, a["id"].as_str().unwrap_or(""), &accounts::site_url(req)),
                     // FR-UGY-02: the embed code of the public grave search
                     "public.embed" => {
                         session.require(lunda_core::auth::Permission::ManageSettings)?;
@@ -529,7 +579,18 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             }
             "billing_card_status" => {
                 let c = require(store, req)?;
-                barion::status_for(&store.conn, &c.tenant_id, &s("requestId"))
+                barion::status_for(store, &c.tenant_id, &s("requestId"))
+            }
+            "online_pay_get" => {
+                let c = require(store, req)?;
+                resident_pay::settings_get(&store.conn, &c.session, &c.tenant_id)
+            }
+            "online_pay_save" => {
+                let c = require(store, req)?;
+                if billing::effective_status(&store.conn, &c.tenant_id)? == "read_only" {
+                    return Err(CoreError::new("read_only", "the account is read-only"));
+                }
+                resident_pay::settings_save(&store.conn, &c.session, &c.tenant_id, args)
             }
             "billing_quote_cemetery" => {
                 let c = require(store, req)?;

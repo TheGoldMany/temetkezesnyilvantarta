@@ -232,6 +232,21 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         ],
         tips: ["A kereső csak nevet, évszámokat, temetőt és sírhelyet mutat. Pontos dátumot, lakcímet, jogosultat nem."],
       },
+      {
+        id: "online-pay",
+        title: "Online fizetés: a számla kifizetése bankkártyával",
+        steps: [
+          "Regisztráljon kereskedőként a barion.com-on, és hozzon létre egy elfogadóhelyet a temető nevével.",
+          "Beállítások › Online fizetés: adja meg az elfogadóhely titkos kulcsát (Biztonság menü), a Barion-tárca e-mail-címét és a temető fizetési feltételeinek címét.",
+          "Pénzügy › Számlák: a számla mellett a „Fizetési link” gomb kimásolja a linket, ezt elküldheti e-mailben vagy SMS-ben.",
+          "A fizetési emlékeztető levélben a link magától benne van.",
+          "A befizető bejelentkezés nélkül megnyitja, kártyával fizet; a befizetés automatikusan rákerül a számlára, a pénz a temető Barion-tárcájába érkezik.",
+        ],
+        tips: [
+          "Amíg a Barion nem hagyta jóvá az elfogadóhelyet, hagyja kikapcsolva az „Éles fizetés” jelölőt: így a Barion tesztrendszere fut próbakártyákkal.",
+          "A fizetési oldal csak a számla számát, összegét, határidejét és a befizető rövidített nevét mutatja, címet és e-mailt nem.",
+        ],
+      },
     ],
   },
   {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Banknote, FileText, Plus, Upload } from "lucide-react";
+import { Banknote, FileText, Link2, Plus, Upload } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApp } from "../../app/context";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
@@ -377,6 +377,7 @@ function InvoicesTab({ cemeteryId }: { cemeteryId: string }) {
   const rows = (q.data ?? []).filter((i) => filter !== "open" || ["issued", "partially_paid"].includes(i.status));
   const [paying, setPaying] = useState<Invoice | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [link, setLink] = useState<{ number: string; url: string } | null>(null);
   const act = async (fn: () => Promise<unknown>) => {
     setError(null);
     try {
@@ -399,6 +400,16 @@ function InvoicesTab({ cemeteryId }: { cemeteryId: string }) {
       }
     >
       <ErrorAlert error={error} />
+      {link && (
+        <div className="mb-4">
+          <Alert tone="ok">
+            <span className="block">{t("finance.payLinkReady", { number: link.number })}</span>
+            <a className="break-all font-semibold text-moss underline underline-offset-3" href={link.url} target="_blank" rel="noreferrer" data-testid="pay-link">
+              {link.url}
+            </a>
+          </Alert>
+        </div>
+      )}
       {rows.length === 0 ? (
         <Empty>{t("finance.noInvoices")}</Empty>
       ) : (
@@ -458,6 +469,21 @@ function InvoicesTab({ cemeteryId }: { cemeteryId: string }) {
                         }}
                       >
                         {t("finance.aspNumber")}
+                      </Button>
+                    )}
+                    {i.kind === "invoice" && ["issued", "partially_paid"].includes(i.status) && (
+                      <Button
+                        variant="quiet"
+                        icon={<Link2 className="size-4" aria-hidden />}
+                        onClick={() =>
+                          act(async () => {
+                            const r = await api<{ url: string }>("invoices.payLink", { id: i.id });
+                            await navigator.clipboard?.writeText(r.url).catch(() => undefined);
+                            setLink({ number: i.number, url: r.url });
+                          })
+                        }
+                      >
+                        {t("finance.payLink")}
                       </Button>
                     )}
                     {i.daysOverdue && (
