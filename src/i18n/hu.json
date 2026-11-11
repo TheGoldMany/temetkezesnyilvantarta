@@ -11,7 +11,9 @@
     "persons": "Személyek",
     "expiries": "Lejáratok",
     "prints": "Nyomtatványok",
+    "printsReports": "Nyomtatás és riportok",
     "reports": "Riportok",
+    "account": "Fiókom",
     "importExport": "Import és export",
     "settings": "Beállítások",
     "logout": "Kijelentkezés",
@@ -110,7 +112,7 @@
     "not_an_urn": "Csak urna adható ki vagy emelhető ki.",
     "lease_not_active": "A megváltás nem érvényes.",
     "already_voided": "Ez a bejegyzés már érvénytelenítve van.",
-    "email_taken": "Ezzel az e-mail-címmel már van fiókja. Lépjen be, és új szervezetet a Beállítások › Fiókom › Szervezeteim részen hozhat létre. Ha elfelejtette a jelszavát, kérjen újat.",
+    "email_taken": "Ezzel az e-mail-címmel már van fiókja. Lépjen be, és új szervezetet a Fiókom › Szervezeteim részen hozhat létre (a jobb felső sarokban a nevére kattintva). Ha elfelejtette a jelszavát, kérjen újat.",
     "already_member": "Ez a kolléga már tagja a szervezetnek.",
     "email_invalid": "Adjon meg érvényes e-mail-címet.",
     "account_closed": "Ez a fiók megszűnt.",
@@ -691,6 +693,14 @@
   },
   "settings": {
     "title": "Beállítások",
+    "groups": {
+      "organization": "Szervezet és temetők",
+      "people": "Munkatársak",
+      "residents": "Nyilvános oldal",
+      "billing": "Előfizetés és fizetés",
+      "data": "Adatok",
+      "program": "Program"
+    },
     "tabs": {
       "operator": "Üzemeltető",
       "cemeteries": "Temetők és parcellák",
@@ -703,6 +713,7 @@
       "appearance": "Megjelenés",
       "about": "Névjegy és frissítés",
       "account": "Fiókom",
+      "security": "Belépési napló",
       "subscription": "Előfizetés",
       "public": "Sírkereső",
       "onlinePay": "Online fizetés"
