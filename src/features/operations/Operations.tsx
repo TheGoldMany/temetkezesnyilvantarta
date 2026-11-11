@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarPlus, Check, ChevronLeft, ChevronRight, FilePlus2, Paperclip, Plus, Printer, X } from "lucide-react";
-import { api } from "../../lib/api";
+import { api, ApiError } from "../../lib/api";
 import { useApp } from "../../app/context";
 import { useCurrentCemetery, useInvalidate } from "../../lib/queries";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
@@ -802,7 +802,6 @@ const MAX_UPLOAD = 3 * 1024 * 1024;
 
 export async function uploadFile(entity: string, entityId: string, file: File) {
   if (file.size > MAX_UPLOAD) {
-    const { ApiError } = await import("../../lib/api");
     throw new ApiError({ code: "file_too_large", message: "file too large", params: { maxMb: "3" } });
   }
   const buf = new Uint8Array(await file.arrayBuffer());

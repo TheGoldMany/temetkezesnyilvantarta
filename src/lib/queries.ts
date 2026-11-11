@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-import type { Cemetery, PlotType, Section, PlotRow } from "./types";
+import type { Cemetery, PlotType, Section } from "./types";
 import { useApp } from "../app/context";
 
 export function useCemeteries() {
@@ -16,14 +16,6 @@ export function useSections(cemeteryId: string | null | undefined) {
     queryKey: ["sections", cemeteryId],
     queryFn: () => api<Section[]>("sections.list", { cemeteryId }),
     enabled: !!cemeteryId,
-  });
-}
-
-export function useRows(sectionId: string | null | undefined) {
-  return useQuery({
-    queryKey: ["rows", sectionId],
-    queryFn: () => api<PlotRow[]>("rows.list", { sectionId }),
-    enabled: !!sectionId,
   });
 }
 

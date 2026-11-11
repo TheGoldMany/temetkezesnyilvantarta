@@ -110,6 +110,3 @@ export function useApp() {
   return c;
 }
 
-export function useNav() {
-  return useApp().nav;
-}

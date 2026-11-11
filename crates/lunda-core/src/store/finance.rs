@@ -13,7 +13,7 @@ use super::*;
 use crate::audit;
 use crate::auth::{Permission, Session};
 use crate::settings;
-use crate::sql::{params, params_from_iter, OptionalExtension, Value as SqlValue};
+use crate::sql::{params, OptionalExtension, Value as SqlValue};
 use crate::szamlazz::{self, Document, Line, Party};
 use crate::util::{fmt_date, new_id, now_ts, parse_date, sha256_hex, today};
 
@@ -1285,12 +1285,6 @@ fn suggest<'a>(b: &BankTx, open: &'a [Invoice]) -> Option<&'a Invoice> {
         })
         .copied()
         .or(if candidates.len() == 1 { candidates.first().copied() } else { None })
-}
-
-/// Dynamic parameter lists for reports.
-#[allow(dead_code)]
-fn _params(v: Vec<SqlValue>) -> crate::sql::ParamsFromIter {
-    params_from_iter(v)
 }
 
 #[cfg(test)]

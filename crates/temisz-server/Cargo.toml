@@ -18,7 +18,6 @@ hmac = "0.12"
 sha1 = "0.10"
 sha2 = "0.10"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
-serde = { version = "1.0.229", features = ["derive"] }
 chrono = "0.4"
 
 temisz-desktop-import = { path = "../temisz-desktop-import", optional = true }
