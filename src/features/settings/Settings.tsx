@@ -7,7 +7,7 @@ import { Plus } from "lucide-react";
 import { useApp } from "../../app/context";
 import { api, command, shell } from "../../lib/api";
 import { PERMISSIONS, type Cemetery, type FeeRate, type PlotType, type User } from "../../lib/types";
-import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, Tabs, TextField, useErrorText } from "../../components/ui";
+import { Alert, Button, Checkbox, Dialog, ErrorAlert, Field, Input, PageHeader, Panel, Select, Spinner, TextField, cx, useErrorText } from "../../components/ui";
 import { fmtDate, fmtDateTime, fmtHuf, todayIso } from "../../lib/format";
 import { useCemeteries, useCurrentCemetery, useInvalidate, usePlotTypes, useSections } from "../../lib/queries";
 import { useToast } from "../../app/toast";
@@ -18,39 +18,92 @@ import { SubscriptionTab, huf } from "../account/Subscription";
 import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
 
-type Tab = "operator" | "public" | "onlinePay" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "subscription" | "backup" | "audit" | "appearance" | "about";
+type Tab = "operator" | "public" | "onlinePay" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "security" | "subscription" | "backup" | "audit" | "appearance" | "about";
 
+/** Settings in groups, as a side menu on wide screens: the organisation and
+ *  its cemeteries, colleagues, what residents see and pay, data, the program.
+ *  The person's own account is under their name in the top bar (Fiókom). */
 export function SettingsView({ tab }: { tab?: string }) {
   const { t } = useTranslation();
-  const { can } = useApp();
-  const [current, setCurrent] = useState<Tab>((tab as Tab) ?? "operator");
-  const tabs: Tab[] = ["operator", "cemeteries", "plotTypes", "fees", "rules", ...(can("manage_users") ? (["users"] as Tab[]) : []), "account", ...(can("manage_settings") ? (["subscription", "public", "onlinePay"] as Tab[]) : []), "backup", "audit", "appearance", "about"];
+  const { can, nav } = useApp();
+  const groups: { key: string; tabs: Tab[]; link?: { label: string; go: () => void } }[] = [
+    { key: "organization", tabs: ["operator", "cemeteries", "plotTypes", "fees", "rules"] },
+    { key: "people", tabs: [...(can("manage_users") ? (["users"] as Tab[]) : []), ...(can("manage_settings") ? (["security"] as Tab[]) : []), "audit"] },
+    { key: "billing", tabs: can("manage_settings") ? ["subscription", "onlinePay"] : [] },
+    { key: "residents", tabs: can("manage_settings") ? ["public"] : [] },
+    { key: "data", tabs: ["backup"], link: can("import") || can("export") ? { label: t("nav.importExport"), go: () => nav.go({ view: "importExport" }) } : undefined },
+    { key: "program", tabs: ["appearance", "about"] },
+  ];
+  const all = groups.flatMap((g) => g.tabs);
+  const [current, setCurrent] = useState<Tab>(all.includes(tab as Tab) ? (tab as Tab) : "operator");
   return (
     <>
       <PageHeader title={t("settings.title")} />
-      <Tabs value={current} onChange={setCurrent} items={tabs.map((x) => ({ value: x, label: t(`settings.tabs.${x}`) }))} />
-      <div className="mt-6">
-        {current === "operator" && <SettingsForm keys={OPERATOR_KEYS} />}
-        {current === "cemeteries" && <CemeteriesTab />}
-        {current === "plotTypes" && <PlotTypesTab />}
-        {current === "fees" && <FeesTab />}
-        {current === "rules" && <SettingsForm keys={RULE_KEYS} />}
-        {current === "users" && <UsersTab />}
-        {current === "subscription" && <SubscriptionTab />}
-        {current === "public" && <PublicSearchTab />}
-        {current === "onlinePay" && <OnlinePayTab />}
-        {current === "account" && (
-          <div className="flex flex-col gap-6">
-            <SecurityPanel />
-            <OwnPassword />
-            <OrganizationsPanel />
-            {can("manage_settings") && <SecurityLogPanel />}
-          </div>
-        )}
-        {current === "backup" && <BackupTab />}
-        {current === "audit" && <AuditTab />}
-        {current === "appearance" && <AppearanceTab />}
-        {current === "about" && <AboutTab />}
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div role="tablist" aria-orientation="vertical" aria-label={t("settings.title")} className="flex shrink-0 flex-col gap-4 lg:sticky lg:top-0 lg:w-60">
+          {groups
+            .filter((g) => g.tabs.length > 0 || g.link)
+            .map((g) => (
+              <div key={g.key}>
+                <p className="mb-1 px-3 text-xs font-semibold tracking-wide text-granite uppercase">{t(`settings.groups.${g.key}`)}</p>
+                <div className="flex flex-wrap gap-1 lg:flex-col">
+                  {g.tabs.map((x) => (
+                    <button
+                      key={x}
+                      role="tab"
+                      type="button"
+                      data-tour={`tab-${x}`}
+                      aria-selected={current === x}
+                      onClick={() => setCurrent(x)}
+                      className={cx(
+                        "min-h-10 border-l-3 px-3 text-left font-semibold",
+                        current === x ? "border-moss bg-slab text-slate" : "border-transparent text-granite hover:bg-slab/60 hover:text-slate",
+                      )}
+                    >
+                      {t(`settings.tabs.${x}`)}
+                    </button>
+                  ))}
+                  {g.link && (
+                    <button type="button" data-tour="tab-importExport" onClick={g.link.go} className="min-h-10 border-l-3 border-transparent px-3 text-left font-semibold text-granite hover:bg-slab/60 hover:text-slate">
+                      {g.link.label} ›
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          {current === "operator" && <SettingsForm keys={OPERATOR_KEYS} />}
+          {current === "cemeteries" && <CemeteriesTab />}
+          {current === "plotTypes" && <PlotTypesTab />}
+          {current === "fees" && <FeesTab />}
+          {current === "rules" && <SettingsForm keys={RULE_KEYS} />}
+          {current === "users" && <UsersTab />}
+          {current === "security" && <SecurityLogPanel />}
+          {current === "subscription" && <SubscriptionTab />}
+          {current === "public" && <PublicSearchTab />}
+          {current === "onlinePay" && <OnlinePayTab />}
+          {current === "backup" && <BackupTab />}
+          {current === "audit" && <AuditTab />}
+          {current === "appearance" && <AppearanceTab />}
+          {current === "about" && <AboutTab />}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Fiókom: the signed-in person's own password, two-factor sign-in and organisations. */
+export function AccountView() {
+  const { t } = useTranslation();
+  const { status } = useApp();
+  return (
+    <>
+      <PageHeader title={t("nav.account")} subtitle={status?.account?.email ?? status?.session?.displayName} />
+      <div className="flex max-w-4xl flex-col gap-6">
+        <SecurityPanel />
+        <OwnPassword />
+        <OrganizationsPanel />
       </div>
     </>
   );

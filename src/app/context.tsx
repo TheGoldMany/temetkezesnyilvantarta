@@ -21,6 +21,7 @@ export type Route =
   | { view: "importExport" }
   | { view: "quickEntry" }
   | { view: "settings"; tab?: string }
+  | { view: "account" }
   | { view: "platform" }
   | { view: "finance"; tab?: string }
   | { view: "operations" }
