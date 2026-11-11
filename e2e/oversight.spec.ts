@@ -44,6 +44,7 @@ test("fenntartói beszámoló, e-mail értesítő, nyilvános sírkereső", asyn
   await page.getByRole("tab", { name: "Sírkereső" }).click();
   await page.getByLabel("Sírkereső közzététele").click();
   await expect(page.getByLabel("Sírkereső közzététele")).toBeChecked();
+  await expect(page.getByLabel("Díjak megjelenítése a keresőben")).toBeChecked();
   const code = page.locator("textarea[name=embedCode]");
   await expect(code).toHaveValue(/<iframe src=/);
   const src = (await code.inputValue()).match(/src="([^"]+)"/)![1];
@@ -57,6 +58,10 @@ test("fenntartói beszámoló, e-mail értesítő, nyilvános sírkereső", asyn
   await expect(page.getByRole("list", { name: "Temetők" })).toContainText("Nyitvatartás:");
   await page.getByRole("list", { name: "Találatok" }).getByRole("button", { name: "Térképen" }).first().click();
   await expect(page.locator("#map rect.hl")).toHaveCount(1);
+  // the fee list in force, gross
+  const fees = page.locator("#feebox");
+  await expect(fees.getByRole("heading", { name: "Díjak" })).toBeVisible();
+  await expect(fees.getByRole("row").filter({ hasText: "Sírhely megváltása" }).first()).toContainText(/\d\sFt/);
   // the public endpoint gives no birth dates or personal data
   const res = await page.request.get(`/api/public/search${url.search}&q=Kov%C3%A1cs`);
   expect(res.headers()["access-control-allow-origin"]).toBe("*");

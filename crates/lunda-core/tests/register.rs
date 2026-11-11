@@ -724,6 +724,7 @@ fn all_documents_render_from_sample_data() {
         ("map", serde_json::json!({"cemeteryId": cem, "paper": "A0"})),
         ("report_utilization", serde_json::json!({})),
         ("report_yearly", serde_json::json!({})),
+        ("fee_list", serde_json::json!({})),
     ];
     for (doc, args) in docs {
         let f = lunda_core::pdf::generate(&store, &s, doc, &args, &dir).unwrap_or_else(|e| panic!("{doc}: {e}"));

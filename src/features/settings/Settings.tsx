@@ -14,6 +14,7 @@ import { useToast } from "../../app/toast";
 import { BackupTab } from "./BackupTab";
 import { SecurityLogPanel, SecurityPanel } from "../account/Security";
 import { SubscriptionTab, huf } from "../account/Subscription";
+import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
 
 type Tab = "operator" | "public" | "onlinePay" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "account" | "subscription" | "backup" | "audit" | "appearance" | "about";
@@ -488,6 +489,11 @@ function FeesTab() {
   return (
     <div className="flex flex-col gap-6">
       <Alert>{t("settings.feeHint")}</Alert>
+      {can("print") && current && (
+        <div>
+          <PrintButton doc="fee_list" args={{ cemeteryId: current.id }} label={t("prints.feeList")} />
+        </div>
+      )}
       {can("manage_settings") && current && (
         <Panel title={t("settings.addFee")}>
           <div className="grid items-end gap-4 md:grid-cols-4">

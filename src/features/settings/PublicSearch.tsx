@@ -9,6 +9,7 @@ import { Alert, Button, Checkbox, ErrorAlert, Panel, Spinner, Textarea } from ".
 interface Embed {
   token: string;
   enabled: boolean;
+  fees: boolean;
   url: string;
   iframe: string;
 }
@@ -21,6 +22,7 @@ export function PublicSearchTab() {
   const [error, setError] = useState<unknown>(null);
   const [copied, setCopied] = useState(false);
   const [on, setOn] = useState<boolean | null>(null);
+  const [fees, setFees] = useState<boolean | null>(null);
   const e = q.data;
   const enabled = on ?? e?.enabled ?? false;
   return (
@@ -49,6 +51,21 @@ export function PublicSearchTab() {
           <ErrorAlert error={error} />
           {enabled && (
             <>
+              <Checkbox
+                label={t("publicSearch.fees")}
+                hint={t("publicSearch.feesHint")}
+                checked={fees ?? e.fees}
+                onChange={async (v) => {
+                  setError(null);
+                  setFees(v);
+                  try {
+                    await api("settings.set", { values: { "public.fees_enabled": v ? "true" : "false" } });
+                  } catch (err) {
+                    setFees(null);
+                    setError(err);
+                  }
+                }}
+              />
               <div className="flex flex-col gap-2">
                 <p className="font-semibold">{t("publicSearch.embedCode")}</p>
                 <Textarea readOnly rows={3} value={e.iframe} className="font-mono text-sm" name="embedCode" onFocus={(x) => x.currentTarget.select()} />

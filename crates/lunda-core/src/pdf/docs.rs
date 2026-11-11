@@ -192,6 +192,7 @@ pub fn generate(store: &Store, s: &Session, doc: &str, args: &Value, out_dir: &P
             burial_pack(store, &op, &s_arg(args, "eventId")?, &ids_arg(args, "items"), &symbol)?
         }
         "map" => map_doc(store, &op, &s_arg(args, "cemeteryId")?, Paper::parse(&opt_arg(args, "paper").unwrap_or_else(|| "A3".into())))?,
+        "fee_list" => fee_list_doc(store, &op, opt_arg(args, "cemeteryId").as_deref())?,
         "report_utilization" | "report_yearly" => report_doc(store, &op, doc, opt_arg(args, "cemeteryId").as_deref())?,
         _ => return Err(CoreError::new("bad_request", format!("unknown document {doc}"))),
     };
@@ -1219,6 +1220,73 @@ fn report_doc(store: &Store, op: &Operator, doc: &str, cemetery_id: Option<&str>
     let mut pages = l.pages;
     add_footers(&mut pages, 14.0 * MM, &op.name);
     Ok((pages, title.into(), None))
+}
+
+/// Díjtáblázat: the fees in force for the notice board (A4 portrait), one
+/// table per cemetery with net, VAT and gross.
+fn fee_list_doc(store: &Store, op: &Operator, cemetery_id: Option<&str>) -> Result<(Vec<Page>, String, Option<(String, String)>)> {
+    let rows = store.current_fee_list(cemetery_id)?;
+    let mut l = Layout::a4(false);
+    let title = "Temetői díjak";
+    letterhead(&mut l, op, title);
+    l.paragraph(
+        10.5,
+        FontKind::Sans,
+        &format!("A temetőben {} napján érvényes díjtételek a díjrendelet alapján.", hu_date(&crate::util::fmt_date(crate::util::today()))),
+        BLACK,
+    );
+    l.gap(6.0);
+    if rows.is_empty() {
+        l.paragraph(11.0, FontKind::Sans, "Nincs érvényes díjtétel rögzítve.", BLACK);
+    }
+    let mut cems: Vec<(String, Vec<&Value>)> = vec![];
+    for r in &rows {
+        let c = r["cemetery"].as_str().unwrap_or("").to_string();
+        match cems.last_mut() {
+            Some((name, list)) if *name == c => list.push(r),
+            _ => cems.push((c, vec![r])),
+        }
+    }
+    let cols = [("Díjtétel", 2.3), ("Helytípus", 1.6), ("Időtartam", 1.15), ("Egység", 0.95), ("Nettó", 1.35), ("Áfa", 0.9), ("Bruttó", 1.35)]
+        .map(|(t, w)| Column { title: t.into(), weight: w });
+    let many = cems.len() > 1;
+    for (name, list) in &cems {
+        if many {
+            l.ensure(40.0);
+            l.gap(6.0);
+            l.paragraph(12.0, FontKind::SansBold, name, BLACK);
+            l.gap(2.0);
+        }
+        let data: Vec<TableRow> = list
+            .iter()
+            .map(|r| TableRow {
+                cells: vec![
+                    r["item"].as_str().unwrap_or("").into(),
+                    r["plotType"].as_str().unwrap_or("minden helytípus").into(),
+                    r["leaseYears"].as_i64().map(|y| format!("{y} év")).unwrap_or_default(),
+                    r["unit"].as_str().unwrap_or("").into(),
+                    huf(r["netHuf"].as_i64().unwrap_or(0)),
+                    r["vat"].as_str().unwrap_or("").into(),
+                    huf(r["grossHuf"].as_i64().unwrap_or(0)),
+                ],
+                struck: false,
+                bold_first: true,
+            })
+            .collect();
+        table(&mut l, &cols, &data, 9.5);
+    }
+    l.gap(10.0);
+    l.paragraph(
+        9.5,
+        FontKind::Sans,
+        "A díjakat az üzemeltető pénztárában vagy átutalással lehet megfizetni. Kérdés esetén forduljon az ügyfélszolgálathoz.",
+        BLACK,
+    );
+    l.gap(4.0);
+    l.paragraph(10.0, FontKind::Sans, &format!("Kifüggesztve: {}", place_date(op)), BLACK);
+    let mut pages = l.pages;
+    add_footers(&mut pages, 18.0 * MM, &op.name);
+    Ok((pages, "Díjtáblázat".into(), None))
 }
 
 // ---------------------------------------------------------------- burial documents (pack)

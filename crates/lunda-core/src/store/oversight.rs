@@ -455,6 +455,75 @@ impl Store {
         Ok(json!({ "cemetery": cemetery, "sections": sections, "plots": plots }))
     }
 
+    /// Whether the fee list is shown with the grave search (on unless turned off).
+    pub fn public_fees_enabled(&self) -> Result<bool> {
+        Ok(settings::get(&self.conn, "public.fees_enabled", None)?.as_deref() != Some("false"))
+    }
+
+    /// The fees in force today, from the fee decree: per cemetery, with the
+    /// plot type, the lease term, net, VAT and gross. Voided and expired rates
+    /// are left out; the notice board and the public page show the same list.
+    pub fn current_fee_list(&self, cemetery_id: Option<&str>) -> Result<Vec<Value>> {
+        let today = fmt_date(today());
+        let mut args = vec![txt(&today)];
+        let filter = match cemetery_id {
+            Some(c) => {
+                args.push(txt(c));
+                "AND c.id = ?2"
+            }
+            None => "",
+        };
+        let rows = json_rows(
+            &self.conn,
+            &format!(
+                "SELECT c.id AS cemetery_id, c.name AS cemetery, f.fee_kind, f.name, f.unit, f.vat_rate, f.amount_huf AS net_huf, f.valid_from,
+                        pt.name AS plot_type, pt.default_lease_years AS lease_years
+                 FROM fee_rates f
+                 JOIN cemeteries c ON c.id = f.cemetery_id AND c.voided_at IS NULL
+                 LEFT JOIN plot_types pt ON pt.id = f.plot_type_id
+                 WHERE f.voided_at IS NULL AND f.valid_from <= ?1 AND (f.valid_to IS NULL OR f.valid_to >= ?1) {filter}
+                 ORDER BY c.name COLLATE \"hu-x-icu\", f.fee_kind, pt.sort_order NULLS FIRST, pt.name, f.name"
+            ),
+            args,
+        )?;
+        Ok(rows
+            .into_iter()
+            .map(|mut r| {
+                let kind = r["feeKind"].as_str().unwrap_or("").to_string();
+                let net = r["netHuf"].as_i64().unwrap_or(0);
+                let vat_rate = r["vatRate"].as_str().unwrap_or("27").to_string();
+                let gross = net + super::finance::vat_of(net, &vat_rate);
+                let name = r["name"].as_str().filter(|n| !n.trim().is_empty()).map(String::from).unwrap_or_else(|| fee_kind_hu(&kind).to_string());
+                let lease = matches!(kind.as_str(), "purchase" | "renewal");
+                r["item"] = json!(name);
+                r["vat"] = json!(vat_hu(&vat_rate));
+                r["grossHuf"] = json!(gross);
+                if !lease {
+                    r["leaseYears"] = Value::Null;
+                }
+                r
+            })
+            .collect())
+    }
+
+    /// The fee list for the public page: what a visitor pays (gross), no
+    /// ledger codes or internal ids beyond the cemetery.
+    pub fn public_fees(&self) -> Result<Vec<Value>> {
+        if !self.public_search_enabled()? || !self.public_fees_enabled()? {
+            return Err(CoreError::new("public_search_disabled", "the fee list is not published"));
+        }
+        Ok(self
+            .current_fee_list(None)?
+            .into_iter()
+            .map(|r| {
+                json!({
+                    "cemeteryId": r["cemeteryId"], "cemetery": r["cemetery"], "item": r["item"], "plotType": r["plotType"],
+                    "leaseYears": r["leaseYears"], "unit": r["unit"], "grossHuf": r["grossHuf"], "vat": r["vat"], "validFrom": r["validFrom"],
+                })
+            })
+            .collect())
+    }
+
     /// 145/1999. Korm. r. 18. § (5a): plots to be reused, announced on the
     /// website. Identifier, expiry and the earliest reuse date; no names.
     pub fn public_reuse_notices(&self) -> Result<Vec<Value>> {
@@ -590,6 +659,31 @@ impl Store {
     }
 }
 
+/// The name of a fee kind on public lists and the notice board.
+pub fn fee_kind_hu(kind: &str) -> &str {
+    match kind {
+        "purchase" => "Sírhely megváltása",
+        "renewal" => "Sírhely újraváltása",
+        "opening" => "Sírnyitás",
+        "chapel" => "Ravatalozó használata",
+        "maintenance" => "Fenntartási hozzájárulás",
+        "cooling" => "Hűtés",
+        "monument_permit" => "Síremlék-állítási engedély",
+        other => other,
+    }
+}
+
+/// VAT on public lists: a percentage or the exemption's name.
+pub fn vat_hu(rate: &str) -> String {
+    match rate {
+        "AAM" => "tárgyi adómentes".into(),
+        "TAM" => "alanyi adómentes".into(),
+        "0" => "0%".into(),
+        r if r.parse::<i64>().is_ok() => format!("{r}%"),
+        _ => "áfa nélkül".into(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,6 +753,44 @@ mod tests {
         assert_eq!(notices.len(), 1);
         assert!(notices[0].get("holderName").is_none());
         assert_eq!(notices[0]["reuseFrom"], fmt_date(today() + chrono::Duration::days(30)));
+    }
+
+    #[test]
+    fn fee_list_shows_rates_in_force_with_gross() {
+        let (store, s, cem) = setup();
+        let list = store.current_fee_list(Some(&cem)).unwrap();
+        assert!(!list.is_empty(), "the sample has fee rates");
+        for r in &list {
+            let net = r["netHuf"].as_i64().unwrap();
+            assert!(r["grossHuf"].as_i64().unwrap() >= net);
+            assert!(r["item"].as_str().is_some_and(|i| !i.is_empty()));
+        }
+        // a rate that starts tomorrow is not yet on the list; it closes nothing today
+        let tomorrow = fmt_date(today() + chrono::Duration::days(1));
+        store
+            .add_fee_rate(
+                &s,
+                &FeeRate {
+                    cemetery_id: cem.clone(),
+                    fee_kind: "cooling".into(),
+                    amount_huf: 1000,
+                    valid_from: tomorrow,
+                    vat_rate: "27".into(),
+                    unit: "nap".into(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(store.current_fee_list(Some(&cem)).unwrap().len(), list.len());
+        // public: only with the grave search, and it can be switched off
+        assert_eq!(store.public_fees().unwrap_err().code, "public_search_disabled");
+        let set = |k: &str, v: &str| crate::settings::set_many(&store.conn, &s, None, &[(k.to_string(), v.to_string())].into_iter().collect()).unwrap();
+        set("public.search_enabled", "true");
+        let public = store.public_fees().unwrap();
+        assert_eq!(public.len(), list.len());
+        assert!(public[0].get("netHuf").is_none() && public[0]["grossHuf"].is_i64());
+        set("public.fees_enabled", "false");
+        assert!(store.public_fees().is_err());
     }
 
     #[test]

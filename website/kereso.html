@@ -71,6 +71,14 @@
       #map .ring { fill: none; stroke: var(--ochre); stroke-width: 2; }
       .ghost-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; font-weight: 600; color: var(--cobalt); border: 1px solid var(--line); border-radius: 2px; text-decoration: none; }
       .hint { color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
+      #feebox { margin: 0 0 20px; }
+      .fees { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      .fees caption { text-align: left; font-weight: 600; padding: 10px 0 4px; }
+      .fees th, .fees td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      .fees th { font-size: 0.85rem; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
+      .fees td.amt, .fees th.amt { text-align: right; white-space: nowrap; }
+      .fees td.amt { font-weight: 600; }
+      @media (max-width: 560px) { .fees .opt { display: none; } }
       footer { margin-top: 18px; font-size: 0.85rem; color: var(--ink-2); }
       footer a { color: inherit; }
     </style>
@@ -107,6 +115,12 @@
         <h2>Hirdetmény: lejárt használati idejű sírhelyek</h2>
         <p class="hint">Az alábbi temetési helyek használati ideje lejárt. Ha a rendelkezési jogosult nem váltja meg újra, a hely a megadott naptól újra értékesíthető (145/1999. Korm. rendelet 18. § (5a)). Kérjük, keresse a temető ügyfélszolgálatát.</p>
         <ol id="notices" aria-label="Hirdetmények"></ol>
+      </section>
+
+      <section id="feebox" hidden>
+        <h2>Díjak</h2>
+        <p class="hint" id="feenote">A ma érvényes díjtételek a díjrendelet alapján, áfával együtt.</p>
+        <div id="fees"></div>
       </section>
 
       <footer>
@@ -180,6 +194,48 @@
             $("notices").appendChild(li);
           });
           $("noticebox").hidden = false;
+        });
+
+        // ---- the fee list (the fee decree is public)
+        function huf(n) {
+          return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0") + "\u00a0Ft";
+        }
+        api("fees").then(function (r) {
+          var fees = r.ok && r.body.fees;
+          if (!fees || !fees.length) return;
+          var groups = [];
+          fees.forEach(function (f) {
+            var g = groups[groups.length - 1];
+            if (!g || g.name !== f.cemetery) groups.push((g = { name: f.cemetery, rows: [] }));
+            g.rows.push(f);
+          });
+          groups.forEach(function (g) {
+            var t = el("table", "fees");
+            if (groups.length > 1) t.appendChild(el("caption", null, g.name));
+            var head = el("tr");
+            [["Díjtétel"], ["Helytípus", "opt"], ["Időtartam", "opt"], ["Összeg", "amt"]].forEach(function (h) {
+              var th = el("th", h[1] || null, h[0]);
+              th.scope = "col";
+              head.appendChild(th);
+            });
+            var thead = el("thead");
+            thead.appendChild(head);
+            t.appendChild(thead);
+            var body = el("tbody");
+            g.rows.forEach(function (f) {
+              var tr = el("tr");
+              tr.appendChild(el("td", null, f.item + (f.unit && f.unit !== "db" ? " (" + f.unit + ")" : "")));
+              tr.appendChild(el("td", "opt", f.plotType || "minden helytípus"));
+              tr.appendChild(el("td", "opt", f.leaseYears ? f.leaseYears + " év" : ""));
+              var amt = el("td", "amt", huf(f.grossHuf));
+              if (f.vat && !/%$/.test(f.vat)) amt.title = f.vat;
+              tr.appendChild(amt);
+              body.appendChild(tr);
+            });
+            t.appendChild(body);
+            $("fees").appendChild(t);
+          });
+          $("feebox").hidden = false;
         });
 
         // ---- map
