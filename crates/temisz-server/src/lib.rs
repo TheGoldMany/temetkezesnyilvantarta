@@ -131,7 +131,9 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),
         },
-        ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map" | "/api/public/notices") => public_search(store, req),
+        ("GET" | "OPTIONS", "/api/public/search" | "/api/public/info" | "/api/public/map" | "/api/public/notices" | "/api/public/fees") => {
+            public_search(store, req)
+        }
         ("GET", "/api/public/pay") | ("POST", "/api/public/pay/start") | ("GET", "/api/public/pay/status") => public_pay(store, req),
         // Barion tells that a payment changed; the state is asked from Barion
         ("POST" | "GET", "/api/barion/callback") => {
@@ -223,6 +225,7 @@ fn public_search(store: &Store, req: &Request) -> Response {
             "/api/public/info" => Ok(json!({ "operator": name, "cemeteries": store.public_cemeteries()? })),
             "/api/public/map" => store.public_map(&param("c")),
             "/api/public/notices" => Ok(json!({ "notices": store.public_reuse_notices()? })),
+            "/api/public/fees" => Ok(json!({ "fees": store.public_fees()? })),
             _ => Ok(json!({ "operator": name, "results": store.public_search(&param("q"))? })),
         }
     })();
@@ -550,6 +553,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                         Ok(json!({
                             "token": token,
                             "enabled": store.public_search_enabled()?,
+                            "fees": store.public_fees_enabled()?,
                             "url": format!("{base}/kereso?t={token}"),
                             "iframe": format!("<iframe src=\"{base}/kereso?t={token}\" title=\"Sírkereső\" style=\"width:100%;min-height:480px;border:0\" loading=\"lazy\"></iframe>"),
                         }))

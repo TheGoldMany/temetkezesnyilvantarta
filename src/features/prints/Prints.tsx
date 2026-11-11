@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookText, Landmark, ListOrdered, FileSearch, Map as MapIcon } from "lucide-react";
+import { BookText, Banknote, Landmark, ListOrdered, FileSearch, Map as MapIcon } from "lucide-react";
 import { api } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Field, PageHeader, Panel, Select, TextField } from "../../components/ui";
 import { useCurrentCemetery } from "../../lib/queries";
@@ -88,6 +88,7 @@ export function Prints() {
             </Select>
           </Field>,
         )}
+        {card("fee_list", Banknote, t("prints.feeList"), t("prints.feeListHint"), () => run("fee_list", {}))}
         <Panel>
           <h2 className="mb-2 text-lg">{t("prints.forms")}</h2>
           <p className="text-granite">{t("prints.formsHint")}</p>

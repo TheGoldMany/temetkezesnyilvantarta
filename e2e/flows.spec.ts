@@ -158,3 +158,10 @@ test("Hiteles nyilvántartó könyv nyomtatása", async ({ page }) => {
   expect(await openedPdf(page, () => page.getByRole("button", { name: "PDF készítése" }).first().click())).toBe("%PDF-");
   await expect(page.getByText(/Kötet azonosító/)).toBeVisible();
 });
+
+test("díjtáblázat a hirdetőtáblára", async ({ page }) => {
+  await login(page);
+  await nav(page, "Nyomtatványok");
+  const card = page.locator("section, div").filter({ has: page.getByRole("heading", { name: "Díjtáblázat a hirdetőtáblára" }) }).last();
+  expect(await openedPdf(page, () => card.getByRole("button", { name: "PDF készítése" }).click())).toBe("%PDF-");
+});

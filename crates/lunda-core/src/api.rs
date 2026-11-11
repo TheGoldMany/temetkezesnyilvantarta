@@ -136,6 +136,7 @@ pub fn dispatch(store: &Store, s: &Session, method: &str, a: &Value) -> Result<V
             store.void_lease(s, &arg::<String>(a, "id")?, opt::<String>(a, "reason")?.as_deref())?;
             ok(true)
         }
+        "fees.current" => ok(store.current_fee_list(opt::<String>(a, "cemeteryId")?.as_deref())?),
         "feeRates.list" => ok(store.list_fee_rates(&arg::<String>(a, "cemeteryId")?)?),
         "feeRates.add" => ok(store.add_fee_rate(s, &arg(a, "rate")?)?),
         "expiries.list" => ok(store.expiries(s, &arg(a, "filter")?)?),

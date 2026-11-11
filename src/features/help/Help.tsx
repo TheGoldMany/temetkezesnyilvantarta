@@ -248,7 +248,11 @@ const GUIDES: { group: string; items: Guide[] }[] = [
           "A látogatók név vagy évszám alapján kereshetnek, és a térképen megnézhetik a sírhelyet. A nyitvatartás is látszik.",
           "Ha egy család kéri, az elhunyt adatlapján kapcsolja ki a megjelenést.",
         ],
-        tips: ["A kereső csak nevet, évszámokat, temetőt és sírhelyet mutat. Pontos dátumot, lakcímet, jogosultat nem."],
+        tips: [
+          "A kereső csak nevet, évszámokat, temetőt és sírhelyet mutat. Pontos dátumot, lakcímet, jogosultat nem.",
+          "A kereső alatt a ma érvényes díjak is látszanak bruttó összeggel, a Beállítások › Díjtételek alapján. Ha nem szeretné, a Sírkereső fülön kapcsolja ki.",
+          "A hirdetőtáblára szánt díjtáblázatot a Nyomtatványok oldalon vagy a Díjtételek fülön nyomtathatja ki.",
+        ],
       },
       {
         id: "online-pay",

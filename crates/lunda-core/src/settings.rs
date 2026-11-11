@@ -34,6 +34,7 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("ui.zoom", "100"),
     ("onboarding.completed", "false"),
     ("public.search_enabled", "false"), // FR-UGY-02: opt-in public grave search
+    ("public.fees_enabled", "true"),    // the fee list next to the published grave search
     ("notify.auto_expiry", "false"),    // automatic expiry reminders by e-mail
 ];
 
@@ -131,7 +132,7 @@ fn validate(key: &str, value: &str) -> Result<()> {
     if numeric.contains(&key) && value.trim().parse::<i64>().map(|n| n < 0).unwrap_or(true) {
         return Err(CoreError::validation(key, "must be a non-negative integer"));
     }
-    if matches!(key, "public.search_enabled" | "notify.auto_expiry") && !matches!(value, "true" | "false") {
+    if matches!(key, "public.search_enabled" | "public.fees_enabled" | "notify.auto_expiry") && !matches!(value, "true" | "false") {
         return Err(CoreError::validation(key, "true or false"));
     }
     if key == "finance.provider" && !matches!(value, "szamlazz" | "asp") {
