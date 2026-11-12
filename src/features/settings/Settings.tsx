@@ -18,7 +18,7 @@ import { SubscriptionTab } from "../account/Subscription";
 import { PrintButton } from "../prints/PrintButton";
 import { AuditTab } from "./AuditTab";
 
-type Tab = "operator" | "public" | "onlinePay" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "security" | "subscription" | "backup" | "audit" | "appearance" | "about";
+type Tab = "operator" | "public" | "onlinePay" | "cemeteries" | "plotTypes" | "fees" | "rules" | "users" | "security" | "subscription" | "backup" | "audit" | "about";
 
 /** Settings in groups, as a side menu on wide screens: the organisation and
  *  its cemeteries, colleagues, what residents see and pay, data, the program.
@@ -32,7 +32,7 @@ export function SettingsView({ tab }: { tab?: string }) {
     { key: "billing", tabs: can("manage_settings") ? ["subscription", "onlinePay"] : [] },
     { key: "residents", tabs: can("manage_settings") ? ["public"] : [] },
     { key: "data", tabs: ["backup"], link: can("import") || can("export") ? { label: t("nav.importExport"), go: () => nav.go({ view: "importExport" }) } : undefined },
-    { key: "program", tabs: ["appearance", "about"] },
+    { key: "program", tabs: ["about"] },
   ];
   const all = groups.flatMap((g) => g.tabs);
   const [current, setCurrent] = useState<Tab>(all.includes(tab as Tab) ? (tab as Tab) : "operator");
@@ -54,7 +54,11 @@ export function SettingsView({ tab }: { tab?: string }) {
                       type="button"
                       data-tour={`tab-${x}`}
                       aria-selected={current === x}
-                      onClick={() => setCurrent(x)}
+                      onClick={() => {
+                        setCurrent(x);
+                        // the new tab starts at its top
+                        document.querySelector("main")?.scrollTo({ top: 0 });
+                      }}
                       className={cx(
                         "min-h-10 border-l-3 px-3 text-left font-semibold",
                         current === x ? "border-moss bg-slab text-slate" : "border-transparent text-granite hover:bg-slab/60 hover:text-slate",
@@ -85,7 +89,6 @@ export function SettingsView({ tab }: { tab?: string }) {
           {current === "onlinePay" && <OnlinePayTab />}
           {current === "backup" && <BackupTab />}
           {current === "audit" && <AuditTab />}
-          {current === "appearance" && <AppearanceTab />}
           {current === "about" && <AboutTab />}
         </div>
       </div>
@@ -104,6 +107,7 @@ export function AccountView() {
         <SecurityPanel />
         <OwnPassword />
         <OrganizationsPanel />
+        <AppearancePanel />
       </div>
     </>
   );
@@ -825,31 +829,28 @@ function OwnPassword() {
   );
 }
 
-function AppearanceTab() {
+/** Theme and text size: each person's own choice, kept in this browser. */
+function AppearancePanel() {
   const { t } = useTranslation();
-  const { status, refresh } = useApp();
-  const theme = status?.settings["ui.theme"] ?? "light";
-  const zoom = Number(status?.settings["ui.zoom"] ?? 100);
-  const set = async (values: Record<string, string>) => {
-    await api("settings.set", { values }).catch(() => {
-      for (const [k, v] of Object.entries(values)) localStorage.setItem(k === "ui.theme" ? "lunda.theme" : "lunda.zoom", v);
-    });
-    await refresh();
-  };
+  const { theme, zoom, setAppearance } = useApp();
   return (
-    <Panel>
+    <Panel title={t("settings.tabs.appearance")}>
       <div className="flex max-w-xl flex-col gap-5">
-        <Field label={t("settings.theme")}>
+        <p className="text-sm text-granite">{t("settings.appearanceHint")}</p>
+        <div role="group" aria-labelledby="theme-label">
+          <p id="theme-label" className="mb-1.5 font-semibold">
+            {t("settings.theme")}
+          </p>
           <div className="flex gap-2">
             {["light", "dark"].map((x) => (
-              <Button key={x} variant={theme === x ? "primary" : "secondary"} onClick={() => set({ "ui.theme": x })}>
+              <Button key={x} variant={theme === x ? "primary" : "secondary"} aria-pressed={theme === x} onClick={() => setAppearance({ theme: x })}>
                 {x === "light" ? t("settings.themeLight") : t("settings.themeDark")}
               </Button>
             ))}
           </div>
-        </Field>
+        </div>
         <Field label={`${t("settings.zoom")}: ${zoom} %`}>
-          <Input type="range" min={90} max={150} step={10} value={zoom} onChange={(e) => set({ "ui.zoom": e.target.value })} />
+          <Input type="range" min={90} max={150} step={10} value={zoom} onChange={(e) => setAppearance({ zoom: Number(e.target.value) })} />
         </Field>
       </div>
     </Panel>

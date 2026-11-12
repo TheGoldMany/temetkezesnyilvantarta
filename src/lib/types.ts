@@ -101,7 +101,8 @@ export interface AccountInfo {
   lockedCemeteries?: string[];
   /** the nearest trial end of a cemetery (YYYY-MM-DD) */
   nextTrialEnd?: string | null;
-  hasDemo?: boolean;
+  /** the sample cemetery's demonstration ends (YYYY-MM-DD) */
+  demoEndsAt?: string | null;
   /** the guided tour was finished or skipped (any device) */
   tourSeen?: boolean;
 }
