@@ -7,6 +7,7 @@ import { TotpRequired } from "./features/account/Security";
 import { command, shell } from "./lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./app/toast";
+import { Analytics } from "@vercel/analytics/react";
 
 /** Pages load on first use: the sign-in page does not carry the whole program. */
 const Onboarding = lazy(() => import("./features/auth/Onboarding").then((m) => ({ default: m.Onboarding })));
@@ -106,43 +107,49 @@ export function App() {
   // an invited funeral office works only in the shared calendar
   if (status.session.role === "undertaker") {
     return (
-      <Suspense fallback={<Spinner />}>
-        <Shell>
-          <Suspense fallback={<Spinner />}>
-            <OperationsView />
-          </Suspense>
-        </Shell>
-      </Suspense>
+      <>
+        <Suspense fallback={<Spinner />}>
+          <Shell>
+            <Suspense fallback={<Spinner />}>
+              <OperationsView />
+            </Suspense>
+          </Shell>
+        </Suspense>
+        <Analytics />
+      </>
     );
   }
   return (
-    <Suspense fallback={<Spinner />}>
-      <Shell>
-        <Suspense fallback={<Spinner />}>
-          {r.view === "dashboard" && <Dashboard />}
-          {r.view === "burials" && <BurialsList />}
-          {r.view === "newBurial" && (
-            <NewBurial key={(r.plotId ?? "") + (r.eventType ?? "") + (r.bookingId ?? "")} plotId={r.plotId} eventType={r.eventType} bookingId={r.bookingId} />
-          )}
-          {r.view === "deceased" && <DeceasedView key={r.id} id={r.id} />}
-          {r.view === "plots" && <PlotsList sectionId={r.sectionId} />}
-          {r.view === "plot" && <PlotDetailView key={r.id} id={r.id} />}
-          {r.view === "map" && <MapView plotId={r.plotId} />}
-          {r.view === "persons" && <PersonsList />}
-          {r.view === "person" && <PersonView key={r.id} id={r.id} />}
-          {r.view === "expiries" && <Expiries />}
-          {r.view === "prints" && <Prints />}
-          {r.view === "reports" && <Reports />}
-          {r.view === "importExport" && <ImportExport />}
-          {r.view === "quickEntry" && <QuickEntry />}
-          {r.view === "settings" && (r.tab === "account" ? <AccountView /> : <SettingsView key={r.tab ?? ""} tab={r.tab} />)}
-          {r.view === "account" && <AccountView />}
-          {r.view === "platform" && <PlatformAdmin />}
-          {r.view === "finance" && <FinanceView key={r.tab ?? ""} tab={r.tab} />}
-          {r.view === "operations" && <OperationsView />}
-          {r.view === "help" && <Help />}
-        </Suspense>
-      </Shell>
-    </Suspense>
+    <>
+      <Suspense fallback={<Spinner />}>
+        <Shell>
+          <Suspense fallback={<Spinner />}>
+            {r.view === "dashboard" && <Dashboard />}
+            {r.view === "burials" && <BurialsList />}
+            {r.view === "newBurial" && (
+              <NewBurial key={(r.plotId ?? "") + (r.eventType ?? "") + (r.bookingId ?? "")} plotId={r.plotId} eventType={r.eventType} bookingId={r.bookingId} />
+            )}
+            {r.view === "deceased" && <DeceasedView key={r.id} id={r.id} />}
+            {r.view === "plots" && <PlotsList sectionId={r.sectionId} />}
+            {r.view === "plot" && <PlotDetailView key={r.id} id={r.id} />}
+            {r.view === "map" && <MapView plotId={r.plotId} />}
+            {r.view === "persons" && <PersonsList />}
+            {r.view === "person" && <PersonView key={r.id} id={r.id} />}
+            {r.view === "expiries" && <Expiries />}
+            {r.view === "prints" && <Prints />}
+            {r.view === "reports" && <Reports />}
+            {r.view === "importExport" && <ImportExport />}
+            {r.view === "quickEntry" && <QuickEntry />}
+            {r.view === "settings" && (r.tab === "account" ? <AccountView /> : <SettingsView key={r.tab ?? ""} tab={r.tab} />)}
+            {r.view === "account" && <AccountView />}
+            {r.view === "platform" && <PlatformAdmin />}
+            {r.view === "finance" && <FinanceView key={r.tab ?? ""} tab={r.tab} />}
+            {r.view === "operations" && <OperationsView />}
+            {r.view === "help" && <Help />}
+          </Suspense>
+        </Shell>
+      </Suspense>
+      <Analytics />
+    </>
   );
 }
