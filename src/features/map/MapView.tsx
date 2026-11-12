@@ -344,8 +344,8 @@ export function MapView({ plotId }: { plotId?: string }) {
           </Button>
         </div>
       )}
-      <div className="grid gap-4 xl:grid-cols-[1fr_20rem]">
-        <div className="flex flex-col gap-2">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <Button aria-label={t("map.zoomIn")} onClick={() => zoomAt(1.4)}>
               <Plus className="size-5" />

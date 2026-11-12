@@ -46,6 +46,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (11, include_str!("../migrations/0011_memberships.sql")),
     (12, include_str!("../migrations/0012_cemetery_subscriptions.sql")),
     (13, include_str!("../migrations/0013_demo_requests.sql")),
+    (14, include_str!("../migrations/0014_subscription_payments.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -531,22 +532,29 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 let session = if read_only { billing::read_only_session(&c.session) } else { c.session.clone() };
                 // a cemetery without a usable subscription can only be read
                 let reached = lunda_core::access::cemeteries_of(store, &method, a)?;
+                let limits = subscriptions::limits(store, &c.tenant_id)?;
                 if !billing::is_read_method(&method) && method != "sample.load" {
-                    let locked = subscriptions::locked_cemeteries(store, &c.tenant_id)?;
-                    if let Some(g) = reached.iter().find(|g| g.iter().all(|c| locked.contains(c))) {
+                    if let Some(g) = reached.iter().find(|g| g.iter().all(|c| limits.locked.contains(c))) {
                         return Err(CoreError::new("cemetery_locked", "this cemetery has no subscription").with("cemeteryId", &g[0]));
                     }
                 }
-                // in a trial no data leaves the program; prints carry a mark
+                // until the first payment no data leaves a cemetery; trial and demo prints carry a mark
                 let mut a = a.clone();
                 if matches!(method.as_str(), "export.file" | "print.document") {
-                    let trial = subscriptions::trial_cemeteries(&store.conn, &c.tenant_id)?;
-                    let in_trial = if reached.is_empty() { !trial.is_empty() } else { reached.iter().any(|g| g.iter().any(|c| trial.contains(c))) };
+                    // a call that names no cemetery covers the organisation: allowed once any cemetery is paid for
+                    let hits = |set: &Vec<String>| {
+                        if reached.is_empty() {
+                            !limits.any_paid && !set.is_empty()
+                        } else {
+                            reached.iter().any(|g| g.iter().all(|c| set.contains(c)))
+                        }
+                    };
+                    let unpaid = if reached.is_empty() { !limits.any_paid } else { hits(&limits.unpaid) };
                     let book = matches!(a["doc"].as_str().unwrap_or(""), "register" | "crypt_book" | "index" | "inspection");
-                    if in_trial && (method == "export.file" || book) {
-                        return Err(CoreError::new("trial_no_export", "no data export during the trial"));
+                    if unpaid && (method == "export.file" || book) {
+                        return Err(CoreError::new("trial_no_export", "no data export before the first payment"));
                     }
-                    if in_trial {
+                    if hits(&limits.marked) {
                         if let Some(inner) = a.get_mut("args").and_then(|x| x.as_object_mut()) {
                             inner.insert("watermark".into(), json!(true));
                         } else {
@@ -639,6 +647,12 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                             "iframe": format!("<iframe src=\"{base}/kereso?t={token}\" title=\"Sírkereső\" style=\"width:100%;min-height:480px;border:0\" loading=\"lazy\"></iframe>"),
                         }))
                     }
+                    // an archived cemetery's subscription ends: nothing more is charged
+                    "records.void" if a["entity"].as_str() == Some("cemetery") => {
+                        let v = call_api(store, &session, &method, a)?;
+                        subscriptions::cemetery_archived(&store.conn, &c.tenant_id, a["id"].as_str().unwrap_or(""))?;
+                        Ok(v)
+                    }
                     "cemeteries.save" => {
                         let v = call_api(store, &session, &method, a)?;
                         if let (Some(id), Some(name)) = (v["id"].as_str(), v["name"].as_str()) {
@@ -683,6 +697,7 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 let c = require(store, req)?;
                 accept_terms(store, &c, args, "subscribe")?;
                 match s("paymentMethod").as_str() {
+                    "card" if !subscriptions::card_enabled() => Err(CoreError::new("card_unavailable", "card subscriptions are not enabled")),
                     "card" => subscriptions::start_card(
                         store,
                         &c.session,
@@ -1139,8 +1154,8 @@ pub fn ensure_sample_account(store: &Store) -> Result<()> {
         .collect::<std::result::Result<_, _>>()?;
     for (id, name) in cems {
         store.conn.execute(
-            "INSERT INTO platform.cemetery_subscriptions (tenant_id, cemetery_id, cemetery_name, plan, payment_method, status, current_period_start, current_period_end)
-             VALUES (?1, ?2, ?3, 'yearly', 'transfer', 'active', CURRENT_DATE, CURRENT_DATE + 3650) ON CONFLICT DO NOTHING",
+            "INSERT INTO platform.cemetery_subscriptions (tenant_id, cemetery_id, cemetery_name, plan, payment_method, status, current_period_start, current_period_end, paid_at)
+             VALUES (?1, ?2, ?3, 'yearly', 'transfer', 'active', CURRENT_DATE, CURRENT_DATE + 3650, now()) ON CONFLICT DO NOTHING",
             params![tenant, id, name],
         )?;
     }

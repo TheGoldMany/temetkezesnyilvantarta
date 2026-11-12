@@ -21,7 +21,10 @@ interface CemeterySub {
   trialEndsAt?: string | null;
   periodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
-  trialLike: boolean;
+  /** the first payment arrived (exports allowed) */
+  paid: boolean;
+  /** a proforma of the cemetery waits for payment */
+  openProforma?: boolean;
 }
 interface Overview {
   cardPayments: boolean;
@@ -30,7 +33,12 @@ interface Overview {
   details: { name: string; taxNumber: string; postcode: string; city: string; address: string; email: string } | null;
   cemeteries: CemeterySub[];
   trialDays: number;
+  demoDays: number;
   verifyHuf: number;
+  /** card subscriptions (token payments) are enabled at Barion */
+  cardSubscriptions: boolean;
+  /** an earlier free period ended unpaid: no second one */
+  trialUsed: boolean;
   invoices: { id: string; kind: "proforma" | "invoice"; number: string; description: string; grossHuf: number; date: string; dueDate: string | null; status: string; hasPdf: boolean }[];
 }
 
@@ -120,7 +128,7 @@ export function SubscriptionTab() {
                       <p className={cx("text-sm", ["none", "lapsed", "past_due"].includes(c.status) ? "font-semibold text-alert" : "text-granite")}>{subText(t, c)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {["none", "lapsed", "pending_card", "demo"].includes(c.status) && open !== c.cemeteryId && (
+                      {["none", "lapsed", "demo"].includes(c.status) && !(c.status === "lapsed" && c.openProforma) && open !== c.cemeteryId && (
                         <Button variant="primary" onClick={() => setOpen(c.cemeteryId)}>
                           {t("billing.subscribeCemetery")}
                         </Button>
@@ -215,20 +223,19 @@ function subText(t: (k: string, o?: Record<string, unknown>) => string, c: Cemet
   switch (c.status) {
     case "none":
       return t("billing.sub.none");
-    case "pending_card":
-      return t("billing.sub.pendingCard");
     case "trial":
       return c.method === "card" ? t("billing.sub.trialCard", { date: c.trialEndsAt, per }) : t("billing.sub.trialOld", { date: c.trialEndsAt });
     case "active":
-      return c.method === "card" ? t("billing.sub.activeCard", { date: c.periodEnd, per }) : t("billing.sub.activeTransfer", { date: c.periodEnd });
+      if (c.method === "card") return t("billing.sub.activeCard", { date: c.periodEnd, per });
+      return c.paid ? t("billing.sub.activeTransfer", { date: c.periodEnd }) : t("billing.sub.awaitingTransfer");
     case "past_due":
       return t("billing.sub.pastDue");
     case "canceled":
       return t("billing.sub.canceled", { date: c.periodEnd ?? c.trialEndsAt });
     case "demo":
-      return t("billing.sub.demo");
+      return t("billing.sub.demo", { date: c.trialEndsAt });
     default:
-      return t("billing.sub.lapsed");
+      return c.openProforma ? t("billing.sub.prepay") : t("billing.sub.lapsed");
   }
 }
 
@@ -271,11 +278,12 @@ function CancelButton({ cemeteryId, resume, onDone }: { cemeteryId: string; resu
 function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery: CemeterySub; onClose: () => void; onDone: () => Promise<void> }) {
   const { t } = useTranslation();
   const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
-  const [method, setMethod] = useState<"card" | "transfer">(o.cardPayments ? "card" : "transfer");
+  const [method, setMethod] = useState<"card" | "transfer">(o.cardSubscriptions ? "card" : "transfer");
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const trialUsed = cemetery.status === "lapsed" || cemetery.status === "pending_card";
+  // a free period only once: not after this cemetery's trial, nor after an unpaid one elsewhere
+  const trialUsed = o.trialUsed || (cemetery.status === "lapsed" && !!cemetery.trialEndsAt && cemetery.method !== "demo");
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-seam bg-limestone/50 p-4" data-testid="subscribe-form">
       <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={t("billing.chooseTitle")}>
@@ -299,7 +307,7 @@ function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 font-semibold">{t("billing.paymentMethod")}</legend>
-        {o.cardPayments && (
+        {o.cardSubscriptions && (
           <label className="flex items-start gap-3">
             <input type="radio" name="method" className="mt-1 size-4 accent-[var(--c-moss)]" checked={method === "card"} onChange={() => setMethod("card")} />
             <span>
@@ -318,7 +326,7 @@ function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery
               <Landmark className="size-4" aria-hidden />
               {t("billing.method.transfer")}
             </span>
-            <span className="block text-sm text-granite">{t("billing.transferHint")}</span>
+            <span className="block text-sm text-granite">{o.trialUsed ? t("billing.transferHintPrepay") : t("billing.transferHint")}</span>
           </span>
         </label>
       </fieldset>

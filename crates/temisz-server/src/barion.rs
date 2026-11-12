@@ -182,18 +182,17 @@ pub fn refresh(store: &Store, payment_id: &str) -> Result<String> {
         return crate::resident_pay::settle(store, &tenant, payment_id, &invoice_id, gross);
     }
     if kind == "card_check" {
-        let cem: String =
-            conn.query_row("SELECT coalesce(cemetery_id, '') FROM platform.card_payments WHERE payment_id = ?1", params![payment_id], |r| r.get(0))?;
         let schema: String = conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", params![tenant], |r| r.get(0))?;
         conn.use_schema(&schema)?;
-        return crate::subscriptions::settle_card_check(store, &tenant, payment_id, &cem);
+        return crate::subscriptions::settle_card_check(store, &tenant, payment_id);
     }
     if kind == "renewal" {
-        // charged with the saved card: the daily job already recorded the outcome
-        let cfg = config().ok_or_else(unavailable)?;
-        let (state, _, _) = payment_state(&cfg, payment_id)?;
-        conn.execute("UPDATE platform.card_payments SET status = ?2, updated_at = now() WHERE payment_id = ?1", params![payment_id, state])?;
-        return Ok(state);
+        // a charge with the saved card that Barion decided later: settled once
+        return Ok(match crate::subscriptions::settle_renewal(store, payment_id, None)? {
+            crate::subscriptions::Charge::Paid => "Succeeded".into(),
+            crate::subscriptions::Charge::Failed => "Failed".into(),
+            crate::subscriptions::Charge::Pending => "InProgress".into(),
+        });
     }
     let cfg = config().ok_or_else(unavailable)?;
     let (state, total, ok) = payment_state(&cfg, payment_id)?;

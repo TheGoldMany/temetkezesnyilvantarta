@@ -203,17 +203,28 @@ pub fn account_status(store: &Store, acc: &AccountRow, mfa_setup: bool) -> Resul
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
     let tour_seen: bool = store.conn.query_row("SELECT tour_seen_at IS NOT NULL FROM platform.accounts WHERE id = ?1", params![acc.id], |r| r.get(0))?;
-    let orgs: Vec<Value> =
-        memberships(&store.conn, &acc.email)?.into_iter().map(|m| json!({ "accountId": m.id, "name": m.organization, "current": m.id == acc.id })).collect();
+    // organisations where the person was deactivated are left out
+    let orgs: Vec<Value> = memberships(&store.conn, &acc.email)?
+        .into_iter()
+        .filter(|m| {
+            m.id == acc.id
+                || store
+                    .conn
+                    .query_row(&format!("SELECT active FROM \"{}\".users WHERE id = ?1", m.schema), params![m.user_id], |r| r.get::<_, bool>(0))
+                    .unwrap_or(false)
+        })
+        .map(|m| json!({ "accountId": m.id, "name": m.organization, "current": m.id == acc.id }))
+        .collect();
     // cemeteries without a usable subscription, and the nearest trial end
     let locked = crate::subscriptions::locked_cemeteries(store, &acc.tenant_id).unwrap_or_default();
     let subs = crate::subscriptions::list(&store.conn, &acc.tenant_id).unwrap_or_default();
-    let trial_end = subs.iter().filter(|x| x.status == "trial").filter_map(|x| x.trial_ends.clone()).min();
-    let demo = subs.iter().any(|x| x.status == "demo");
+    let live = |x: &&crate::subscriptions::CemSub| crate::subscriptions::usable(x);
+    let trial_end = subs.iter().filter(live).filter(|x| x.status == "trial").filter_map(|x| x.trial_ends.clone()).min();
+    let demo_end = subs.iter().filter(live).filter(|x| x.status == "demo").filter_map(|x| x.trial_ends.clone()).min();
     Ok(json!({
         "lockedCemeteries": locked,
         "nextTrialEnd": trial_end,
-        "hasDemo": demo,
+        "demoEndsAt": demo_end,
         "organizations": orgs,
         "tourSeen": tour_seen,
         "email": acc.email,
@@ -442,8 +453,12 @@ pub fn security_event(conn: &Connection, req: &Request, email: &str, kind: &str)
     let email = email.trim().to_lowercase();
     let ua: String = req.header("user-agent").unwrap_or("").chars().take(300).collect();
     let _ = conn.execute(
+        // one row, for the organisation the person used last (a person may belong
+        // to several: the others' administrators do not see this sign-in)
         "INSERT INTO platform.security_log (tenant_id, account_id, email, kind, ip, user_agent)
-         SELECT a.tenant_id, a.id, ?1, ?2, ?3, ?4 FROM (SELECT 1) one LEFT JOIN platform.accounts a ON lower(a.email) = ?1",
+         SELECT a.tenant_id, a.id, ?1, ?2, ?3, ?4 FROM (SELECT 1) one
+         LEFT JOIN LATERAL (SELECT tenant_id, id FROM platform.accounts WHERE lower(email) = ?1
+                            ORDER BY last_used_at DESC NULLS LAST, created_at LIMIT 1) a ON true",
         params![email.chars().take(254).collect::<String>(), kind, req.ip, ua],
     );
     let _ = conn.execute("DELETE FROM platform.security_log WHERE at < now() - interval '1 year'", []);

@@ -80,7 +80,8 @@ function useCardPaymentReturn() {
         await qc.invalidateQueries({ queryKey: ["billing"] });
         await refresh();
         if (state === "Succeeded") toast(check ? t("billing.cardChecked") : t("billing.cardPaid"));
-        else if (["Canceled", "Failed", "Expired", "Rejected"].includes(state)) toast(t("billing.cardFailed"), "error");
+        else if (state === "ChargeFailed") toast(t("billing.cardChargeFailed"), "error");
+        else if (["Canceled", "Failed", "Expired", "Rejected"].includes(state)) toast(check ? t("billing.cardCheckFailed") : t("billing.cardFailed"), "error");
         else toast(t("billing.cardPending"));
       },
       () => toast(t("billing.cardFailed"), "error"),

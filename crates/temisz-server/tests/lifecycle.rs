@@ -264,9 +264,16 @@ fn daily_job_sends_expiry_reminders() {
     assert_eq!(count("expiry_reminder"), 1);
 }
 
+fn use_tenant(store: &Store, tenant: &str) {
+    let schema: String = store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
+    store.conn.use_schema(&schema).unwrap();
+}
+
 /// Transfer: no trial, a proforma at once, the cemetery works while it is
-/// open; unpaid after the grace period it is locked, and ordering again does
-/// not reopen it; the transfer opens it.
+/// open but nothing can be exported until it is paid; unpaid after the grace
+/// period it is locked, and ordering again does not reopen it. An order
+/// cancelled without paying ends at once, and the next order works only
+/// after payment.
 #[test]
 fn transfer_subscription_and_unpaid_proformas() {
     // the daily job works on every customer: one test at a time
@@ -275,54 +282,101 @@ fn transfer_subscription_and_unpaid_proformas() {
     let store = platform();
     let (tenant, email) = new_customer(&store, "sub");
     let (cem, s) = cemetery_of(&store, &email, "Előfizetői temető");
+    let daily = || {
+        subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
+        use_tenant(&store, &tenant);
+    };
+    let open_proforma = |cem: &str| -> String {
+        store
+            .conn
+            .query_row(
+                "SELECT id FROM platform.invoices WHERE tenant_id = ?1 AND cemetery_id = ?2 AND kind = 'proforma' AND status = 'open'",
+                lunda_core::params![tenant, cem],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
     // without a subscription the cemetery can only be read
     assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
     assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap_err().code, "billing_details_missing");
     details(&store, &tenant, &email);
     subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap();
-    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
-    assert!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap().is_empty(), "no trial with a transfer");
+    let l = subscriptions::limits(&store, &tenant).unwrap();
+    assert!(l.locked.is_empty(), "works while the proforma is open");
+    assert_eq!(l.unpaid, vec![cem.clone()], "no export before the first payment");
+    assert!(l.marked.is_empty() && !l.any_paid, "an order is not a trial: prints are not marked");
     assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "yearly").unwrap_err().code, "already_subscribed");
     // not paid in time: locked
     store
         .conn
         .execute("UPDATE platform.invoices SET due_date = CURRENT_DATE - 30 WHERE tenant_id = ?1 AND kind = 'proforma'", lunda_core::params![tenant])
         .unwrap();
-    subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
-    store
-        .conn
-        .use_schema(
-            &store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get::<_, String>(0)).unwrap(),
-        )
-        .unwrap();
+    daily();
     assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
     // ordering again does not reopen it
     assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &cem, "monthly").unwrap_err().code, "unpaid_proforma");
-    // the transfer arrives: final invoice, writable again
-    let proforma: String = store
-        .conn
-        .query_row("SELECT id FROM platform.invoices WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'", lunda_core::params![tenant], |r| r.get(0))
-        .unwrap();
+    // the transfer arrives: final invoice, writable again, exports allowed
+    let proforma = open_proforma(&cem);
     billing::mark_paid(&store.conn, &proforma).unwrap();
-    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    let l = subscriptions::limits(&store, &tenant).unwrap();
+    assert!(l.locked.is_empty() && l.unpaid.is_empty() && l.any_paid);
     let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
     assert_eq!(sub.status, "active");
-    assert!(sub.period_end > sub.period_start);
+    assert!(sub.paid && sub.period_end > sub.period_start);
     // paying twice is refused
     assert_eq!(billing::mark_paid(&store.conn, &proforma).unwrap_err().code, "invoice_not_open");
+    // cancelled: works until the paid period ends, and the cancellation can be undone
+    subscriptions::cancel(&store, &s, &tenant, &cem, false).unwrap();
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    subscriptions::cancel(&store, &s, &tenant, &cem, true).unwrap();
+    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "active");
+
+    // a second cemetery: ordered, used, cancelled without paying
+    let c2 = api::dispatch(&store, &s, "cemeteries.save", &json!({ "cemetery": { "name": "Második temető" } })).unwrap()["id"].as_str().unwrap().to_string();
+    assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &c2, "monthly").unwrap()["prepay"], false);
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    subscriptions::cancel(&store, &s, &tenant, &c2, false).unwrap();
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![c2.clone()], "an unpaid order ends at once");
+    // the next order is not another free period: it works only once it is paid
+    assert_eq!(subscriptions::start_transfer(&store, &s, &tenant, &c2, "monthly").unwrap()["prepay"], true);
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![c2.clone()]);
+    daily();
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![c2.clone()]);
+    billing::mark_paid(&store.conn, &open_proforma(&c2)).unwrap();
+    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
+    // an archived cemetery's subscription ends, its open proforma is void
+    let c3 = api::dispatch(&store, &s, "cemeteries.save", &json!({ "cemetery": { "name": "Harmadik temető" } })).unwrap()["id"].as_str().unwrap().to_string();
+    subscriptions::start_transfer(&store, &s, &tenant, &c3, "monthly").unwrap();
+    api::dispatch(&store, &s, "records.void", &json!({ "entity": "cemetery", "id": c3, "reason": "tévesen felvéve" })).unwrap();
+    subscriptions::cemetery_archived(&store.conn, &tenant, &c3).unwrap();
+    assert_eq!(subscriptions::get(&store.conn, &tenant, &c3).unwrap().unwrap().status, "lapsed");
+    let open: i64 = store
+        .conn
+        .query_row("SELECT count(*) FROM platform.invoices WHERE cemetery_id = ?1 AND status = 'open'", lunda_core::params![c3], |r| r.get(0))
+        .unwrap();
+    assert_eq!(open, 0);
 }
 
-/// The sample cemetery is a free demonstration: writable, but in "trial"
-/// (no export); older accounts' cemeteries came over in the migration.
+/// The sample cemetery is a free demonstration for 30 days: writable, prints
+/// marked, no export; then read only.
 #[test]
 fn sample_cemetery_is_a_demo() {
+    let _serial = BARION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     use temisz_server::subscriptions;
     let store = platform();
     let (tenant, email) = new_customer(&store, "demo");
     let (cem, _) = cemetery_of(&store, &email, "Minta temető");
     subscriptions::register_demo(&store.conn, &tenant, &cem, "Minta temető").unwrap();
-    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
-    assert_eq!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap(), vec![cem]);
+    let l = subscriptions::limits(&store, &tenant).unwrap();
+    assert!(l.locked.is_empty());
+    assert_eq!((l.unpaid, l.marked), (vec![cem.clone()], vec![cem.clone()]));
+    store
+        .conn
+        .execute("UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE cemetery_id = ?1", lunda_core::params![cem])
+        .unwrap();
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
+    subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
+    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "lapsed");
     assert!(temisz_server::billing::is_read_method("plots.list") && temisz_server::billing::is_read_method("export.file"));
     assert!(!temisz_server::billing::is_read_method("burial.record") && !temisz_server::billing::is_read_method("users.create"));
 }
@@ -719,25 +773,36 @@ fn older_tenant_is_migrated_when_opened() {
 
 /// Card subscription against a stand-in Barion: the card check reserves a
 /// small amount and releases it, the trial runs 15 days with no export,
-/// then the saved card is charged (final invoice, period); a failed charge
-/// is retried, and a cancelled subscription is not charged again.
+/// then the saved card is charged (final invoice, period). A failed charge
+/// is retried; a charge Barion decides later is settled once, never charged
+/// twice; a cancelled subscription is not charged again. An unfinished card
+/// check leaves a working cemetery alone, and a trial that ended unpaid is
+/// not followed by another free period.
 #[test]
 fn card_subscription_trial_then_automatic_charges() {
     let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     use std::sync::{Arc, Mutex};
-    use temisz_server::{barion, subscriptions};
-    #[derive(Default)]
+    use temisz_server::{barion, billing, subscriptions};
     struct Mock {
         check_status: String,
-        finished_with: Option<i64>,
+        finished_with: Vec<i64>,
         charges: Vec<i64>,
-        charge_ok: bool,
-        recurrence: String,
+        start_status: String,
+        renew_state: String,
+        cards: Vec<String>,
     }
     let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
     let port = server.server_addr().to_ip().unwrap().port();
-    let mock = Arc::new(Mutex::new(Mock { check_status: "Prepared".into(), charge_ok: true, ..Default::default() }));
+    let mock = Arc::new(Mutex::new(Mock {
+        check_status: "Prepared".into(),
+        finished_with: vec![],
+        charges: vec![],
+        start_status: "Succeeded".into(),
+        renew_state: "InProgress".into(),
+        cards: vec![],
+    }));
     let run = lunda_core::util::new_id().replace('-', "");
+    let fee = billing::gross(billing::MONTHLY_NET);
     {
         let mock = mock.clone();
         let run = run.clone();
@@ -749,24 +814,28 @@ fn card_subscription_trial_then_automatic_charges() {
                 let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
                 let mut m = mock.lock().unwrap();
                 let url = rq.url().to_string();
+                n += 1;
                 let answer = if url.starts_with("/v2/Payment/Start") && v["InitiateRecurrence"] == true {
                     assert_eq!(v["PaymentType"], "Reservation");
-                    m.recurrence = v["RecurrenceId"].as_str().unwrap().to_string();
-                    json!({ "PaymentId": format!("{run}c"), "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=c", "Errors": [] })
+                    m.cards.push(v["RecurrenceId"].as_str().unwrap().to_string());
+                    json!({ "PaymentId": format!("{run}-c0c0-{n}"), "Status": "Prepared", "GatewayUrl": "https://secure.test.barion.com/Pay?id=c", "Errors": [] })
                 } else if url.starts_with("/v2/Payment/Start") {
-                    n += 1;
-                    if v["RecurrenceId"].as_str() == Some(m.recurrence.as_str()) {
+                    if m.cards.iter().any(|c| Some(c.as_str()) == v["RecurrenceId"].as_str()) {
                         let total = v["Transactions"][0]["Total"].as_i64().unwrap();
                         m.charges.push(total);
                     }
-                    let st = if m.charge_ok { "Succeeded" } else { "Failed" };
-                    json!({ "PaymentId": format!("{run}r{n}"), "Status": st, "Errors": [] })
+                    json!({ "PaymentId": format!("{run}-a0a0-{n}"), "Status": m.start_status, "Errors": [] })
                 } else if url.starts_with("/v2/Payment/FinishReservation") {
-                    m.finished_with = v["Transactions"][0]["Total"].as_i64();
+                    m.finished_with.push(v["Transactions"][0]["Total"].as_i64().unwrap());
                     json!({ "Status": "Succeeded", "Errors": [] })
                 } else {
-                    json!({ "PaymentId": format!("{run}c"), "Status": m.check_status, "Total": 100, "Currency": "HUF", "TraceId": "TRACE-1",
-                            "Transactions": [{ "TransactionId": "T1", "POSTransactionId": "check-x", "Total": 100 }], "Errors": [] })
+                    let pid = url.trim_start_matches("/v4/payment/").split('/').next().unwrap_or("").to_string();
+                    if pid.contains("-c0c0-") {
+                        json!({ "PaymentId": pid, "Status": m.check_status, "Total": 100, "Currency": "HUF", "TraceId": "TRACE-1",
+                                "Transactions": [{ "TransactionId": "T1", "POSTransactionId": "check-x", "Total": 100 }], "Errors": [] })
+                    } else {
+                        json!({ "PaymentId": pid, "Status": m.renew_state, "Total": 57150, "Currency": "HUF", "Errors": [] })
+                    }
                 };
                 let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
             }
@@ -782,71 +851,134 @@ fn card_subscription_trial_then_automatic_charges() {
     let (tenant, email) = new_customer(&store, "cardsub");
     let (cem, s) = cemetery_of(&store, &email, "Kártyás temető");
     details(&store, &tenant, &email);
-    // the daily job goes through every customer: back to ours after it
-    let schema: String = store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", lunda_core::params![tenant], |r| r.get(0)).unwrap();
     let daily = || {
         subscriptions::daily(&store, "https://www.temisz.hu/app").unwrap();
-        store.conn.use_schema(&schema).unwrap();
+        use_tenant(&store, &tenant);
     };
-    let started = subscriptions::start_card(&store, &s, &tenant, &cem, "monthly", "https://www.temisz.hu/app", "https://www.temisz.hu").unwrap();
-    assert!(started["gatewayUrl"].as_str().unwrap().starts_with("https://"));
-    let pid = started["paymentId"].as_str().unwrap().to_string();
-    // the check is not finished yet: the cemetery stays locked
-    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
+    let sub = |c: &str| subscriptions::get(&store.conn, &tenant, c).unwrap();
+    let start = |c: &str| -> String {
+        let v = subscriptions::start_card(&store, &s, &tenant, c, "monthly", "https://www.temisz.hu/app", "https://www.temisz.hu").unwrap();
+        assert!(v["gatewayUrl"].as_str().unwrap().starts_with("https://"));
+        v["paymentId"].as_str().unwrap().to_string()
+    };
+    let end_period_today = |c: &str| {
+        store
+            .conn
+            .execute("UPDATE platform.cemetery_subscriptions SET current_period_end = CURRENT_DATE WHERE cemetery_id = ?1", lunda_core::params![c])
+            .unwrap();
+    };
+    let end_trial = |c: &str| {
+        store
+            .conn
+            .execute("UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE cemetery_id = ?1", lunda_core::params![c])
+            .unwrap();
+    };
+    // offered only once Barion enabled token payments for the shop
+    std::env::remove_var("BARION_RECURRING");
+    assert_eq!(subscriptions::start_card(&store, &s, &tenant, &cem, "monthly", "https://x/app", "https://x").unwrap_err().code, "card_unavailable");
+    std::env::set_var("BARION_RECURRING", "1");
+
+    let pid = start(&cem);
+    // the check is not finished yet: nothing changed
     assert_eq!(barion::refresh(&store, &pid).unwrap(), "Prepared");
+    assert!(sub(&cem).is_none());
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
     // reserved: released at once (0 Ft), the trial starts
     mock.lock().unwrap().check_status = "Reserved".into();
     assert_eq!(barion::refresh(&store, &pid).unwrap(), "Succeeded");
-    assert_eq!(mock.lock().unwrap().finished_with, Some(0), "nothing is charged by the check");
-    let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
-    assert_eq!(sub.status, "trial");
-    assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
-    assert_eq!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap(), vec![cem.clone()], "no export in the trial");
+    assert_eq!(mock.lock().unwrap().finished_with, vec![0], "nothing is charged by the check");
+    assert_eq!(sub(&cem).unwrap().status, "trial");
+    let l = subscriptions::limits(&store, &tenant).unwrap();
+    assert!(l.locked.is_empty());
+    assert_eq!((l.unpaid, l.marked), (vec![cem.clone()], vec![cem.clone()]), "trial: no export, marked prints");
     // a second callback changes nothing
     barion::refresh(&store, &pid).unwrap();
     assert!(mock.lock().unwrap().charges.is_empty());
     // the trial ends: the period fee is charged with the saved card
-    store
-        .conn
-        .execute("UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE cemetery_id = ?1", lunda_core::params![cem])
-        .unwrap();
+    end_trial(&cem);
     daily();
-    assert_eq!(mock.lock().unwrap().charges, vec![temisz_server::billing::gross(temisz_server::billing::MONTHLY_NET)]);
-    let sub = subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap();
-    assert_eq!(sub.status, "active");
-    assert!(sub.period_end.is_some());
-    let invoices: i64 = store
-        .conn
-        .query_row(
-            "SELECT count(*) FROM platform.invoices WHERE cemetery_id = ?1 AND kind = 'invoice' AND payment_method = 'card'",
-            lunda_core::params![cem],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(invoices, 1);
-    assert!(subscriptions::trial_cemeteries(&store.conn, &tenant).unwrap().is_empty(), "paid: export allowed");
+    assert_eq!(mock.lock().unwrap().charges, vec![fee]);
+    let paid = sub(&cem).unwrap();
+    assert_eq!(paid.status, "active");
+    assert!(paid.paid && paid.period_end.is_some());
+    let invoices = |c: &str| -> i64 {
+        store
+            .conn
+            .query_row(
+                "SELECT count(*) FROM platform.invoices WHERE cemetery_id = ?1 AND kind = 'invoice' AND payment_method = 'card'",
+                lunda_core::params![c],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(invoices(&cem), 1);
+    assert!(subscriptions::limits(&store, &tenant).unwrap().unpaid.is_empty(), "paid: export allowed");
     // the next period: the card is refused, retried the next day, stays writable meanwhile
-    mock.lock().unwrap().charge_ok = false;
-    store
-        .conn
-        .execute("UPDATE platform.cemetery_subscriptions SET current_period_end = CURRENT_DATE WHERE cemetery_id = ?1", lunda_core::params![cem])
-        .unwrap();
+    mock.lock().unwrap().start_status = "Failed".into();
+    end_period_today(&cem);
     daily();
-    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "past_due");
+    assert_eq!(sub(&cem).unwrap().status, "past_due");
     assert!(subscriptions::locked_cemeteries(&store, &tenant).unwrap().is_empty());
-    mock.lock().unwrap().charge_ok = true;
+    mock.lock().unwrap().start_status = "Succeeded".into();
     daily();
-    assert_eq!(subscriptions::get(&store.conn, &tenant, &cem).unwrap().unwrap().status, "active");
+    assert_eq!(sub(&cem).unwrap().status, "active");
+    assert_eq!(invoices(&cem), 2);
+    // Barion does not decide at once: nothing is charged again while it is pending …
+    mock.lock().unwrap().start_status = "InProgress".into();
+    end_period_today(&cem);
+    daily();
+    let started = mock.lock().unwrap().charges.len();
+    daily();
+    daily();
+    assert_eq!(mock.lock().unwrap().charges.len(), started, "a pending charge is not repeated");
+    assert_eq!(invoices(&cem), 2);
+    // … and when it succeeds later, it is settled once
+    mock.lock().unwrap().renew_state = "Succeeded".into();
+    daily();
+    daily();
+    assert_eq!(mock.lock().unwrap().charges.len(), started);
+    assert_eq!(invoices(&cem), 3);
+    assert_eq!(sub(&cem).unwrap().status, "active");
+    mock.lock().unwrap().start_status = "Succeeded".into();
     // cancelled: nothing more is charged, locked after the paid period
     let charges = mock.lock().unwrap().charges.len();
     subscriptions::cancel(&store, &s, &tenant, &cem, false).unwrap();
-    store
-        .conn
-        .execute("UPDATE platform.cemetery_subscriptions SET current_period_end = CURRENT_DATE WHERE cemetery_id = ?1", lunda_core::params![cem])
-        .unwrap();
+    end_period_today(&cem);
     daily();
     assert_eq!(mock.lock().unwrap().charges.len(), charges);
-    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem]);
+    assert_eq!(subscriptions::locked_cemeteries(&store, &tenant).unwrap(), vec![cem.clone()]);
+
+    // an unfinished card check leaves a working cemetery as it was
+    let c2 = api::dispatch(&store, &s, "cemeteries.save", &json!({ "cemetery": { "name": "Minta temető" } })).unwrap()["id"].as_str().unwrap().to_string();
+    subscriptions::register_demo(&store.conn, &tenant, &c2, "Minta temető").unwrap();
+    mock.lock().unwrap().check_status = "Prepared".into();
+    let pid2 = start(&c2);
+    barion::refresh(&store, &pid2).unwrap();
+    assert_eq!(sub(&c2).unwrap().status, "demo");
+    assert!(!subscriptions::locked_cemeteries(&store, &tenant).unwrap().contains(&c2));
+    // finished: the sample cemetery becomes a card subscription with its own trial
+    mock.lock().unwrap().check_status = "Reserved".into();
+    barion::refresh(&store, &pid2).unwrap();
+    assert_eq!(sub(&c2).unwrap().status, "trial");
+    // that trial is cancelled and runs out unpaid …
+    subscriptions::cancel(&store, &s, &tenant, &c2, false).unwrap();
+    end_trial(&c2);
+    daily();
+    assert_eq!(sub(&c2).unwrap().status, "lapsed");
+    // … so a new cemetery gets no second free period: the card is charged at once
+    let c3 = api::dispatch(&store, &s, "cemeteries.save", &json!({ "cemetery": { "name": "Új temető" } })).unwrap()["id"].as_str().unwrap().to_string();
+    let before = mock.lock().unwrap().charges.len();
+    mock.lock().unwrap().start_status = "Failed".into();
+    let pid3 = start(&c3);
+    assert_eq!(barion::refresh(&store, &pid3).unwrap(), "ChargeFailed");
+    assert_eq!(sub(&c3).unwrap().status, "lapsed", "no payment, no use");
+    mock.lock().unwrap().start_status = "Succeeded".into();
+    let pid4 = start(&c3);
+    assert_eq!(barion::refresh(&store, &pid4).unwrap(), "Succeeded");
+    let s3 = sub(&c3).unwrap();
+    assert_eq!((s3.status.as_str(), s3.paid, s3.trial_ends.is_none()), ("active", true, true));
+    assert_eq!(mock.lock().unwrap().charges.len(), before + 2);
+    std::env::remove_var("BARION_RECURRING");
 }
 
 /// temisz.hu/bemutato: an uploaded table is kept encrypted, only the admin

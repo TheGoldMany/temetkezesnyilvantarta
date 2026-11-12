@@ -55,9 +55,18 @@ const SECTION_OF: Partial<Record<Route["view"], Route["view"]>> = {
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { status, nav, setStatus, can } = useApp();
+  const { status, nav, setStatus, has: can, cemeteryId } = useApp();
   const active = SECTION_OF[nav.route.view] ?? nav.route.view;
   const { current, list, setCemeteryId } = useCurrentCemetery();
+  const mainRef = useRef<HTMLElement>(null);
+  // every page starts at its top (the page scrolls inside <main>)
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [nav.route]);
+  // the cemetery shown (the first one by default) is the one the whole app works in
+  useEffect(() => {
+    if (current && current.id !== cemeteryId) setCemeteryId(current.id);
+  }, [current, cemeteryId, setCemeteryId]);
 
   // keep the backend session alive while the user works; idle timeout is enforced in Rust
   useEffect(() => {
@@ -186,7 +195,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
       </header>
       <AccountBanners />
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
+      <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
         <div className="mx-auto max-w-[1320px]">{children}</div>
         <Tour />
       </main>

@@ -28,9 +28,12 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   const org = `Kisrét Község ${Date.now() % 1000000}`;
   await registerAndStart(page, email, `${org} Önkormányzata`);
 
+  // the empty organisation is led through its first steps
+  const first = page.getByTestId("first-steps");
+  await expect(first).toContainText("Első lépések");
+  await expect(page.getByRole("button", { name: "Új temetés rögzítése" })).toHaveCount(0);
+  await first.getByRole("button", { name: "Temető létrehozása" }).click();
   // a new cemetery needs its own subscription: until then it can only be read
-  await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
-  await page.getByRole("tab", { name: "Temetők és parcellák" }).click();
   await page.getByRole("button", { name: "Új temető" }).click();
   await expect(page.getByText(/Minden temetőnek saját előfizetése van/)).toBeVisible();
   await page.getByLabel(/Temető neve/).fill("Kisréti köztemető");
@@ -63,8 +66,9 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   await expect(page.getByTestId("invoices")).toContainText("571");
   const proforma = await lastMail(page, email, "proforma");
   expect(proforma.body).toContain("Fizetési határidő");
-  // a transfer subscription has no trial: export works
-  expect((await rpc(page, "api", { method: "export.file", args: { kind: "full", format: "xlsx" } })).err?.code).not.toBe("trial_no_export");
+  // usable at once, but nothing can be exported before the payment arrives
+  await expect(subs).toContainText("a befizetésre várunk");
+  expect((await rpc(page, "api", { method: "export.file", args: { kind: "full", format: "xlsx" } })).err.code).toBe("trial_no_export");
 
   // the TEMISZ operator matches the transfer
   const admin = await (await browser.newContext()).newPage();
@@ -82,7 +86,10 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
   await page.getByRole("tab", { name: "Előfizetés" }).click();
   await expect(page.getByTestId("invoices")).toContainText("Számla");
+  await expect(page.getByTestId("cemetery-subs")).toContainText(/Előfizetve .* átutalással/);
   expect((await lastMail(page, email, "invoice")).subject).toContain("TEMISZ számla");
+  // paid: the data can be exported
+  expect((await rpc(page, "api", { method: "export.file", args: { kind: "full", format: "xlsx" } })).ok.fileName).toContain(".xlsx");
 });
 
 test("mintatemető: ingyenes, de export nélkül, vízjeles nyomtatással", async ({ page }) => {

@@ -157,7 +157,10 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
         "details": details,
         "cemeteries": subs["cemeteries"],
         "trialDays": subs["trialDays"],
+        "demoDays": subs["demoDays"],
         "verifyHuf": subs["verifyHuf"],
+        "cardSubscriptions": subs["cardSubscriptions"],
+        "trialUsed": subs["trialUsed"],
         "invoices": invoices,
     }))
 }

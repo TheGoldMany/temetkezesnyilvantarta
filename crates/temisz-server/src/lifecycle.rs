@@ -1,7 +1,7 @@
-//! Account lifecycle (W4): closing on request, deletion after 30 days,
-//! trial accounts never paid warned at 60 and removed at 90 days of being
-//! read-only (customers who have paid before are never deleted automatically:
-//! the platform admin decides), daily encrypted exports.
+//! Account lifecycle (W4): closing on request, deletion after 30 days;
+//! organisations that never paid and that nobody signed in to for 150 days
+//! are warned and removed at 180 days (customers who have paid before are
+//! never deleted automatically), daily encrypted exports.
 //! Invoices and billing details stay (accounting law), register data and
 //! personal data go.
 
@@ -13,8 +13,18 @@ use serde_json::{json, Value};
 use crate::{mail, tenant_data};
 
 pub const DELETE_AFTER_CLOSE_DAYS: i64 = 30;
-pub const WARN_READ_ONLY_DAYS: i64 = 60;
-pub const DELETE_READ_ONLY_DAYS: i64 = 90;
+pub const WARN_IDLE_DAYS: i64 = 150;
+pub const DELETE_IDLE_DAYS: i64 = 180;
+
+/// Organisations nobody pays for and nobody uses: no invoice ever, no running
+/// subscription, trial or demo, and no sign-in for `?1` days.
+const IDLE_UNPAID: &str = "status IN ('active', 'read_only') AND deleted_at IS NULL
+     AND created_at < now() - make_interval(days => ?1)
+     AND NOT EXISTS (SELECT 1 FROM platform.invoices i WHERE i.tenant_id = platform.tenants.id AND i.kind = 'invoice')
+     AND NOT EXISTS (SELECT 1 FROM platform.cemetery_subscriptions c WHERE c.tenant_id = platform.tenants.id
+                     AND (c.paid_at IS NOT NULL OR c.status IN ('trial', 'active', 'past_due')))
+     AND NOT EXISTS (SELECT 1 FROM platform.accounts a WHERE a.tenant_id = platform.tenants.id
+                     AND coalesce(a.last_used_at, a.created_at) > now() - make_interval(days => ?1))";
 
 /// The admin closes the account (password confirmed). Sign-in stops at once;
 /// the data are deleted after 30 days unless the customer asks us back.
@@ -29,6 +39,12 @@ pub fn close(store: &Store, s: &Session, tenant_id: &str, password: &str) -> Res
     lunda_core::audit::record_simple(&t, s, "account", tenant_id, "close", None)?;
     t.execute("UPDATE platform.tenants SET status = 'closed', closed_at = now() WHERE id = ?1", params![tenant_id])?;
     t.execute("UPDATE platform.subscriptions SET status = 'canceled', updated_at = now() WHERE tenant_id = ?1", params![tenant_id])?;
+    // nothing more is charged for a closed organisation
+    t.execute(
+        "UPDATE platform.cemetery_subscriptions SET status = 'lapsed', cancel_at_period_end = true, updated_at = now() WHERE tenant_id = ?1",
+        params![tenant_id],
+    )?;
+    t.execute("UPDATE platform.invoices SET status = 'void' WHERE tenant_id = ?1 AND kind = 'proforma' AND status = 'open'", params![tenant_id])?;
     t.execute("DELETE FROM platform.sessions WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![tenant_id])?;
     let (to, org): (String, String) =
         t.query_row("SELECT billing_email, name FROM platform.tenants WHERE id = ?1", params![tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -55,6 +71,7 @@ pub fn delete_data(conn: &Connection, tenant_id: &str) -> Result<()> {
     t.execute("DELETE FROM platform.tokens WHERE account_id IN (SELECT id FROM platform.accounts WHERE tenant_id = ?1)", params![tenant_id])?;
     t.execute("DELETE FROM platform.accounts WHERE tenant_id = ?1", params![tenant_id])?;
     t.execute("DELETE FROM platform.notifications WHERE tenant_id = ?1", params![tenant_id])?;
+    t.execute("DELETE FROM platform.cemetery_subscriptions WHERE tenant_id = ?1", params![tenant_id])?;
     t.execute_batch(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))?;
     t.execute("UPDATE platform.tenants SET status = 'closed', deleted_at = now(), closed_at = coalesce(closed_at, now()) WHERE id = ?1", params![tenant_id])?;
     t.commit()?;
@@ -73,11 +90,8 @@ pub fn daily(store: &Store) -> Result<Value> {
         delete_data(conn, t)?;
     }
     let warn: Vec<(String, String, String)> = conn
-        .prepare(
-            "SELECT id, billing_email, name FROM platform.tenants
-             WHERE status = 'read_only' AND read_only_since < now() - make_interval(days => ?1) AND NOT EXISTS (SELECT 1 FROM platform.invoices i WHERE i.tenant_id = platform.tenants.id AND i.kind = 'invoice')",
-        )?
-        .query_map(params![WARN_READ_ONLY_DAYS as i32], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .prepare(&format!("SELECT id, billing_email, name FROM platform.tenants WHERE {IDLE_UNPAID}"))?
+        .query_map(params![WARN_IDLE_DAYS as i32], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<std::result::Result<_, _>>()?;
     let mut warned = 0;
     for (id, to, org) in &warn {
@@ -87,8 +101,8 @@ pub fn daily(store: &Store) -> Result<Value> {
                 to,
                 "A TEMISZ-fiók adatai 30 nap múlva törlődnek",
                 &format!(
-                    "Jó napot kívánunk!\n\nA(z) {org} TEMISZ-fiókja {WARN_READ_ONLY_DAYS} napja csak olvasható. Ha {} napon belül nem fizet elő, a nyilvántartás adatait véglegesen töröljük. Addig az adatok letölthetők (Beállítások › Mentés és adatletöltés).{}",
-                    DELETE_READ_ONLY_DAYS - WARN_READ_ONLY_DAYS,
+                    "Jó napot kívánunk!\n\nA(z) {org} TEMISZ-fiókjába {WARN_IDLE_DAYS} napja senki sem lépett be, és nincs előfizetése. Ha {} napon belül sem lép be senki, a fiók adatait véglegesen töröljük. Ha meg szeretné tartani, elég belépnie: https://www.temisz.hu/app/{}",
+                    DELETE_IDLE_DAYS - WARN_IDLE_DAYS,
                     mail::FOOTER
                 ),
                 "deletion_warning",
@@ -96,36 +110,23 @@ pub fn daily(store: &Store) -> Result<Value> {
             warned += 1;
         }
     }
+    // only those warned at least 30 days ago
     let expired: Vec<String> = conn
-        .prepare("SELECT id FROM platform.tenants WHERE status = 'read_only' AND read_only_since < now() - make_interval(days => ?1) AND NOT EXISTS (SELECT 1 FROM platform.invoices i WHERE i.tenant_id = platform.tenants.id AND i.kind = 'invoice')")?
-        .query_map(params![DELETE_READ_ONLY_DAYS as i32], |r| r.get(0))?
+        .prepare(&format!(
+            "SELECT id FROM platform.tenants WHERE {IDLE_UNPAID}
+               AND EXISTS (SELECT 1 FROM platform.notifications n WHERE n.tenant_id = platform.tenants.id AND n.key = 'deletion_warning'
+                           AND n.sent_at < now() - make_interval(days => ?2))"
+        ))?
+        .query_map(params![DELETE_IDLE_DAYS as i32, (DELETE_IDLE_DAYS - WARN_IDLE_DAYS) as i32], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     for t in &expired {
         delete_data(conn, t)?;
     }
-    // former paying customers stay; the platform admin is told once
-    let stuck: Vec<(String, String)> = conn
-        .prepare(
-            "SELECT id, name FROM platform.tenants WHERE status = 'read_only' AND read_only_since < now() - make_interval(days => ?1)
-               AND EXISTS (SELECT 1 FROM platform.invoices i WHERE i.tenant_id = platform.tenants.id AND i.kind = 'invoice')",
-        )?
-        .query_map(params![WARN_READ_ONLY_DAYS as i32], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<std::result::Result<_, _>>()?;
-    let admins: Vec<String> =
-        std::env::var("SUPERADMIN_EMAILS").unwrap_or_default().split(',').map(|e| e.trim().to_string()).filter(|e| !e.is_empty()).collect();
-    for (id, org) in &stuck {
-        if conn.execute("INSERT INTO platform.notifications (tenant_id, key) VALUES (?1, 'admin_read_only_long') ON CONFLICT DO NOTHING", params![id])? == 1 {
-            for to in &admins {
-                mail::send(
-                    conn,
-                    to,
-                    &format!("TEMISZ: {org} {WARN_READ_ONLY_DAYS} napja csak olvasható"),
-                    &format!("A(z) {org} korábban fizető ügyfél, a fiókja {WARN_READ_ONLY_DAYS} napja csak olvasható (nincs kifizetve a díjbekérő). Az adatait a rendszer nem törli magától: egyeztessen az ügyféllel, és döntsön a fiókról az Ügyfelek oldalon."),
-                    "admin_notice",
-                )?;
-            }
-        }
-    }
+    // a sign-in after the warning starts the count again
+    conn.execute(
+        &format!("DELETE FROM platform.notifications n WHERE n.key = 'deletion_warning' AND n.tenant_id NOT IN (SELECT id FROM platform.tenants WHERE {IDLE_UNPAID})"),
+        params![WARN_IDLE_DAYS as i32],
+    )?;
     let exported = export_all(store)?;
     Ok(json!({ "deletedClosed": closed.len(), "deletionWarnings": warned, "deletedUnpaid": expired.len(), "exported": exported }))
 }
