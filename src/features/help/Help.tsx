@@ -298,7 +298,9 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         title: "Mentés, adatletöltés, előfizetés",
         text: [
           "Az adatokról naponta automatikus mentés készül. A Beállítások › Mentés és visszaállítás alatt bármikor letöltheti a teljes nyilvántartást.",
-          "Az előfizetés díjbekérő alapján, átutalással fizethető (Beállítások › Előfizetés). A közleménybe írja az ügyfélkódot.",
+          "Előfizetés temetőnként (Beállítások › Előfizetés): bankkártyával 15 nap próbaidővel, utána automatikus terheléssel, vagy átutalással díjbekérő alapján (a közleménybe írja az ügyfélkódot). A szervezet, a felhasználók és a meghívott irodák ingyenesek.",
+          "Előfizetés nélkül, vagy lejárt előfizetéssel a temető csak olvasható; a szervezet többi temetője ettől függetlenül működik. A lemondás az időszak végén lép életbe.",
+          "A próbaidő alatt és a mintatemetőben adatot exportálni nem lehet (Excel, teljes letöltés, hiteles könyvek), a nyomtatványokon „PRÓBAIDŐ” jelzés van.",
         ],
       },
     ],

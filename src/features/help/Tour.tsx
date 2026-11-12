@@ -149,7 +149,7 @@ const STEPS: Step[] = [
     route: { view: "settings", tab: "subscription" },
     target: "tab-subscription",
     title: "Előfizetés",
-    body: "A próbaidő 30 napig tart. Itt adhatja meg a számlázási adatokat és rendelheti meg az előfizetést; a díjbekérőt átutalással vagy bankkártyával fizetheti, a számlát e-mailben kapja.",
+    body: "A szervezet ingyenes, temetőnként fizet elő: bankkártyával 15 nap próbaidővel (utána automatikus havi vagy éves terhelés, bármikor lemondható), vagy átutalással, díjbekérő alapján. Előfizetés nélkül a temető csak olvasható; a próbaidő alatt adatot exportálni nem lehet.",
     needs: "manage_settings",
   },
   {

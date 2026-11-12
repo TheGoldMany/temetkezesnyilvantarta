@@ -3,7 +3,7 @@ import { lastMail, login } from "./helpers";
 
 async function registerAndStart(page: Page, email: string, org: string) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Kipróbálom 30 napig ingyen" }).click();
+  await page.getByRole("button", { name: "Ingyenes regisztráció" }).click();
   await page.locator("input[name=organization]").fill(org);
   await page.locator("input[name=name]").fill("Pénzügy Piroska");
   await page.locator("input[name=email]").fill(email);
@@ -22,37 +22,49 @@ const rpc = (page: Page, cmd: string, args: object = {}) =>
     [cmd, args] as const,
   );
 
-test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ page, browser }) => {
+test("temető előfizetése átutalással: díjbekérő, befizetés, számla", async ({ page, browser }) => {
   const email = `penzugy-${Date.now()}@pelda.hu`;
   // unique per run: the database is kept between local runs
   const org = `Kisrét Község ${Date.now() % 1000000}`;
   await registerAndStart(page, email, `${org} Önkormányzata`);
 
-  // a new cemetery shows its effect on the price first
+  // a new cemetery needs its own subscription: until then it can only be read
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
   await page.getByRole("tab", { name: "Temetők és parcellák" }).click();
   await page.getByRole("button", { name: "Új temető" }).click();
-  await expect(page.getByText(/A próbaidő alatt a temetők száma nem számít/)).toBeVisible();
-  await page.getByRole("button", { name: "Mégse" }).click();
+  await expect(page.getByText(/Minden temetőnek saját előfizetése van/)).toBeVisible();
+  await page.getByLabel(/Temető neve/).fill("Kisréti köztemető");
+  await page.getByRole("button", { name: "Mentés" }).click();
+  // the next step is the subscription
+  const subs = page.getByTestId("cemetery-subs");
+  await expect(subs).toContainText("Kisréti köztemető");
+  await expect(subs).toContainText("Nincs előfizetés");
+  await expect(page.getByTestId("locked-banner")).toBeVisible();
+  const cem = (await rpc(page, "api", { method: "cemeteries.list", args: {} })).ok[0].id;
+  const locked = await rpc(page, "api", { method: "structure.bulkCreate", args: { input: { cemeteryId: cem, sectionCode: "A", rowFrom: 1, rowTo: 1, plotsPerRow: 2, firstPlotNumber: 1, plotTypeId: "x" } } });
+  expect(locked.err.code).toBe("cemetery_locked");
 
-  await page.getByRole("tab", { name: "Előfizetés" }).click();
-  await expect(page.getByTestId("billing-status")).toContainText("Próbaidő");
-  await page.getByRole("radio", { name: /Éves díj/ }).click();
-  await expect(page.getByRole("radio", { name: /Éves díj/ })).toContainText("450");
   await page.locator("input[name=postcode]").fill("8999");
   await page.locator("input[name=city]").fill("Kisrét");
   await page.locator("input[name=address]").fill("Fő utca 1.");
   await page.locator("input[name=taxNumber]").fill("15727000-2-20");
   await page.getByRole("button", { name: "Számlázási adatok mentése" }).click();
+  await subs.getByRole("button", { name: "Előfizetés" }).click();
+  const form = page.getByTestId("subscribe-form");
+  await form.getByRole("radio", { name: /Éves díj/ }).click();
+  await expect(form.getByRole("radio", { name: /Éves díj/ })).toContainText("450");
   // the ÁSZF must be accepted first
-  await expect(page.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" })).toBeDisabled();
-  await page.getByTestId("terms").check();
-  await page.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" }).click();
-  await expect(page.getByText(/Elküldtük a díjbekérőt/)).toBeVisible();
+  await expect(form.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" })).toBeDisabled();
+  await form.getByTestId("terms").check();
+  await form.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" }).click();
+  await expect(subs).toContainText("átutalással");
+  await expect(page.getByTestId("locked-banner")).toHaveCount(0);
   await expect(page.getByTestId("invoices")).toContainText("Díjbekérő");
   await expect(page.getByTestId("invoices")).toContainText("571");
   const proforma = await lastMail(page, email, "proforma");
   expect(proforma.body).toContain("Fizetési határidő");
+  // a transfer subscription has no trial: export works
+  expect((await rpc(page, "api", { method: "export.file", args: { kind: "full", format: "xlsx" } })).err?.code).not.toBe("trial_no_export");
 
   // the TEMISZ operator matches the transfer
   const admin = await (await browser.newContext()).newPage();
@@ -69,23 +81,35 @@ test("előfizetés átutalással: díjbekérő, befizetés, számla", async ({ p
   await page.reload();
   await page.getByRole("navigation", { name: "Fő menü" }).getByRole("button", { name: "Beállítások", exact: true }).click();
   await page.getByRole("tab", { name: "Előfizetés" }).click();
-  await expect(page.getByTestId("billing-status")).toContainText("Kifizetve");
   await expect(page.getByTestId("invoices")).toContainText("Számla");
   expect((await lastMail(page, email, "invoice")).subject).toContain("TEMISZ számla");
 });
 
-test("lejárt próbaidő: csak olvasható, olvasni lehet", async ({ page }) => {
-  const email = `lejart-${Date.now()}@pelda.hu`;
-  await registerAndStart(page, email, "Lejártfalva");
-  await page.request.post(`/dev/expire-trial?email=${encodeURIComponent(email)}`);
-  await page.reload();
-  await expect(page.getByTestId("readonly-banner")).toBeVisible();
-  const write = await rpc(page, "api", { method: "settings.set", args: { values: { "operator.address": "x" } } });
-  expect(write.err.code).toBe("read_only");
-  const read = await rpc(page, "api", { method: "cemeteries.list", args: {} });
-  expect(read.ok).toEqual([]);
-  const trialEnded = await page.request.get("/api/cron/daily");
-  expect(trialEnded.ok()).toBeTruthy();
+test("mintatemető: ingyenes, de export nélkül, vízjeles nyomtatással", async ({ page }) => {
+  const email = `minta-${Date.now()}@pelda.hu`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ingyenes regisztráció" }).click();
+  await page.locator("input[name=organization]").fill("Mintafalva");
+  await page.locator("input[name=name]").fill("Minta Márta");
+  await page.locator("input[name=email]").fill(email);
+  await page.locator("input[name=password]").fill("nagyon-titkos-1");
+  await page.locator("input[name=password2]").fill("nagyon-titkos-1");
+  await page.getByRole("button", { name: "Fiók létrehozása" }).click();
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await page.getByRole("button", { name: "Mintatemető betöltése" }).click();
+  await page.getByRole("button", { name: "Kezdés" }).click();
+  await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  // writable
+  expect((await rpc(page, "api", { method: "settings.set", args: { values: { "operator.address": "Minta utca 1." } } })).err).toBeUndefined();
+  // no data export, no authenticated books
+  expect((await rpc(page, "api", { method: "export.file", args: { kind: "full", format: "xlsx" } })).err.code).toBe("trial_no_export");
+  const cem = (await rpc(page, "api", { method: "cemeteries.list", args: {} })).ok[0].id;
+  expect((await rpc(page, "api", { method: "print.document", args: { doc: "register", args: { cemeteryId: cem } } })).err.code).toBe("trial_no_export");
+  // other prints work, marked
+  const map = await rpc(page, "api", { method: "print.document", args: { doc: "map", args: { cemeteryId: cem, paper: "A4" } } });
+  expect(map.ok.pages).toBeGreaterThan(0);
+  const daily = await page.request.get("/api/cron/daily");
+  expect(daily.ok()).toBeTruthy();
 });
 
 test("fiók megszüntetése: belépés tiltva, adatletöltés előtte", async ({ page }) => {

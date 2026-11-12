@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TEMISZ – Temetőmenedzsment és Informatikai Szoftver</title>
-    <meta name="description" content="TEMISZ: webes temetőnyilvántartó szolgáltatás. Nyilvántartó és sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. 30 napig ingyen." />
+    <meta name="description" content="TEMISZ: webes temetőnyilvántartó szolgáltatás. Nyilvántartó és sírbolt könyv, megváltások és lejáratok, temetőtérkép, hiteles nyomtatás. Ingyenes regisztráció, kártyás előfizetésnél 15 nap próbaidő." />
     <meta name="theme-color" content="#ededea" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
@@ -40,8 +40,9 @@
                 </ul>
                 <div class="mega-side">
                   <p class="mega-title">Kipróbálná?</p>
-                  <p>30 napig ingyen, bankkártya nélkül. Egy kitalált mintatemetővel adatbevitel nélkül is körülnézhet.</p>
+                  <p>A regisztráció ingyenes, egy kitalált mintatemetővel adatbevitel nélkül is körülnézhet. Kártyás előfizetésnél temetőnként 15 nap próbaidő jár.</p>
                   <a class="btn btn-solid btn-sm" href="/app/#regisztracio">Kipróbálom ingyen</a>
+                  <a class="mega-link" href="bemutato">Ingyenes bemutató a saját táblázatával</a>
                   <a class="mega-link" href="#arak">Árak</a>
                 </div>
               </div>
@@ -68,7 +69,7 @@
               Sírhelyek, nyugvók, megváltások és lejáratok egy áttekinthető térképen. A nyilvántartó és a sírbolt könyvet a jogszabály szerint vezeti. Böngészőből működik, telepíteni nem kell.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-solid" href="/app/#regisztracio">Kipróbálom 30 napig ingyen</a>
+              <a class="btn btn-solid" href="/app/#regisztracio">Ingyenes regisztráció</a>
               <a class="btn btn-quiet" href="#rogzites">Így működik</a>
             </div>
             <p class="hero-note">Bankkártya nélkül. Számítógépen, tableten és telefonon is.</p>
@@ -248,14 +249,14 @@
 
       <section class="get" id="arak" aria-labelledby="arak-h">
         <h2 id="arak-h">Árak</h2>
-        <p class="intro">Egy csomag, minden funkcióval. A díj csak a temetők számától függ, a felhasználók száma nem számít.</p>
+        <p class="intro">Egy csomag, minden funkcióval. Temetőnként fizet, a szervezet és a felhasználók ingyenesek.</p>
         <div class="price">
           <div class="price-main">
             <p class="price-label">Temetőnként</p>
             <p class="price-amount">45&nbsp;000&nbsp;Ft <span>+ ÁFA / hó</span></p>
             <p class="price-alt">vagy 450&nbsp;000&nbsp;Ft + ÁFA évente, ami 2 hónap ingyen</p>
-            <a class="btn btn-solid" href="/app/#regisztracio">Kipróbálom 30 napig ingyen</a>
-            <p class="price-note">A próbaidő végén dönt az előfizetésről. A díjbekérőt átutalással vagy bankkártyával (Barion) fizetheti.</p>
+            <a class="btn btn-solid" href="/app/#regisztracio">Ingyenes regisztráció</a>
+            <p class="price-note">A szervezet és a felhasználók ingyenesek, temetőnként fizet. Bankkártyával 15 nap próbaidő, utána automatikus havi vagy éves terhelés, bármikor lemondható. Átutalással próbaidő nélkül, díjbekérő alapján.</p>
             <p class="pay-methods"><span>Biztonságos fizetés:</span> <a href="https://www.barion.com/hu/" target="_blank" rel="noopener"><img src="barion-logo.svg" alt="Barion" width="84" height="22" /></a> <span>bankkártya, Apple Pay, Google Pay vagy átutalás</span></p>
           </div>
           <ul class="price-list">
@@ -273,15 +274,20 @@
           <li><b>Adatok</b><span>Mintatemetővel körülnéz, vagy betölti a meglévő nyilvántartást Excelből.</span></li>
           <li><b>Munkatársak</b><span>E-mailben meghívja a kollégákat, mindenki a saját fiókjával dolgozik.</span></li>
         </ol>
+        <div class="demo-offer">
+          <p class="demo-offer-k">Ingyenes adatmigrációs bemutató</p>
+          <p class="demo-offer-h">Töltse fel nekünk az egyik Excel- vagy Word-tábláját: 24 órán belül ingyen megmutatjuk, hogyan festene a temetője a TEMISZ-ben.</p>
+          <a class="btn btn-solid" href="bemutato">Táblázat feltöltése</a>
+        </div>
       </section>
 
       <section class="faq" id="kerdesek" aria-labelledby="kerdesek-h">
         <h2 id="kerdesek-h">Gyakori kérdések</h2>
         <div class="faq-list">
           <details><summary>Kell-e valamit telepíteni?</summary><p>Nem. A TEMISZ böngészőből működik (Chrome, Edge, Firefox, Safari), számítógépen, tableten és telefonon is. A frissítések automatikusak.</p></details>
-          <details><summary>Mi történik a próbaidő végén?</summary><p>Ha nem fizet elő, a fiók csak olvasható lesz: az adatok megmaradnak, nézhetők és letölthetők. Előfizetés után azonnal újra szerkeszthető.</p></details>
-          <details><summary>Hogyan fizethetek?</summary><p>Díjbekérő alapján, havonta vagy évente: átutalással, vagy azonnal bankkártyával, Apple Payjel vagy Google Payjel a Barion biztonságos fizetőoldalán. A kártyaadatokat a TEMISZ nem látja és nem tárolja. A befizetés után a számlát e-mailben küldjük.</p></details>
-          <details><summary>Több temetőt kezelünk. Mennyibe kerül?</summary><p>Temetőnként havi 45&nbsp;000&nbsp;Ft + ÁFA. Ha évközben új temetőt vesz fel, a program előre megmutatja a díj időarányos növekedését.</p></details>
+          <details><summary>Hogyan működik a próbaidő?</summary><p>Kártyás előfizetésnél temetőnként 15 nap ingyenes. Indításkor a Barion ellenőrzi a kártyát (100&nbsp;Ft-ot zárol és azonnal felold), a próbaidő végén pedig automatikusan levonja az első időszak díját; előtte 3 nappal e-mailben szólunk. A próbaidő alatt adatot exportálni nem lehet, a nyomtatványokon „PRÓBAIDŐ” jelzés van. Ha lemondja, nincs terhelés, a temető ezután csak olvasható.</p></details>
+          <details><summary>Hogyan fizethetek?</summary><p>Bankkártyával, havi vagy éves automatikus terheléssel a Barion biztonságos rendszerén keresztül (a kártyaadatokat a TEMISZ nem látja és nem tárolja), vagy díjbekérő alapján átutalással. Minden befizetés után a számlát e-mailben küldjük.</p></details>
+          <details><summary>Több temetőt kezelünk. Mennyibe kerül?</summary><p>Temetőnként havi 45&nbsp;000&nbsp;Ft vagy évi 450&nbsp;000&nbsp;Ft + ÁFA. Minden temetőnek saját előfizetése van, saját időszakkal, és külön is lemondható.</p></details>
           <details><summary>A régi asztali TEMISZ-t használtuk. Átvihetők az adatok?</summary><p>Igen. A mentésfájlt és a kinyomtatott helyreállító kulcsot megadva a teljes nyilvántartás átkerül, a folyószámokkal és a változásnaplóval együtt.</p></details>
           <details><summary>Ki fér hozzá az adatainkhoz?</summary><p>Csak az Ön által meghívott felhasználók. Mi adatfeldolgozóként kizárólag a szolgáltatás működtetéséhez kezeljük az adatokat, erről adatfeldolgozói szerződést kötünk.</p></details>
           <details><summary>Ha megszüntetjük az előfizetést, mi lesz az adatokkal?</summary><p>Előtte bármikor letölthet mindent. A fiók megszüntetése után 30 napig kérésre visszaállítjuk, utána véglegesen töröljük.</p></details>

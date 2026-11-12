@@ -196,6 +196,18 @@ pub fn generate(store: &Store, s: &Session, doc: &str, args: &Value, out_dir: &P
         "report_utilization" | "report_yearly" => report_doc(store, &op, doc, opt_arg(args, "cemeteryId").as_deref())?,
         _ => return Err(CoreError::new("bad_request", format!("unknown document {doc}"))),
     };
+    let mut pages = pages;
+    // trial or sample cemetery: every page is marked, the print is not for real use
+    if args.get("watermark").and_then(Value::as_bool) == Some(true) {
+        for p in &mut pages {
+            let mark = "PRÓBAIDŐ – NEM HITELES PÉLDÁNY";
+            let big = "PRÓBAIDŐ";
+            let size = (p.w / 7.0).min(64.0);
+            centered(p, p.h * 0.5, size, FontKind::SansBold, big, Color(240, 205, 200));
+            centered(p, 6.0 * MM, 9.0, FontKind::SansBold, mark, Color(184, 56, 42));
+            centered(p, p.h - 8.0 * MM, 9.0, FontKind::SansBold, mark, Color(184, 56, 42));
+        }
+    }
     let bytes = render(&pages, &title)?;
     std::fs::create_dir_all(out_dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");

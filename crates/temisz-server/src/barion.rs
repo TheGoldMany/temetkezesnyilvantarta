@@ -75,7 +75,7 @@ fn unavailable() -> CoreError {
     CoreError::new("card_unavailable", "card payment is not set up")
 }
 
-fn call(cfg: &Config, path: &str, body: Option<&Value>) -> Result<Value> {
+pub(crate) fn call(cfg: &Config, path: &str, body: Option<&Value>) -> Result<Value> {
     let url = format!("{}{path}", cfg.api);
     let failed = |e: String| CoreError::new("card_failed", e);
     let res = match body {
@@ -180,6 +180,20 @@ pub fn refresh(store: &Store, payment_id: &str) -> Result<String> {
     }
     if kind == "resident" {
         return crate::resident_pay::settle(store, &tenant, payment_id, &invoice_id, gross);
+    }
+    if kind == "card_check" {
+        let cem: String =
+            conn.query_row("SELECT coalesce(cemetery_id, '') FROM platform.card_payments WHERE payment_id = ?1", params![payment_id], |r| r.get(0))?;
+        let schema: String = conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", params![tenant], |r| r.get(0))?;
+        conn.use_schema(&schema)?;
+        return crate::subscriptions::settle_card_check(store, &tenant, payment_id, &cem);
+    }
+    if kind == "renewal" {
+        // charged with the saved card: the daily job already recorded the outcome
+        let cfg = config().ok_or_else(unavailable)?;
+        let (state, _, _) = payment_state(&cfg, payment_id)?;
+        conn.execute("UPDATE platform.card_payments SET status = ?2, updated_at = now() WHERE payment_id = ?1", params![payment_id, state])?;
+        return Ok(state);
     }
     let cfg = config().ok_or_else(unavailable)?;
     let (state, total, ok) = payment_state(&cfg, payment_id)?;
