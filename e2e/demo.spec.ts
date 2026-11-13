@@ -19,7 +19,10 @@ test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin
   await expect(page.getByRole("status")).toContainText("Köszönjük");
   expect((await lastMail(page, email, "demo_request_ack")).body).toContain(town);
 
-  const admin = await (await browser.newContext()).newPage();
+  // the visitor leaves; the platform admin opens the program in a browser of their own
+  await page.close();
+  const ctx = await browser.newContext();
+  const admin = await ctx.newPage();
   await login(admin);
   await nav(admin, "Ügyfelek");
   const row = admin.getByTestId("demo-requests").getByRole("listitem").filter({ hasText: town });
@@ -30,4 +33,5 @@ test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin
   expect((await download).suggestedFilename()).toBe("temeto.csv");
   await row.getByRole("button", { name: "Kész" }).click();
   await expect(row).toContainText("kész");
+  await ctx.close();
 });
