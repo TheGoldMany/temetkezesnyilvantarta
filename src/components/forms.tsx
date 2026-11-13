@@ -162,7 +162,7 @@ export function PlotPicker({ cemeteryId, value, onChange, allowed }: { cemeteryI
       <Field label={t("wizard.pickPlot")} hint={t("wizard.pickPlotHint")} htmlFor={id}>
         <Input id={id} value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="A/3/12" />
       </Field>
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("wizard.pickPlot")}>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2" aria-label={t("wizard.pickPlot")}>
         {(data?.items ?? []).map((p) => (
           <li key={p.id}>
             <label className={cx("flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2", value === p.id ? "border-slate bg-lichen/60" : "border-seam bg-slab")}>

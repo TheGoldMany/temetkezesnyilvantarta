@@ -435,10 +435,10 @@ function DetailsForm({ details, onSaved }: { details: Overview["details"]; onSav
       <p className="font-semibold md:col-span-6">{t("billing.detailsTitle")}</p>
       <TextField className="md:col-span-4" label={t("billing.name")} value={v.name} onChange={set("name")} required inputProps={{ name: "billingName" }} />
       <TextField className="md:col-span-2" label={t("billing.taxNumber")} value={v.taxNumber} onChange={set("taxNumber")} hint={t("billing.taxHint")} inputProps={{ name: "taxNumber" }} />
-      <TextField className="md:col-span-1" label={t("billing.postcode")} value={v.postcode} onChange={set("postcode")} required inputProps={{ name: "postcode" }} />
-      <TextField className="md:col-span-2" label={t("billing.city")} value={v.city} onChange={set("city")} required inputProps={{ name: "city" }} />
-      <TextField className="md:col-span-3" label={t("billing.address")} value={v.address} onChange={set("address")} required inputProps={{ name: "address" }} />
-      <TextField className="md:col-span-3" label={t("billing.email")} type="email" value={v.email} onChange={set("email")} required hint={t("billing.emailHint")} inputProps={{ name: "billingEmail" }} />
+      <TextField className="md:col-span-2" label={t("billing.postcode")} value={v.postcode} onChange={set("postcode")} required inputProps={{ name: "postcode" }} />
+      <TextField className="md:col-span-4" label={t("billing.city")} value={v.city} onChange={set("city")} required inputProps={{ name: "city" }} />
+      <TextField className="md:col-span-6" label={t("billing.address")} value={v.address} onChange={set("address")} required inputProps={{ name: "address" }} />
+      <TextField className="md:col-span-6" label={t("billing.email")} type="email" value={v.email} onChange={set("email")} required hint={t("billing.emailHint")} inputProps={{ name: "billingEmail" }} />
       <div className="md:col-span-6">
         <ErrorAlert error={error} />
         <Button type="submit" className="mt-2">

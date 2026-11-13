@@ -1106,7 +1106,18 @@
     "customer": "Ügyfél",
     "subscription": "Előfizetés",
     "users": "Felhasználók",
-    "trialUntil": "Próbaidő {{date}}-ig",
+    "cemeterySubs": "Temetők előfizetése",
+    "noCemeterySubs": "Nincs temető-előfizetés",
+    "unpaid": "befizetésre vár",
+    "sub": {
+      "pending_card": "kártyaellenőrzés folyamatban",
+      "trial": "próbaidő",
+      "active": "aktív",
+      "past_due": "sikertelen terhelés",
+      "canceled": "lemondva",
+      "lapsed": "lejárt",
+      "demo": "mintatemető"
+    },
     "status": {
       "active": "Aktív",
       "read_only": "Csak olvasható",
