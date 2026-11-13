@@ -9,13 +9,15 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   workers: 1,
+  // CI: one retry, recorded with a trace (recording every run slowed page loads on the runners)
+  retries: process.env.CI ? 1 : 0,
   fullyParallel: false,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     viewport: { width: 1440, height: 950 },
     locale: "hu-HU",
-    trace: "retain-on-failure",
+    trace: "on-first-retry",
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 950 } } }],
