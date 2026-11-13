@@ -60,7 +60,8 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   await expect(form.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" })).toBeDisabled();
   await form.getByTestId("terms").check();
   await form.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" }).click();
-  await expect(subs).toContainText("átutalással");
+  await expect(form).toHaveCount(0);
+  await expect(subs).toContainText("Díjbekérő kiküldve");
   await expect(page.getByTestId("locked-banner")).toHaveCount(0);
   await expect(page.getByTestId("invoices")).toContainText("Díjbekérő");
   await expect(page.getByTestId("invoices")).toContainText("571");

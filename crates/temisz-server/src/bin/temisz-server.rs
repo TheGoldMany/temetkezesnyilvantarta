@@ -74,14 +74,23 @@ fn main() {
                 if store.conn.query_row("SELECT 1", [], |r| r.get::<_, i64>(0)).is_err() {
                     store = connect();
                 }
+                let started = std::time::Instant::now();
                 let resp = handle(&cfg, &store, &req);
-                let mut out = Response::from_data(resp.body).with_status_code(resp.status);
+                if started.elapsed().as_secs() >= 2 {
+                    eprintln!("[slow] {} {} {:?}", req.method, req.path.split('?').next().unwrap_or(""), started.elapsed());
+                }
+                // a known length instead of chunked encoding: browsers (and traced test runs) stalled on chunked files
+                let mut out = Response::from_data(resp.body).with_status_code(resp.status).with_chunked_threshold(usize::MAX);
                 for (k, v) in resp.headers {
                     if let Ok(h) = Header::from_bytes(k.as_bytes(), v.as_bytes()) {
                         out.add_header(h);
                     }
                 }
+                let sent = std::time::Instant::now();
                 let _ = rq.respond(out);
+                if sent.elapsed().as_secs() >= 2 {
+                    eprintln!("[slow-send] {} {:?}", req.path.split('?').next().unwrap_or(""), sent.elapsed());
+                }
             }
         }));
     }
