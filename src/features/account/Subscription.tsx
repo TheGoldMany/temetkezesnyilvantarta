@@ -6,6 +6,7 @@ import { command } from "../../lib/api";
 import { Alert, Button, ErrorAlert, Panel, Spinner, TextField, cx } from "../../components/ui";
 import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
 import { useApp } from "../../app/context";
+import { BarionBanner } from "../../components/BarionBanner";
 
 interface Price {
   unitNet: number;
@@ -169,11 +170,8 @@ export function SubscriptionTab() {
           {o.cardPayments && o.invoices.some((i) => i.kind === "proforma" && i.status === "open") && (
             <div className="mb-4">
               <TermsCheck checked={cardAccepted} onChange={setCardAccepted} card />
-              <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-granite">
-                {t("billing.cardVia")}
-                <img src="/barion-logo.svg" alt="Barion" className="h-5 w-auto" />
-                {t("billing.cardMethods")}
-              </p>
+              <p className="mt-3 text-sm text-granite">{t("billing.cardVia")}</p>
+              <BarionBanner className="mt-2 block h-10 w-auto max-w-full" />
             </div>
           )}
           <table className="w-full" data-testid="invoices">
@@ -316,6 +314,7 @@ function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery
                 {t("billing.method.card")}
               </span>
               <span className="block text-sm text-granite">{trialUsed ? t("billing.cardHintNoTrial", { verify: huf(o.verifyHuf) }) : t("billing.cardHint", { days: o.trialDays, verify: huf(o.verifyHuf) })}</span>
+              {method === "card" && <BarionBanner className="mt-2 block h-9 w-auto max-w-full" />}
             </span>
           </label>
         )}
@@ -436,10 +435,10 @@ function DetailsForm({ details, onSaved }: { details: Overview["details"]; onSav
       <p className="font-semibold md:col-span-6">{t("billing.detailsTitle")}</p>
       <TextField className="md:col-span-4" label={t("billing.name")} value={v.name} onChange={set("name")} required inputProps={{ name: "billingName" }} />
       <TextField className="md:col-span-2" label={t("billing.taxNumber")} value={v.taxNumber} onChange={set("taxNumber")} hint={t("billing.taxHint")} inputProps={{ name: "taxNumber" }} />
-      <TextField className="md:col-span-1" label={t("billing.postcode")} value={v.postcode} onChange={set("postcode")} required inputProps={{ name: "postcode" }} />
-      <TextField className="md:col-span-2" label={t("billing.city")} value={v.city} onChange={set("city")} required inputProps={{ name: "city" }} />
-      <TextField className="md:col-span-3" label={t("billing.address")} value={v.address} onChange={set("address")} required inputProps={{ name: "address" }} />
-      <TextField className="md:col-span-3" label={t("billing.email")} type="email" value={v.email} onChange={set("email")} required hint={t("billing.emailHint")} inputProps={{ name: "billingEmail" }} />
+      <TextField className="md:col-span-2" label={t("billing.postcode")} value={v.postcode} onChange={set("postcode")} required inputProps={{ name: "postcode" }} />
+      <TextField className="md:col-span-4" label={t("billing.city")} value={v.city} onChange={set("city")} required inputProps={{ name: "city" }} />
+      <TextField className="md:col-span-6" label={t("billing.address")} value={v.address} onChange={set("address")} required inputProps={{ name: "address" }} />
+      <TextField className="md:col-span-6" label={t("billing.email")} type="email" value={v.email} onChange={set("email")} required hint={t("billing.emailHint")} inputProps={{ name: "billingEmail" }} />
       <div className="md:col-span-6">
         <ErrorAlert error={error} />
         <Button type="submit" className="mt-2">

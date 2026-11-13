@@ -7,7 +7,15 @@ import { huf } from "./Subscription";
 import { openGenerated, type GeneratedFile } from "../prints/PrintButton";
 
 interface AdminData {
-  tenants: { id: string; name: string; status: string; trialEndsAt: string; createdAt: string; email: string; plan: string | null; paymentMethod: string | null; cemeteryCount: number | null; subscriptionStatus: string | null; periodEnd: string | null; users: number }[];
+  tenants: {
+    id: string;
+    name: string;
+    status: string;
+    createdAt: string;
+    email: string;
+    users: number;
+    cemeteries: { name: string; status: string; plan: string; method: string; until: string | null; paid: boolean }[];
+  }[];
   openProformas: { id: string; tenant: string; number: string; grossHuf: number; dueDate: string | null; description: string; reference: string }[];
   bankLines: { id: string; bookedOn: string; amountHuf: number; partner: string; reference: string; suggestedId: string | null; suggestedNumber: string | null; suggestedBuyer: string | null; suggestedGross: number | null }[];
   import?: { added: number; skipped: number; matched: number };
@@ -130,7 +138,7 @@ export function PlatformAdmin() {
                 <tr className="border-b border-seam text-left text-sm text-granite">
                   <th className="py-2 pr-4 font-medium">{t("platform.customer")}</th>
                   <th className="py-2 pr-4 font-medium">{t("billing.state")}</th>
-                  <th className="py-2 pr-4 font-medium">{t("platform.subscription")}</th>
+                  <th className="py-2 pr-4 font-medium">{t("platform.cemeterySubs")}</th>
                   <th className="py-2 pr-4 font-medium">{t("platform.users")}</th>
                   <th />
                 </tr>
@@ -144,11 +152,30 @@ export function PlatformAdmin() {
                         {x.email}, {x.createdAt}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-4">{x.status === "trial" ? t("platform.trialUntil", { date: x.trialEndsAt }) : t(`platform.status.${x.status}`)}</td>
-                    <td className="py-2.5 pr-4">{x.plan ? `${t(`billing.plan.${x.plan}`)}, ${t(`billing.method.${x.paymentMethod}`)}, ${t("billing.cemeteries", { count: x.cemeteryCount ?? 0 })}, ${x.subscriptionStatus}${x.periodEnd ? `, ${x.periodEnd}` : ""}` : "–"}</td>
+                    <td className="py-2.5 pr-4">{t(`platform.status.${x.status}`, { defaultValue: x.status })}</td>
+                    <td className="py-2.5 pr-4">
+                      {x.cemeteries.length === 0 ? (
+                        <span className="text-granite">{t("platform.noCemeterySubs")}</span>
+                      ) : (
+                        <ul className="flex flex-col gap-0.5">
+                          {x.cemeteries.map((c) => (
+                            <li key={c.name}>
+                              <span className="font-medium">{c.name}</span>
+                              <span className="text-granite">
+                                {": "}
+                                {t(`platform.sub.${c.status}`, { defaultValue: c.status })}
+                                {c.status === "active" && !c.paid ? ` (${t("platform.unpaid")})` : ""}
+                                {c.until ? `, ${c.until}` : ""}
+                                {c.method !== "demo" ? `, ${t(`billing.plan.${c.plan}`)}, ${t(`billing.method.${c.method}`)}` : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
                     <td className="py-2.5 pr-4 tabular-nums">{x.users}</td>
                     <td className="py-2.5 text-right">
-                      <Button onClick={() => act("admin_extend_trial", { tenantId: x.id, days: 14 })}>{t("platform.extendTrial")}</Button>
+                      {x.cemeteries.some((c) => c.status === "trial" || (c.status === "lapsed" && !c.paid)) && <Button onClick={() => act("admin_extend_trial", { tenantId: x.id, days: 14 })}>{t("platform.extendTrial")}</Button>}
                     </td>
                   </tr>
                 ))}

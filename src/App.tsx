@@ -9,6 +9,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./app/toast";
 import { Analytics } from "@vercel/analytics/react";
 
+/** Vercel Web Analytics exists only on the deployed site (not in local runs or the tests). */
+const analytics = !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+
 /** Pages load on first use: the sign-in page does not carry the whole program. */
 const Onboarding = lazy(() => import("./features/auth/Onboarding").then((m) => ({ default: m.Onboarding })));
 const Shell = lazy(() => import("./app/Shell").then((m) => ({ default: m.Shell })));
@@ -116,7 +119,7 @@ export function App() {
             </Suspense>
           </Shell>
         </Suspense>
-        <Analytics />
+        {analytics && <Analytics />}
       </>
     );
   }
@@ -150,7 +153,7 @@ export function App() {
           </Suspense>
         </Shell>
       </Suspense>
-      <Analytics />
+      {analytics && <Analytics />}
     </>
   );
 }

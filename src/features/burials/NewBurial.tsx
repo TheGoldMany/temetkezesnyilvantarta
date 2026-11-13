@@ -122,7 +122,16 @@ export function NewBurial({ plotId: presetPlot, eventType: presetType, bookingId
   const blocked = preview.data && !preview.data.verdict.allowed;
 
   const canNext = (): boolean => {
-    if (step === "deceased") return !!existingDeceasedId || ignoreSimilar || (similar.data?.length ?? 0) === 0 || !similar.isFetched;
+    if (step === "deceased") {
+      if (existingDeceasedId) return true;
+      // the required data first: otherwise the last step sends the user back here
+      const d = deceased;
+      const filled = (v?: string | null) => !!v && v.trim().length > 0;
+      const complete = d.unknownIdentity
+        ? filled(d.authorityName) && filled(d.caseNumber) && filled(d.deathDate)
+        : filled(d.familyName) && filled(d.givenName) && filled(d.birthDate) && filled(d.motherName) && filled(d.lastResidence) && filled(d.deathDate);
+      return complete && (ignoreSimilar || (similar.data?.length ?? 0) === 0 || !similar.isFetched);
+    }
     if (step === "place" && offSite === "home") return !!eventDate && receiverName.trim().length > 1;
     if (step === "place" && offSite === "elsewhere") return !!eventDate && destination.trim().length > 2;
     if (step === "place") return !!plotId && !!eventDate && (!blocked || can("override_checks"));

@@ -633,10 +633,11 @@ h2::before {
 
 /* ---------- Payment methods (Barion requires them on the home page) ---------- */
 .pay-methods { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; font-size: 14.5px; color: var(--ink-3); }
-.pay-methods img { display: block; height: 22px; width: auto; }
-.foot-pay { display: inline-flex; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; }
-.foot-pay span { color: var(--ink-2); font-size: 13.5px; }
-.foot-pay img { display: block; height: 19px; width: auto; }
+/* the official Barion banner, unmodified: only scaled, aspect ratio kept */
+.barion-banner { display: block; width: auto; max-width: 100%; height: auto; }
+.pay-methods .barion-banner { height: 44px; }
+.foot-pay { display: inline-flex; align-items: center; padding: 8px 0; }
+.foot-pay .barion-banner { height: 34px; }
 
 /* ---------- Payment page (/fizetes) ---------- */
 .pay { max-width: 640px; margin: 0 auto; padding: clamp(28px, 6vw, 64px) var(--pad) 48px; }

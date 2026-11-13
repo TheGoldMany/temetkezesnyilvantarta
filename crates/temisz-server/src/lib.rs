@@ -1207,17 +1207,19 @@ fn admin_overview(store: &Store) -> Result<Value> {
     let rows: Vec<Value> = store
         .conn
         .prepare(
-            "SELECT t.id, t.name, t.status, to_char(t.trial_ends_at, 'YYYY-MM-DD'), to_char(t.created_at, 'YYYY-MM-DD'), t.billing_email,
-                    s.plan, s.payment_method, s.cemetery_count, s.status, to_char(s.current_period_end, 'YYYY-MM-DD'),
-                    (SELECT count(*) FROM platform.accounts a WHERE a.tenant_id = t.id)
-             FROM platform.tenants t LEFT JOIN platform.subscriptions s ON s.tenant_id = t.id
+            "SELECT t.id, t.name, t.status, to_char(t.created_at, 'YYYY-MM-DD'), t.billing_email,
+                    (SELECT count(*) FROM platform.accounts a WHERE a.tenant_id = t.id),
+                    (SELECT coalesce(json_agg(json_build_object('name', c.cemetery_name, 'status', c.status, 'plan', c.plan, 'method', c.payment_method,
+                              'until', to_char(CASE WHEN c.status IN ('trial', 'demo') THEN c.trial_ends_at::date ELSE c.current_period_end END, 'YYYY-MM-DD'),
+                              'paid', c.paid_at IS NOT NULL) ORDER BY c.cemetery_name), '[]')::text
+                       FROM platform.cemetery_subscriptions c WHERE c.tenant_id = t.id)
+             FROM platform.tenants t
              ORDER BY t.created_at DESC LIMIT 500",
         )?
         .query_map([], |r| {
-            Ok(json!({ "id": r.get::<_, String>(0)?, "name": r.get::<_, String>(1)?, "status": r.get::<_, String>(2)?, "trialEndsAt": r.get::<_, String>(3)?,
-                       "createdAt": r.get::<_, String>(4)?, "email": r.get::<_, String>(5)?, "plan": r.get::<_, Option<String>>(6)?,
-                       "paymentMethod": r.get::<_, Option<String>>(7)?, "cemeteryCount": r.get::<_, Option<i64>>(8)?,
-                       "subscriptionStatus": r.get::<_, Option<String>>(9)?, "periodEnd": r.get::<_, Option<String>>(10)?, "users": r.get::<_, i64>(11)? }))
+            let subs: Value = serde_json::from_str(&r.get::<_, String>(6)?).unwrap_or(Value::Null);
+            Ok(json!({ "id": r.get::<_, String>(0)?, "name": r.get::<_, String>(1)?, "status": r.get::<_, String>(2)?, "createdAt": r.get::<_, String>(3)?,
+                       "email": r.get::<_, String>(4)?, "users": r.get::<_, i64>(5)?, "cemeteries": subs }))
         })?
         .collect::<std::result::Result<_, _>>()?;
     let open: Vec<Value> = store
