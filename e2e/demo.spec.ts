@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { lastMail, login, nav } from "./helpers";
 
-test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin letölti", async ({ page, browser }) => {
+test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin letölti", async ({ page }) => {
   const town = `Próbarét ${Date.now() % 1000000}`;
   const email = `jegyzo-${Date.now()}@pelda.hu`;
   await page.goto("/bemutato");
@@ -19,10 +19,8 @@ test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin
   await expect(page.getByRole("status")).toContainText("Köszönjük");
   expect((await lastMail(page, email, "demo_request_ack")).body).toContain(town);
 
-  // the visitor leaves; the platform admin opens the program in a browser of their own
-  await page.close();
-  const ctx = await browser.newContext();
-  const admin = await ctx.newPage();
+  // the platform admin opens the program (the visitor was not signed in)
+  const admin = page;
   await login(admin);
   await nav(admin, "Ügyfelek");
   const row = admin.getByTestId("demo-requests").getByRole("listitem").filter({ hasText: town });
@@ -33,5 +31,4 @@ test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin
   expect((await download).suggestedFilename()).toBe("temeto.csv");
   await row.getByRole("button", { name: "Kész" }).click();
   await expect(row).toContainText("kész");
-  await ctx.close();
 });
