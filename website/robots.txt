@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /app/
+Disallow: /fizetes
+Disallow: /api/
+Sitemap: https://www.temisz.hu/sitemap.xml

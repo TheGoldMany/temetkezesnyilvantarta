@@ -23,6 +23,8 @@ test("ingyenes bemutató: táblázat feltöltése a weboldalon, a platform-admin
   const admin = page;
   await login(admin);
   await nav(admin, "Ügyfelek");
+  // the system health panel: the daily run, services, e-mail delivery
+  await expect(admin.getByTestId("system-health")).toContainText("Napi feladat");
   const row = admin.getByTestId("demo-requests").getByRole("listitem").filter({ hasText: town });
   await expect(row).toContainText("Jegyző Judit");
   await expect(row).toContainText("temeto.csv");

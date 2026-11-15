@@ -19,6 +19,64 @@ interface AdminData {
   openProformas: { id: string; tenant: string; number: string; grossHuf: number; dueDate: string | null; description: string; reference: string }[];
   bankLines: { id: string; bookedOn: string; amountHuf: number; partner: string; reference: string; suggestedId: string | null; suggestedNumber: string | null; suggestedBuyer: string | null; suggestedGross: number | null }[];
   import?: { added: number; skipped: number; matched: number };
+  health: Health;
+}
+
+interface Health {
+  daily: { ranAt: string; ok: boolean; result: Record<string, unknown> | null; errors: string } | null;
+  dailyStale: boolean;
+  config: Record<"cron" | "mail" | "backups" | "secretsKey" | "barion" | "barionLive" | "cardSubscriptions" | "publicUrl" | "superadmins", boolean>;
+  mail7d: { sent: number; failed: number; unsent: number };
+}
+
+/** The running system at a glance: the daily run, the configured services, e-mail delivery. */
+function SystemHealth({ h }: { h: Health }) {
+  const { t } = useTranslation();
+  const exported = (h.daily?.result?.lifecycle as { exported?: number } | undefined)?.exported;
+  const problems: string[] = [];
+  if (!h.daily) problems.push(t("platform.health.neverRan"));
+  else if (h.dailyStale) problems.push(t("platform.health.stale", { at: h.daily.ranAt }));
+  if (h.daily && !h.daily.ok) problems.push(t("platform.health.failed"));
+  if (!h.config.backups) problems.push(t("platform.health.noBackups"));
+  if (!h.config.mail) problems.push(t("platform.health.noMail"));
+  if (h.mail7d.failed > 0) problems.push(t("platform.health.mailFailed", { count: h.mail7d.failed }));
+  const keys = ["cron", "mail", "backups", "secretsKey", "barion", "barionLive", "cardSubscriptions", "publicUrl", "superadmins"] as const;
+  return (
+    <Panel title={t("platform.health.title")}>
+      <div data-testid="system-health" className="flex flex-col gap-4">
+        {problems.length === 0 ? (
+          <Alert tone="ok">{t("platform.health.allGood")}</Alert>
+        ) : (
+          <Alert tone="warn" title={t("platform.health.attention")}>
+            <ul className="list-disc pl-5">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
+        <p>
+          {h.daily
+            ? t("platform.health.lastRun", { at: h.daily.ranAt, state: h.daily.ok ? t("platform.health.ok") : t("platform.health.error") })
+            : t("platform.health.neverRan")}
+          {exported !== undefined && ` ${t("platform.health.exported", { count: exported })}`}
+        </p>
+        {h.daily?.errors && <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-limestone p-3 text-sm">{h.daily.errors}</pre>}
+        <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+          {keys.map((k) => (
+            <li key={k} className="flex items-center gap-2">
+              <span aria-hidden className={h.config[k] ? "text-moss" : "text-granite"}>
+                {h.config[k] ? "●" : "○"}
+              </span>
+              <span>{t(`platform.health.cfg.${k}`)}</span>
+              <span className="sr-only">{h.config[k] ? t("platform.health.on") : t("platform.health.off")}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-granite">{t("platform.health.mail", h.mail7d)}</p>
+      </div>
+    </Panel>
+  );
 }
 
 /** TEMISZ operators: every customer, open proformas to match with bank transfers. */
@@ -44,6 +102,7 @@ export function PlatformAdmin() {
     <>
       <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle", { count: q.data.tenants.length })} />
       <div className="flex flex-col gap-6">
+        <SystemHealth h={q.data.health} />
         <Panel
           title={t("platform.bank")}
           actions={

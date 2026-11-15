@@ -140,6 +140,13 @@
         };
         var $ = function (id) { return document.getElementById(id); };
         var status = $("status"), list = $("results"), svg = $("map");
+        // the page works with a cemetery's own link (…/kereso?t=…)
+        if (!token) {
+          status.textContent = "Ez az oldal egy temető saját sírkereső-linkjével működik. A linket a temető vagy az önkormányzat honlapján, illetve az ügyfélszolgálaton találja.";
+          var form = document.querySelector("form");
+          if (form) form.hidden = true;
+          return;
+        }
         var NS = "http://www.w3.org/2000/svg";
         var maps = {}, current = null, view = null, full = null, highlight = null;
 

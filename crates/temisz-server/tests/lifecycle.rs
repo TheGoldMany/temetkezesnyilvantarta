@@ -1022,3 +1022,18 @@ fn demo_request_upload_is_stored_sealed() {
 fn rand_octet() -> u8 {
     (lunda_core::util::new_id().bytes().map(|b| b as u32).sum::<u32>() % 250) as u8 + 1
 }
+
+#[test]
+fn daily_run_is_recorded_for_the_admins() {
+    let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let store = platform();
+    let v = temisz_server::run_daily(&store, "http://localhost");
+    assert!(v["errors"].as_array().unwrap().is_empty(), "{v}");
+    assert!(v.get("billing").is_some() && v.get("lifecycle").is_some() && v.get("reminders").is_some());
+    let (ok, result): (bool, String) = store
+        .conn
+        .query_row("SELECT ok, result FROM platform.job_runs WHERE job = 'daily' AND ran_at > now() - interval '1 minute'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap();
+    assert!(ok);
+    assert!(result.contains("lifecycle"));
+}
