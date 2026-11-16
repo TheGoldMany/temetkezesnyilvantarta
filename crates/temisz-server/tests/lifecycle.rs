@@ -219,6 +219,8 @@ fn bank_statement_settles_proformas() {
 /// once, and sends the office a summary.
 #[test]
 fn daily_job_sends_expiry_reminders() {
+    // the daily run walks every tenant: not at the same time as another one
+    let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let store = platform();
     let (tenant, _) = new_customer(&store, "reminder");
     let sys = Session::system();
@@ -251,6 +253,8 @@ fn daily_job_sends_expiry_reminders() {
             .unwrap()
     };
     assert_eq!(count("expiry_reminder"), 0);
+    // the run leaves the connection in the last tenant it visited
+    use_tenant(&store, &tenant);
     store.conn.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('notify.auto_expiry', '', 'true', 'x') ON CONFLICT (key, cemetery_id) DO UPDATE SET value = 'true'", []).unwrap();
     temisz_server::reminders::daily(&store).unwrap();
     let to: String = store
