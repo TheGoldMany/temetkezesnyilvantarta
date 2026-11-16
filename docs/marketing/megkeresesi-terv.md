@@ -27,7 +27,7 @@ Hetente 5–8 hívás bőven elég. Inkább jól előkészítve, mint sokat.
 
 ## Hívásforgatókönyv (kb. 3 perc)
 
-> **Bemutatkozás:** Jó napot kívánok, Uri-Kovács Richárd vagyok Lajosmizséről. A jegyző asszonyt / urat keresném egy rövid, temetőnyilvántartással kapcsolatos kérdésben.
+> **Bemutatkozás:** Jó napot kívánok, a Lunda Software-től keresem, Lajosmizséről. A jegyző asszonyt / urat keresném egy rövid, temetőnyilvántartással kapcsolatos kérdésben.
 
 > **A jegyzőnek:** Köszönöm, hogy rám szán két percet. Temetőnyilvántartó programot fejlesztek kistelepüléseknek, a TEMISZ-t. Azért hívom, mert sok helyen a nyilvántartás még papíron vagy Excelben van, és ez a megváltások lejáratánál, az újraértékesítési hirdetménynél vagy egy hozzátartozói kérdésnél sok utánajárással jár. Önöknél most hogyan vezetik?
 
