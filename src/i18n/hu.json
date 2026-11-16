@@ -1107,8 +1107,11 @@
     "subscription": "Előfizetés",
     "users": "Felhasználók",
     "cemeterySubs": "Temetők előfizetése",
+    "endTrialNow": "Próbaidő vége most",
+    "endTrialConfirm": "{{name}}: a kártyás próbaidő most lejár, és a következő napi futás levonja az első időszak díját a mentett kártyáról. Ez valódi terhelés. Saját próbaszervezeten használja. Folytatja?",
     "health": {
       "title": "Rendszerállapot",
+      "runNow": "Napi futás most",
       "allGood": "Minden rendben: a napi feladat lefutott, a mentés és a levélküldés be van állítva.",
       "attention": "Figyelmet igényel",
       "neverRan": "A napi feladat még nem futott le (vagy a futás előtti verzió van élesben).",

@@ -758,6 +758,8 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "admin_overview"
             | "admin_mark_paid"
             | "admin_extend_trial"
+            | "admin_end_trial_now"
+            | "admin_run_daily"
             | "admin_bank_import"
             | "admin_bank_resolve"
             | "admin_demo_requests"
@@ -804,6 +806,20 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                              WHERE tenant_id = ?1 AND (status = 'trial' OR (status = 'lapsed' AND current_period_end IS NULL))",
                             params![s("tenantId"), days],
                         )?;
+                        admin_overview(store)
+                    }
+                    // testing the card chain end to end (own organisation): the trial ends
+                    // now, and the next daily run charges the saved card
+                    "admin_end_trial_now" => {
+                        store.conn.execute(
+                            "UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 minute', updated_at = now()
+                             WHERE tenant_id = ?1 AND status = 'trial'",
+                            params![s("tenantId")],
+                        )?;
+                        admin_overview(store)
+                    }
+                    "admin_run_daily" => {
+                        run_daily(store, &accounts::base_url(req));
                         admin_overview(store)
                     }
                     _ => admin_overview(store),
@@ -1208,19 +1224,29 @@ fn listed_superadmin(email: &str) -> bool {
 pub fn run_daily(store: &Store, base_url: &str) -> Value {
     let mut out = serde_json::Map::new();
     let mut errors: Vec<String> = vec![];
-    let mut part = |name: &str, r: Result<Value>| match r {
-        Ok(v) => {
-            out.insert(name.into(), v);
-        }
-        Err(e) => {
-            eprintln!("daily {name} failed: {e}");
-            errors.push(format!("{name}: {e}"));
+    let mut timings = serde_json::Map::new();
+    let mut part = |name: &str, started: std::time::Instant, r: Result<Value>| {
+        timings.insert(name.into(), json!(started.elapsed().as_millis() as u64));
+        match r {
+            Ok(v) => {
+                out.insert(name.into(), v);
+            }
+            Err(e) => {
+                eprintln!("daily {name} failed: {e}");
+                errors.push(format!("{name}: {e}"));
+            }
         }
     };
-    part("billing", subscriptions::daily(store, base_url));
-    part("lifecycle", lifecycle::daily(store));
-    part("reminders", reminders::daily(store));
-    part("demoPurged", demo_requests::purge(&store.conn).map(|n| json!(n)));
+    let t = std::time::Instant::now;
+    let s0 = t();
+    part("billing", s0, subscriptions::daily(store, base_url));
+    let s1 = t();
+    part("lifecycle", s1, lifecycle::daily(store));
+    let s2 = t();
+    part("reminders", s2, reminders::daily(store));
+    let s3 = t();
+    part("demoPurged", s3, demo_requests::purge(&store.conn).map(|n| json!(n)));
+    out.insert("ms".into(), Value::Object(timings));
     let ok = errors.is_empty();
     let result = Value::Object(out.clone()).to_string();
     let _ = store.conn.execute(

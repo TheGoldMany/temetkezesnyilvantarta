@@ -30,7 +30,7 @@ interface Health {
 }
 
 /** The running system at a glance: the daily run, the configured services, e-mail delivery. */
-function SystemHealth({ h }: { h: Health }) {
+function SystemHealth({ h, onRun }: { h: Health; onRun: () => void }) {
   const { t } = useTranslation();
   const exported = (h.daily?.result?.lifecycle as { exported?: number } | undefined)?.exported;
   const problems: string[] = [];
@@ -42,7 +42,7 @@ function SystemHealth({ h }: { h: Health }) {
   if (h.mail7d.failed > 0) problems.push(t("platform.health.mailFailed", { count: h.mail7d.failed }));
   const keys = ["cron", "mail", "backups", "secretsKey", "barion", "barionLive", "cardSubscriptions", "publicUrl", "superadmins"] as const;
   return (
-    <Panel title={t("platform.health.title")}>
+    <Panel title={t("platform.health.title")} actions={<Button onClick={onRun}>{t("platform.health.runNow")}</Button>}>
       <div data-testid="system-health" className="flex flex-col gap-4">
         {problems.length === 0 ? (
           <Alert tone="ok">{t("platform.health.allGood")}</Alert>
@@ -102,7 +102,7 @@ export function PlatformAdmin() {
     <>
       <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle", { count: q.data.tenants.length })} />
       <div className="flex flex-col gap-6">
-        <SystemHealth h={q.data.health} />
+        <SystemHealth h={q.data.health} onRun={() => act("admin_run_daily", {})} />
         <Panel
           title={t("platform.bank")}
           actions={
@@ -234,7 +234,16 @@ export function PlatformAdmin() {
                     </td>
                     <td className="py-2.5 pr-4 tabular-nums">{x.users}</td>
                     <td className="py-2.5 text-right">
-                      {x.cemeteries.some((c) => c.status === "trial" || (c.status === "lapsed" && !c.paid)) && <Button onClick={() => act("admin_extend_trial", { tenantId: x.id, days: 14 })}>{t("platform.extendTrial")}</Button>}
+                      <div className="flex flex-wrap justify-end gap-2">{x.cemeteries.some((c) => c.status === "trial" || (c.status === "lapsed" && !c.paid)) && <Button onClick={() => act("admin_extend_trial", { tenantId: x.id, days: 14 })}>{t("platform.extendTrial")}</Button>}
+                        {x.cemeteries.some((c) => c.status === "trial" && c.method === "card") && (
+                          <Button
+                            variant="quiet"
+                            onClick={() => window.confirm(t("platform.endTrialConfirm", { name: x.name })) && act("admin_end_trial_now", { tenantId: x.id })}
+                          >
+                            {t("platform.endTrialNow")}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
