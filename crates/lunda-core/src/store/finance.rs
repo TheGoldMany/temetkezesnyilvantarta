@@ -521,7 +521,7 @@ impl Store {
                         quantity: c.quantity,
                         unit: c.unit.clone(),
                         unit_net: c.unit_net_huf,
-                        vat_percent: c.vat_rate.parse().unwrap_or(0),
+                        vat_code: c.vat_rate.clone(),
                         comment: String::new(),
                     })
                     .collect(),

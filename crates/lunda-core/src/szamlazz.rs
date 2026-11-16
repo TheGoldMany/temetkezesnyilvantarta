@@ -22,7 +22,9 @@ pub struct Line {
     pub quantity: i64,
     pub unit: String,
     pub unit_net: i64,
-    pub vat_percent: i64,
+    /// Számlázz.hu VAT key: a rate ("27", "5", "0") or an exemption code
+    /// ("AAM" alanyi, "TAM" tárgyi adómentes, "ATK" …) that carries no VAT
+    pub vat_code: String,
     /// a comment printed under the line (period etc.)
     pub comment: String,
 }
@@ -51,7 +53,8 @@ pub struct Issued {
 
 pub fn amounts(line: &Line) -> (i64, i64, i64) {
     let net = line.quantity * line.unit_net;
-    let vat = (net as f64 * line.vat_percent as f64 / 100.0).round() as i64;
+    let percent = line.vat_code.trim().parse::<i64>().unwrap_or(0);
+    let vat = (net as f64 * percent as f64 / 100.0).round() as i64;
     (net, vat, net + vat)
 }
 
@@ -115,7 +118,7 @@ pub fn build_xml(key: &str, d: &Document) -> String {
             l.quantity,
             esc(&l.unit),
             l.unit_net,
-            l.vat_percent,
+            esc(l.vat_code.trim()),
             esc(&l.comment)
         );
     }
@@ -237,7 +240,7 @@ mod tests {
                 quantity: 2,
                 unit: "temető/hó".into(),
                 unit_net: 45_000,
-                vat_percent: 27,
+                vat_code: "27".into(),
                 comment: String::new(),
             }],
         }
@@ -255,6 +258,19 @@ mod tests {
         // header order required by the schema
         let pos = |t: &str| x.find(t).unwrap();
         assert!(pos("<keltDatum>") < pos("<teljesitesDatum>") && pos("<fizmod>") < pos("<penznem>") && pos("<rendelesSzam>") < pos("<dijbekero>"));
+        assert!(x.contains("<afakulcs>27</afakulcs>"));
+    }
+
+    #[test]
+    fn exempt_lines_carry_their_code_and_no_vat() {
+        let mut d = doc(false);
+        d.lines[0].vat_code = "AAM".into();
+        assert_eq!(amounts(&d.lines[0]), (90_000, 0, 90_000));
+        let x = build_xml("KEY", &d);
+        assert!(x.contains("<afakulcs>AAM</afakulcs>"), "{x}");
+        assert!(x.contains("<afaErtek>0</afaErtek>"));
+        d.lines[0].vat_code = "TAM".into();
+        assert!(build_xml("KEY", &d).contains("<afakulcs>TAM</afakulcs>"));
     }
 
     #[test]

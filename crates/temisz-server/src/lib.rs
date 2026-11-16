@@ -9,6 +9,7 @@
 pub mod accounts;
 pub mod barion;
 pub mod billing;
+pub mod billingo;
 pub mod demo_requests;
 pub mod lifecycle;
 pub mod mail;
@@ -48,6 +49,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (13, include_str!("../migrations/0013_demo_requests.sql")),
     (14, include_str!("../migrations/0014_subscription_payments.sql")),
     (15, include_str!("../migrations/0015_job_runs.sql")),
+    (16, include_str!("../migrations/0016_billingo.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -1287,6 +1289,7 @@ fn system_health(store: &Store) -> Result<Value> {
         "config": {
             "cron": set("CRON_SECRET"),
             "mail": set("RESEND_API_KEY"),
+            "invoicing": set("BILLINGO_API_KEY") || set("SZAMLAZZ_AGENT_KEY"),
             "backups": backups_on,
             "secretsKey": set("SECRETS_KEY") || set("CRON_SECRET"),
             "barion": set("BARION_POS_KEY") && set("BARION_PAYEE"),

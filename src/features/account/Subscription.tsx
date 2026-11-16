@@ -30,6 +30,7 @@ interface CemeterySub {
 interface Overview {
   cardPayments: boolean;
   vatPercent: number;
+  vatExempt?: boolean;
   prices: { monthly: Price; yearly: Price };
   details: { name: string; taxNumber: string; postcode: string; city: string; address: string; email: string } | null;
   cemeteries: CemeterySub[];
@@ -297,7 +298,9 @@ function SubscribeForm({ o, cemetery, onClose, onDone }: { o: Overview; cemetery
             <span className="block font-semibold">{t(`billing.plan.${p}`)}</span>
             <span className="mt-1 block text-2xl font-semibold tabular-nums">{huf(o.prices[p].net)}</span>
             <span className="block text-sm text-granite">
-              {t("billing.netPer", { per: t(`billing.per.${p}`) })}, {t("billing.gross", { amount: huf(o.prices[p].gross) })}
+              {o.vatExempt
+                ? t("billing.vatExempt", { per: t(`billing.per.${p}`) })
+                : `${t("billing.netPer", { per: t(`billing.per.${p}`) })}, ${t("billing.gross", { amount: huf(o.prices[p].gross) })}`}
             </span>
             {p === "yearly" && <span className="mt-2 inline-block bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("billing.yearlySaving")}</span>}
           </button>

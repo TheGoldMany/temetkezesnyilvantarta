@@ -25,7 +25,7 @@ interface AdminData {
 interface Health {
   daily: { ranAt: string; ok: boolean; result: Record<string, unknown> | null; errors: string } | null;
   dailyStale: boolean;
-  config: Record<"cron" | "mail" | "backups" | "secretsKey" | "barion" | "barionLive" | "cardSubscriptions" | "publicUrl" | "superadmins", boolean>;
+  config: Record<"cron" | "mail" | "invoicing" | "backups" | "secretsKey" | "barion" | "barionLive" | "cardSubscriptions" | "publicUrl" | "superadmins", boolean>;
   mail7d: { sent: number; failed: number; unsent: number };
 }
 
@@ -39,8 +39,9 @@ function SystemHealth({ h, onRun }: { h: Health; onRun: () => void }) {
   if (h.daily && !h.daily.ok) problems.push(t("platform.health.failed"));
   if (!h.config.backups) problems.push(t("platform.health.noBackups"));
   if (!h.config.mail) problems.push(t("platform.health.noMail"));
+  if (!h.config.invoicing) problems.push(t("platform.health.noInvoicing"));
   if (h.mail7d.failed > 0) problems.push(t("platform.health.mailFailed", { count: h.mail7d.failed }));
-  const keys = ["cron", "mail", "backups", "secretsKey", "barion", "barionLive", "cardSubscriptions", "publicUrl", "superadmins"] as const;
+  const keys = ["cron", "mail", "invoicing", "backups", "secretsKey", "barion", "barionLive", "cardSubscriptions", "publicUrl", "superadmins"] as const;
   return (
     <Panel title={t("platform.health.title")} actions={<Button onClick={onRun}>{t("platform.health.runNow")}</Button>}>
       <div data-testid="system-health" className="flex flex-col gap-4">
