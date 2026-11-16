@@ -776,7 +776,7 @@ fn older_tenant_is_migrated_when_opened() {
 }
 
 /// Card subscription against a stand-in Barion: the card check reserves a
-/// small amount and releases it, the trial runs 15 days with no export,
+/// small amount and releases it, the trial runs a month (30 days) with no export,
 /// then the saved card is charged (final invoice, period). A failed charge
 /// is retried; a charge Barion decides later is settled once, never charged
 /// twice; a cancelled subscription is not charged again. An unfinished card

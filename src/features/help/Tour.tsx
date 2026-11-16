@@ -149,7 +149,7 @@ const STEPS: Step[] = [
     route: { view: "settings", tab: "subscription" },
     target: "tab-subscription",
     title: "Előfizetés",
-    body: "A szervezet ingyenes, temetőnként fizet elő: bankkártyával 15 nap próbaidővel (utána automatikus havi vagy éves terhelés, bármikor lemondható), vagy átutalással, díjbekérő alapján. Előfizetés nélkül a temető csak olvasható; a próbaidő alatt adatot exportálni nem lehet.",
+    body: "A szervezet ingyenes, temetőnként fizet elő: bankkártyával 1 hónap próbaidővel (utána automatikus havi vagy éves terhelés, bármikor lemondható), vagy átutalással, díjbekérő alapján. Előfizetés nélkül a temető csak olvasható; a próbaidő alatt adatot exportálni nem lehet.",
     needs: "manage_settings",
   },
   {
