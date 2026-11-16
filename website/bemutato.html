@@ -23,10 +23,72 @@
     <script src="bemutato.js" defer></script>
   </head>
   <body>
-    <header class="bar">
+    <header class="bar" id="bar">
       <a class="brand" href="./" aria-label="TEMISZ – Temetőmenedzsment és Informatikai Szoftver, kezdőlap"><span class="wordmark">TEMISZ</span><span class="brand-sub">Temetőmenedzsment és Informatikai Szoftver</span></a>
-      <nav class="nav" aria-label="Fő menü" style="display:flex">
-        <a class="btn btn-solid btn-sm nav-cta" href="/app/">Belépés</a>
+
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="l1" d="M4 7h16" /><path class="l2" d="M4 12h16" /><path class="l3" d="M4 17h16" /></svg>
+        <span>Menü</span>
+      </button>
+
+      <nav class="nav" id="nav" aria-label="Fő menü">
+        <ul class="nav-list">
+          <li class="has-menu">
+            <button class="nav-top" type="button" aria-expanded="false" aria-controls="mega-features">
+              Funkciók
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+            </button>
+            <div class="mega" id="mega-features">
+              <div class="mega-inner">
+                <ul class="mega-features">
+                  <li><a href="./#tartalom"><b>Temetőtérkép</b><span>Sírhelyek állapota színekkel, adatlap egy kattintással.</span></a></li>
+                  <li><a href="./#tab-check"><b>Rátemetés ellenőrzése</b><span>Férőhely, nyugvási idő és tilalom, indoklással.</span></a></li>
+                  <li><a href="./#tab-expiry"><b>Lejáratfigyelő</b><span>Lejáró megváltások és értesítő levelek.</span></a></li>
+                  <li><a href="./#tab-book"><b>Nyilvántartó és sírbolt könyv</b><span>Kihagyás nélküli folyószám, hiteles nyomtatás.</span></a></li>
+                  <li><a href="./#tab-search"><b>Keresés</b><span>Név, évszám vagy sírhely szerint, ékezet nélkül is.</span></a></li>
+                  <li><a href="./#tab-import"><b>Átállás régi rendszerből</b><span>Excel- és CSV-import próbafuttatással.</span></a></li>
+                </ul>
+                <div class="mega-side">
+                  <p class="mega-title">Kipróbálná?</p>
+                  <p>A regisztráció ingyenes, a meglévő táblázatát díjmentesen betöltjük. Kártyás előfizetésnél temetőnként 1 hónap próbaidő jár.</p>
+                  <a class="btn btn-solid btn-sm" href="/app/#regisztracio">Kipróbálom ingyen</a>
+                  <a class="mega-link" href="bemutato">Ingyenes bemutató a saját táblázatával</a>
+                  <a class="mega-link" href="./#arak">Árak</a>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li><a class="nav-top" href="./#arak">Árak</a></li>
+          <li><a class="nav-top" href="bemutato">Ingyenes bemutató</a></li>
+          <li class="has-menu">
+            <button class="nav-top" type="button" aria-expanded="false" aria-controls="mega-info">
+              Információk
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+            </button>
+            <div class="mega" id="mega-info">
+              <div class="mega-inner">
+                <ul class="mega-features">
+                  <li><a href="./#rogzites"><b>Hogyan működik</b><span>Egy temetés rögzítése lépésről lépésre.</span></a></li>
+                  <li><a href="./#biztonsag"><b>Adatbiztonság</b><span>Titkosítás, napi mentés, változásnapló.</span></a></li>
+                  <li><a href="./#kerdesek"><b>Gyakori kérdések</b><span>Próbaidő, fizetés, átállás a régi rendszerből.</span></a></li>
+                  <li><a href="aszf"><b>ÁSZF</b><span>Általános Szerződési Feltételek.</span></a></li>
+                  <li><a href="adatkezeles"><b>Adatkezelési tájékoztató</b><span>Milyen adatot, mire és meddig kezelünk.</span></a></li>
+                  <li><a href="adatfeldolgozas"><b>Adatfeldolgozói szerződés</b><span>GDPR 28. cikk szerinti szerződés az önkormányzatoknak.</span></a></li>
+                  <li><a href="impresszum"><b>Impresszum</b><span>A szolgáltató adatai.</span></a></li>
+                </ul>
+                <div class="mega-side">
+                  <p class="mega-title">Kapcsolat</p>
+                  <p>Kérdése van? Hívjon, vagy írjon, szívesen bemutatjuk személyesen is.</p>
+                  <a class="mega-link" href="tel:+36202982210">+36 20 298 2210</a>
+                  <a class="mega-link" href="mailto:info@lundasoftware.hu">info@lundasoftware.hu</a>
+                  <p class="mega-maker"><img src="lunda-logo.svg" alt="" width="20" height="20" /> Lunda Software</p>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li><a class="nav-top" href="/app/">Belépés</a></li>
+        </ul>
+        <a class="btn btn-solid btn-sm nav-cta" href="/app/#regisztracio">Kipróbálom ingyen</a>
       </nav>
     </header>
     <main class="pay demo">
@@ -71,5 +133,6 @@
         <a href="impresszum.html">Impresszum</a>
       </p>
     </footer>
+    <script src="nav.js" defer></script>
   </body>
 </html>

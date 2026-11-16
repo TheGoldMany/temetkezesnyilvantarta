@@ -156,6 +156,8 @@ a { color: inherit; }
 .mega-title { font-size: 16px; font-weight: 600; }
 .mega-side p:not(.mega-title) { margin: 6px 0 16px; font-size: 14.5px; color: var(--ink-2); }
 .mega-link { display: block; margin-top: 14px; font-size: 14.5px; font-weight: 600; color: var(--cobalt); text-underline-offset: 3px; }
+.mega-maker { display: flex; align-items: center; gap: 8px; margin-top: 18px !important; font-weight: 600; color: var(--ink) !important; }
+.mega-maker img { display: block; width: 20px; height: 20px; }
 
 .menu-btn {
   display: none;
@@ -213,6 +215,9 @@ a { color: inherit; }
   .mega-features span { display: none; }
   .mega-features b { font-weight: 500; }
   .mega-side { display: none; }
+  #mega-info .mega-side { display: block; padding: 4px 0 16px 14px; border-left: 2px solid var(--line); }
+  #mega-info .mega-side > p:not(.mega-maker) { display: none; }
+  #mega-info .mega-link { margin-top: 8px; }
   .nav-cta { margin: 24px 0 0; justify-content: center; min-height: 50px; font-size: 17px; }
 }
 
