@@ -54,6 +54,8 @@
   .fact b { display: block; font-size: 15pt; font-weight: 600; color: var(--cobalt); line-height: 1.1; }
   .fact span { font-size: 8.8pt; color: var(--ink2); }
 
+  /* closing band: the header's deep blue under a thin gilt line (no tricolour stripes) */
+  .bar { height: 4mm; background: var(--deep); border-top: 0.9mm solid var(--gilt); }
   footer { margin-top: auto; padding: 3mm 16mm 5mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
   .contact b { font-size: 10.5pt; white-space: nowrap; }
   .contact p { color: var(--ink2); font-size: 9.5pt; }
@@ -65,8 +67,6 @@
   .contact .maker b + span { color: #2b4a73; font-weight: 500; margin-left: 0.28em; }
   .contact .big { font-size: 13pt; color: var(--ink); font-weight: 600; letter-spacing: 0.01em; }
   .legal { font-size: 7.2pt; color: #7a7e87; max-width: 64mm; text-align: right; }
-  .bar { height: 3mm; display: flex; }
-  .bar i { flex: 1; } .bar i:nth-child(1) { background: var(--cobalt); } .bar i:nth-child(2) { background: var(--ochre); flex: 0.35; } .bar i:nth-child(3) { background: var(--cinnabar); flex: 0.2; }
 </style>
 </head>
 <body>
@@ -159,7 +159,7 @@
     </div>
     <p class="legal">A Szolgáltató alanyi adómentes, a díjakat ÁFA nem terheli. A számla Billingo rendszerben készül, átutalással vagy bankkártyával (Barion) fizethető. A részletes feltételek: www.temisz.hu/aszf</p>
   </footer>
-  <div class="bar"><i></i><i></i><i></i></div>
+  <div class="bar"></div>
 </div>
 </body>
 </html>
