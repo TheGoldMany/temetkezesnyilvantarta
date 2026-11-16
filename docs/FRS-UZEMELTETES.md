@@ -85,5 +85,5 @@ A díjak jogcímeit és az ÁFA-kezelést nem a program dönti el: mindkettő te
 
 | ID | Követelmény | Prior. |
 | --- | --- | --- |
-| FR-ELO-01 | Temető létrehozása előtt a program megmutatja, mennyivel nő a díj (temetőnként havi 45 000 Ft + ÁFA vagy éves 450 000 Ft + ÁFA). Az archivált temető nem számít bele a díjba, de csak olvasható. | M |
+| FR-ELO-01 | Temető létrehozása előtt a program megmutatja, mennyivel nő a díj (temetőnként havi 60 000 Ft vagy éves 600 000 Ft). Az archivált temető nem számít bele a díjba, de csak olvasható. | M |
 | FR-ELO-02 | Próbaidő: 30 nap, tetszőleges számú temetővel. A próbaidő végén a fiók rendszergazdája választ temetőszámot és fizetési módot. | M |

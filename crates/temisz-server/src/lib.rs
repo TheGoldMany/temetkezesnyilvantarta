@@ -9,6 +9,7 @@
 pub mod accounts;
 pub mod barion;
 pub mod billing;
+pub mod billingo;
 pub mod demo_requests;
 pub mod lifecycle;
 pub mod mail;
@@ -47,6 +48,8 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (12, include_str!("../migrations/0012_cemetery_subscriptions.sql")),
     (13, include_str!("../migrations/0013_demo_requests.sql")),
     (14, include_str!("../migrations/0014_subscription_payments.sql")),
+    (15, include_str!("../migrations/0015_job_runs.sql")),
+    (16, include_str!("../migrations/0016_billingo.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -177,14 +180,13 @@ pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
             if !ok {
                 return Response::text(401, "unauthorized");
             }
-            let res = subscriptions::daily(store, &accounts::base_url(req))
-                .and_then(|b| {
-                    Ok(json!({ "billing": b, "lifecycle": lifecycle::daily(store)?, "reminders": reminders::daily(store)?, "demoPurged": demo_requests::purge(&store.conn)? }))
-                });
-            match res {
-                Ok(v) => Response::json(&v),
-                Err(e) => Response::text(500, &e.to_string()),
+            let v = run_daily(store, &accounts::base_url(req));
+            let ok = v["errors"].as_array().is_none_or(|e| e.is_empty());
+            let mut r = Response::json(&v);
+            if !ok {
+                r.status = 500;
             }
+            r
         }
         ("POST", "/dev/expire-trial") if cfg.dev_mode => {
             let email = req.path.split("email=").nth(1).unwrap_or("").replace("%40", "@");
@@ -758,6 +760,8 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
             "admin_overview"
             | "admin_mark_paid"
             | "admin_extend_trial"
+            | "admin_end_trial_now"
+            | "admin_run_daily"
             | "admin_bank_import"
             | "admin_bank_resolve"
             | "admin_demo_requests"
@@ -804,6 +808,20 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                              WHERE tenant_id = ?1 AND (status = 'trial' OR (status = 'lapsed' AND current_period_end IS NULL))",
                             params![s("tenantId"), days],
                         )?;
+                        admin_overview(store)
+                    }
+                    // testing the card chain end to end (own organisation): the trial ends
+                    // now, and the next daily run charges the saved card
+                    "admin_end_trial_now" => {
+                        store.conn.execute(
+                            "UPDATE platform.cemetery_subscriptions SET trial_ends_at = now() - interval '1 minute', updated_at = now()
+                             WHERE tenant_id = ?1 AND status = 'trial'",
+                            params![s("tenantId")],
+                        )?;
+                        admin_overview(store)
+                    }
+                    "admin_run_daily" => {
+                        run_daily(store, &accounts::base_url(req));
                         admin_overview(store)
                     }
                     _ => admin_overview(store),
@@ -1203,6 +1221,87 @@ fn listed_superadmin(email: &str) -> bool {
     std::env::var("SUPERADMIN_EMAILS").map(|v| v.split(',').any(|e| !e.trim().is_empty() && e.trim().eq_ignore_ascii_case(email))).unwrap_or(false)
 }
 
+/// The daily run: every part runs even when another one fails, and the
+/// outcome is kept for the platform admins (Ügyfelek › Rendszerállapot).
+pub fn run_daily(store: &Store, base_url: &str) -> Value {
+    let mut out = serde_json::Map::new();
+    let mut errors: Vec<String> = vec![];
+    let mut timings = serde_json::Map::new();
+    let mut part = |name: &str, started: std::time::Instant, r: Result<Value>| {
+        timings.insert(name.into(), json!(started.elapsed().as_millis() as u64));
+        match r {
+            Ok(v) => {
+                out.insert(name.into(), v);
+            }
+            Err(e) => {
+                eprintln!("daily {name} failed: {e}");
+                errors.push(format!("{name}: {e}"));
+            }
+        }
+    };
+    let t = std::time::Instant::now;
+    let s0 = t();
+    part("billing", s0, subscriptions::daily(store, base_url));
+    let s1 = t();
+    part("lifecycle", s1, lifecycle::daily(store));
+    let s2 = t();
+    part("reminders", s2, reminders::daily(store));
+    let s3 = t();
+    part("demoPurged", s3, demo_requests::purge(&store.conn).map(|n| json!(n)));
+    out.insert("ms".into(), Value::Object(timings));
+    let ok = errors.is_empty();
+    let result = Value::Object(out.clone()).to_string();
+    let _ = store.conn.execute(
+        "INSERT INTO platform.job_runs (job, ran_at, ok, result, errors) VALUES ('daily', now(), ?1, ?2, ?3)
+         ON CONFLICT (job) DO UPDATE SET ran_at = now(), ok = excluded.ok, result = excluded.result, errors = excluded.errors",
+        params![ok, result, errors.join("\n")],
+    );
+    out.insert("errors".into(), json!(errors));
+    Value::Object(out)
+}
+
+/// What the platform admins should know about the running system: the last
+/// daily run, which services are configured, and e-mail delivery.
+fn system_health(store: &Store) -> Result<Value> {
+    let set = |k: &str| std::env::var(k).map(|v| !v.trim().is_empty()).unwrap_or(false);
+    let daily: Option<(String, bool, String, String)> = store
+        .conn
+        .query_row(
+            "SELECT to_char(ran_at AT TIME ZONE 'Europe/Budapest', 'YYYY-MM-DD HH24:MI'), ok, result, errors FROM platform.job_runs WHERE job = 'daily'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .optional()?;
+    let stale: bool =
+        store
+            .conn
+            .query_row("SELECT coalesce((SELECT ran_at < now() - interval '26 hours' FROM platform.job_runs WHERE job = 'daily'), true)", [], |r| r.get(0))?;
+    let (sent, failed, unsent): (i64, i64, i64) = store.conn.query_row(
+        "SELECT count(*) FILTER (WHERE sent_at IS NOT NULL), count(*) FILTER (WHERE error IS NOT NULL), count(*) FILTER (WHERE sent_at IS NULL AND error IS NULL)
+         FROM platform.emails WHERE created_at > now() - interval '7 days'",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    let backups_on = set("BLOB_READ_WRITE_TOKEN") && (set("BACKUP_KEY") || set("CRON_SECRET"));
+    Ok(json!({
+        "daily": daily.map(|(at, ok, result, errors)| json!({ "ranAt": at, "ok": ok, "result": serde_json::from_str::<Value>(&result).unwrap_or(Value::Null), "errors": errors })),
+        "dailyStale": stale,
+        "config": {
+            "cron": set("CRON_SECRET"),
+            "mail": set("RESEND_API_KEY"),
+            "invoicing": set("BILLINGO_API_KEY") || set("SZAMLAZZ_AGENT_KEY"),
+            "backups": backups_on,
+            "secretsKey": set("SECRETS_KEY") || set("CRON_SECRET"),
+            "barion": set("BARION_POS_KEY") && set("BARION_PAYEE"),
+            "barionLive": std::env::var("BARION_ENV").map(|e| e.trim().eq_ignore_ascii_case("prod")).unwrap_or(false),
+            "cardSubscriptions": subscriptions::card_enabled(),
+            "publicUrl": set("PUBLIC_URL"),
+            "superadmins": set("SUPERADMIN_EMAILS"),
+        },
+        "mail7d": { "sent": sent, "failed": failed, "unsent": unsent },
+    }))
+}
+
 fn admin_overview(store: &Store) -> Result<Value> {
     let rows: Vec<Value> = store
         .conn
@@ -1234,7 +1333,7 @@ fn admin_overview(store: &Store) -> Result<Value> {
                        "dueDate": r.get::<_, Option<String>>(4)?, "description": r.get::<_, String>(5)?, "reference": r.get::<_, String>(6)? }))
         })?
         .collect::<std::result::Result<_, _>>()?;
-    Ok(json!({ "tenants": rows, "openProformas": open, "bankLines": billing::bank_lines(&store.conn)? }))
+    Ok(json!({ "tenants": rows, "openProformas": open, "bankLines": billing::bank_lines(&store.conn)?, "health": system_health(store)? }))
 }
 
 #[cfg(feature = "desktop-import")]

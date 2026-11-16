@@ -219,6 +219,8 @@ fn bank_statement_settles_proformas() {
 /// once, and sends the office a summary.
 #[test]
 fn daily_job_sends_expiry_reminders() {
+    // the daily run walks every tenant: not at the same time as another one
+    let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let store = platform();
     let (tenant, _) = new_customer(&store, "reminder");
     let sys = Session::system();
@@ -251,6 +253,8 @@ fn daily_job_sends_expiry_reminders() {
             .unwrap()
     };
     assert_eq!(count("expiry_reminder"), 0);
+    // the run leaves the connection in the last tenant it visited
+    use_tenant(&store, &tenant);
     store.conn.execute("INSERT INTO settings (key, cemetery_id, value, updated_at) VALUES ('notify.auto_expiry', '', 'true', 'x') ON CONFLICT (key, cemetery_id) DO UPDATE SET value = 'true'", []).unwrap();
     temisz_server::reminders::daily(&store).unwrap();
     let to: String = store
@@ -834,7 +838,7 @@ fn card_subscription_trial_then_automatic_charges() {
                         json!({ "PaymentId": pid, "Status": m.check_status, "Total": 100, "Currency": "HUF", "TraceId": "TRACE-1",
                                 "Transactions": [{ "TransactionId": "T1", "POSTransactionId": "check-x", "Total": 100 }], "Errors": [] })
                     } else {
-                        json!({ "PaymentId": pid, "Status": m.renew_state, "Total": 57150, "Currency": "HUF", "Errors": [] })
+                        json!({ "PaymentId": pid, "Status": m.renew_state, "Total": 60000, "Currency": "HUF", "Errors": [] })
                     }
                 };
                 let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));
@@ -1021,4 +1025,100 @@ fn demo_request_upload_is_stored_sealed() {
 
 fn rand_octet() -> u8 {
     (lunda_core::util::new_id().bytes().map(|b| b as u32).sum::<u32>() % 250) as u8 + 1
+}
+
+#[test]
+fn daily_run_is_recorded_for_the_admins() {
+    let _guard = BARION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let store = platform();
+    let v = temisz_server::run_daily(&store, "http://localhost");
+    assert!(v["errors"].as_array().unwrap().is_empty(), "{v}");
+    assert!(v.get("billing").is_some() && v.get("lifecycle").is_some() && v.get("reminders").is_some());
+    let (ok, result): (bool, String) = store
+        .conn
+        .query_row("SELECT ok, result FROM platform.job_runs WHERE job = 'daily' AND ran_at > now() - interval '1 minute'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap();
+    assert!(ok);
+    assert!(result.contains("lifecycle"));
+}
+
+/// TEMISZ's own invoices in Billingo: the customer becomes a partner once,
+/// the document is alanyi adómentes (AAM) with the net unit price, Billingo
+/// e-mails it, and the PDF is kept.
+#[test]
+fn invoices_go_to_billingo() {
+    let store = platform();
+    let (tenant, email) = new_customer(&store, "billingo");
+    details(&store, &tenant, &email);
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(String, String, String)>::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for mut rq in server.incoming_requests() {
+            let mut body = String::new();
+            let _ = rq.as_reader().read_to_string(&mut body);
+            let key = rq.headers().iter().find(|h| h.field.equiv("X-API-KEY")).map(|h| h.value.to_string()).unwrap_or_default();
+            let path = rq.url().to_string();
+            log.lock().unwrap().push((format!("{} {path}", rq.method()), body, key));
+            let answer = match (rq.method().as_str(), path.as_str()) {
+                ("POST", "/partners") => json!({ "id": 77 }).to_string(),
+                ("PUT", "/partners/77") => json!({ "id": 77 }).to_string(),
+                ("GET", p) if p.starts_with("/document-blocks") => json!({ "data": [{ "id": 5, "type": "invoice" }] }).to_string(),
+                ("POST", "/documents") => json!({ "id": 900, "invoice_number": "TEMISZ-2026-1" }).to_string(),
+                ("POST", "/documents/900/send") => json!({ "emails": [] }).to_string(),
+                ("GET", "/documents/900/download") => "%PDF-1.4 test".to_string(),
+                _ => {
+                    let _ = rq.respond(tiny_http::Response::from_string("{}").with_status_code(404));
+                    continue;
+                }
+            };
+            let _ = rq.respond(tiny_http::Response::from_string(answer));
+        }
+    });
+    let cfg = temisz_server::billingo::Config { key: "test-key".into(), api: format!("http://127.0.0.1:{port}"), block_id: None };
+    let doc = lunda_core::szamlazz::Document {
+        proforma: false,
+        issue_date: "2026-11-16".into(),
+        fulfilment_date: "2026-11-16".into(),
+        due_date: "2026-11-16".into(),
+        payment_method: "Bankkártya".into(),
+        note: "TEMISZ előfizetés.".into(),
+        order_number: "x".into(),
+        proforma_number: Some("D-1".into()),
+        paid: true,
+        buyer: temisz_server::billing::buyer(&store.conn, &tenant).unwrap(),
+        lines: vec![lunda_core::szamlazz::Line {
+            name: "TEMISZ előfizetés – Kisréti köztemető".into(),
+            quantity: 1,
+            unit: "temető/hó".into(),
+            unit_net: 60_000,
+            vat_code: "AAM".into(),
+            comment: "Időszak".into(),
+        }],
+    };
+    let issued = temisz_server::billingo::issue(&cfg, &store.conn, &tenant, &doc).unwrap();
+    assert_eq!(issued.number, "TEMISZ-2026-1");
+    assert_eq!(issued.pdf.as_deref(), Some(&b"%PDF-1.4 test"[..]));
+    assert!(temisz_server::billingo::emailed(&issued.log));
+    let calls = seen.lock().unwrap().clone();
+    assert!(calls.iter().all(|(_, _, k)| k == "test-key"));
+    let doc_call = calls.iter().find(|(c, _, _)| c == "POST /documents").expect("document created");
+    let body: serde_json::Value = serde_json::from_str(&doc_call.1).unwrap();
+    assert_eq!(body["partner_id"], 77);
+    assert_eq!(body["block_id"], 5);
+    assert_eq!(body["type"], "invoice");
+    assert_eq!(body["payment_method"], "bankcard");
+    assert_eq!(body["items"][0]["vat"], "AAM");
+    assert_eq!(body["items"][0]["unit_price"], 60_000);
+    assert_eq!(body["items"][0]["unit_price_type"], "net");
+    assert!(body["comment"].as_str().unwrap().contains("D-1"));
+    let partner: serde_json::Value = serde_json::from_str(&calls.iter().find(|(c, _, _)| c == "POST /partners").unwrap().1).unwrap();
+    assert_eq!(partner["address"]["post_code"], "9999");
+    assert_eq!(partner["emails"][0], email);
+    // the second invoice updates the same partner instead of creating a new one
+    temisz_server::billingo::issue(&cfg, &store.conn, &tenant, &doc).unwrap();
+    let calls = seen.lock().unwrap().clone();
+    assert_eq!(calls.iter().filter(|(c, _, _)| c == "POST /partners").count(), 1);
+    assert!(calls.iter().any(|(c, _, _)| c == "PUT /partners/77"));
 }

@@ -13,9 +13,11 @@ use serde_json::{json, Value};
 use crate::mail;
 use lunda_core::szamlazz::{self, Document, Line, Party};
 
-pub const MONTHLY_NET: i64 = 45_000;
-pub const YEARLY_NET: i64 = 450_000;
-pub const VAT_PERCENT: i64 = 27;
+pub const MONTHLY_NET: i64 = 60_000;
+pub const YEARLY_NET: i64 = 600_000;
+/// The seller is alanyi adómentes (AAM): the invoices carry no VAT.
+pub const VAT_CODE: &str = "AAM";
+pub const VAT_PERCENT: i64 = 0;
 pub const TRANSFER_DUE_DAYS: i64 = 8;
 /// Days after the due date before an unpaid account becomes read-only.
 pub const OVERDUE_GRACE_DAYS: i64 = 15;
@@ -139,7 +141,7 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
         .optional()?;
     let invoices: Vec<Value> = conn
         .prepare(
-            "SELECT id, kind, number, description, gross_huf, to_char(created_at, 'YYYY-MM-DD'), to_char(due_date, 'YYYY-MM-DD'), status, pdf IS NOT NULL
+            "SELECT id, kind, number, description, gross_huf, to_char(created_at, 'YYYY-MM-DD'), to_char(due_date, 'YYYY-MM-DD'), status, pdf IS NOT NULL OR provider_log LIKE 'billingo:%'
              FROM platform.invoices WHERE tenant_id = ?1 ORDER BY created_at DESC LIMIT 50",
         )?
         .query_map(params![tenant_id], |r| {
@@ -153,6 +155,7 @@ pub fn overview(store: &Store, tenant_id: &str) -> Result<Value> {
     Ok(json!({
         "cardPayments": crate::barion::config().is_some(),
         "vatPercent": VAT_PERCENT,
+        "vatExempt": VAT_PERCENT == 0,
         "prices": { "monthly": plan("monthly"), "yearly": plan("yearly") },
         "details": details,
         "cemeteries": subs["cemeteries"],
@@ -189,7 +192,7 @@ pub fn save_details(conn: &Connection, tenant_id: &str, a: &Value) -> Result<()>
     Ok(())
 }
 
-pub(crate) fn buyer(conn: &Connection, tenant_id: &str) -> Result<Party> {
+pub fn buyer(conn: &Connection, tenant_id: &str) -> Result<Party> {
     conn.query_row("SELECT name, tax_number, postcode, city, address, email FROM platform.billing_details WHERE tenant_id = ?1", params![tenant_id], |r| {
         Ok(Party { name: r.get(0)?, tax_number: r.get(1)?, postcode: r.get(2)?, city: r.get(3)?, address: r.get(4)?, email: r.get(5)? })
     })
@@ -232,12 +235,15 @@ pub(crate) fn issue(
             quantity,
             unit: if unit_net == YEARLY_NET { "temető/év".into() } else { "temető/hó".into() },
             unit_net,
-            vat_percent: VAT_PERCENT,
+            vat_code: VAT_CODE.into(),
             comment,
         }],
     };
     let (net, vat, gross) = szamlazz::amounts(&doc.lines[0]);
-    let issued = szamlazz::issue(&doc, seq)?;
+    let issued = match crate::billingo::config() {
+        Some(cfg) => crate::billingo::issue(&cfg, conn, tenant_id, &doc)?,
+        None => szamlazz::issue(&doc, seq)?,
+    };
     let id = new_id();
     conn.execute(
         "INSERT INTO platform.invoices (id, tenant_id, kind, number, proforma_id, description, quantity, unit_net_huf, net_huf, vat_huf, gross_huf,
@@ -264,7 +270,7 @@ pub(crate) fn issue(
             issued.log
         ],
     )?;
-    if issued.pdf.is_none() {
+    if issued.pdf.is_none() && !crate::billingo::emailed(&issued.log) {
         // test mode or PDF not returned: tell the customer by e-mail (Számlázz.hu e-mails its own PDFs)
         let to = doc.buyer.email.clone();
         let what = if proforma { "díjbekérő" } else { "számla" };
@@ -273,9 +279,10 @@ pub(crate) fn issue(
             &to,
             &format!("TEMISZ {what}: {}", issued.number),
             &format!(
-                "Jó napot kívánunk!\n\nElkészült a TEMISZ előfizetés {what}e ({}).\n\n{description}\n{quantity} × {} Ft + {VAT_PERCENT}% ÁFA\nFizetendő: {} Ft{}{}",
+                "Jó napot kívánunk!\n\nElkészült a TEMISZ előfizetés {what}e ({}).\n\n{description}\n{quantity} × {} Ft{}\nFizetendő: {} Ft{}{}",
                 issued.number,
                 fmt_huf(unit_net),
+                if VAT_PERCENT == 0 { " (alanyi adómentes, ÁFA nélkül)".to_string() } else { format!(" + {VAT_PERCENT}% ÁFA") },
                 fmt_huf(gross),
                 if proforma { format!("\nFizetési határidő: {}\nKözlemény: {}", hu_date(due), &tenant_id[..8]) } else { String::new() },
                 mail::FOOTER
@@ -494,10 +501,23 @@ pub fn resolve_line(conn: &Connection, line_id: &str, invoice_id: Option<&str>, 
 }
 
 pub fn invoice_pdf(conn: &Connection, tenant_id: &str, invoice_id: &str) -> Result<Value> {
-    let row: Option<(String, Option<Vec<u8>>)> = conn
-        .query_row("SELECT number, pdf FROM platform.invoices WHERE id = ?1 AND tenant_id = ?2", params![invoice_id, tenant_id], |r| Ok((r.get(0)?, r.get(1)?)))
+    let row: Option<(String, Option<Vec<u8>>, String)> = conn
+        .query_row("SELECT number, pdf, provider_log FROM platform.invoices WHERE id = ?1 AND tenant_id = ?2", params![invoice_id, tenant_id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
         .optional()?;
-    let Some((number, Some(pdf))) = row else { return Err(CoreError::new("pdf_unavailable", "no PDF for this document")) };
+    let unavailable = || CoreError::new("pdf_unavailable", "no PDF for this document");
+    let Some((number, pdf, log)) = row else { return Err(unavailable()) };
+    let pdf = match pdf {
+        Some(p) => p,
+        // Billingo generates the PDF a moment after the invoice: fetched on first use
+        None => {
+            let (Some(cfg), Some(doc)) = (crate::billingo::config(), crate::billingo::document_id(&log)) else { return Err(unavailable()) };
+            let p = crate::billingo::pdf(&cfg, doc)?.ok_or_else(unavailable)?;
+            conn.execute("UPDATE platform.invoices SET pdf = ?2 WHERE id = ?1", params![invoice_id, p])?;
+            p
+        }
+    };
     use base64::Engine;
     Ok(
         json!({ "fileName": format!("{}.pdf", number.replace('/', "-")), "path": "", "pages": 1, "sha256": "", "data": base64::engine::general_purpose::STANDARD.encode(pdf) }),
@@ -510,12 +530,12 @@ mod tests {
 
     #[test]
     fn prices_and_periods() {
-        assert_eq!(gross(MONTHLY_NET), 57_150);
-        assert_eq!(gross(YEARLY_NET * 2), 1_143_000);
+        assert_eq!(gross(MONTHLY_NET), 60_000);
+        assert_eq!(gross(YEARLY_NET * 2), 1_200_000);
         let d = NaiveDate::from_ymd_opt(2026, 1, 31).unwrap();
         assert_eq!(period_end(d, "monthly"), NaiveDate::from_ymd_opt(2026, 2, 28).unwrap());
         assert_eq!(period_end(d, "yearly"), NaiveDate::from_ymd_opt(2027, 1, 31).unwrap());
-        assert_eq!(fmt_huf(450_000), "450\u{a0}000");
+        assert_eq!(fmt_huf(600_000), "600\u{a0}000");
     }
 
     #[test]

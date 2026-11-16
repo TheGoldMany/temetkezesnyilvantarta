@@ -41,7 +41,7 @@ Hívás után még aznap küldje el **egyenként, személyre szólóan** az egyo
 
 ## Gyakori kifogások
 
-- **„Nincs rá keretünk.”** Temetőnként havi 45 000 Ft + ÁFA, évesen 2 hónap ingyen. Sok helyen már egyetlen elmaradt újraváltás díja is többet hoz be. A próbaidő és a bemutató ingyenes.
+- **„Nincs rá keretünk.”** Temetőnként havi 60 000 Ft (ÁFA nem terheli, alanyi adómentes), évesen 2 hónap ingyen. Sok helyen már egyetlen elmaradt újraváltás díja is többet hoz be. A próbaidő és a bemutató ingyenes.
 - **„Megvan Excelben, működik.”** Éppen ezért egyszerű az átállás: ugyanazt a táblázatot töltjük be. Utána a lejáratokat, a hirdetményt és a nyomtatványokat a program készíti el.
 - **„Adatvédelem? Hol vannak az adatok?”** Titkosított kapcsolat és titkosított napi mentés, módosíthatatlan változásnapló, minden ügyfél adatai külön adatbázis-sémában. Adatfeldolgozói szerződés a honlapon (temisz.hu/adatfeldolgozas).
 - **„Gondolkodunk rajta.”** Kérdezze meg, mi kellene a döntéshez (testületi ülés, polgármester). Ajánlja fel, hogy az ő adataival megcsinálja a bemutatót, mert azt könnyebb megmutatni a testületnek.
