@@ -2,7 +2,7 @@
 //! free; every cemetery needs its own subscription to be written:
 //!
 //! * card: Barion checks the card first (a small amount is reserved and
-//!   released at once, and the card is saved as a token), then 15 days of
+//!   released at once, and the card is saved as a token), then 30 days of
 //!   trial, then the period fee is charged with the token every month or
 //!   year until the subscription is cancelled;
 //! * transfer: no trial; a proforma at once, the cemetery works while it is
@@ -27,7 +27,8 @@ use crate::barion;
 use crate::billing::{self, gross, hu_date, parse, period_end, today, unit_net, ymd};
 use crate::mail;
 
-pub const TRIAL_DAYS: i64 = 15;
+/// card trial: one month
+pub const TRIAL_DAYS: i64 = 30;
 pub const DEMO_DAYS: i64 = 30;
 
 /// Reserved on the card for the check, released right after (HUF).

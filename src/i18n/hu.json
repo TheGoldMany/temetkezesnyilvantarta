@@ -348,7 +348,7 @@
     "noAccount": "Még nincs fiókja?",
     "toRegister": "Ingyenes regisztráció",
     "registerTitle": "Próbaidő indítása",
-    "registerIntro": "A regisztráció és a szervezet ingyenes. Temetőnként fizet elő: bankkártyával 15 nap próbaidővel, vagy átutalással.",
+    "registerIntro": "A regisztráció és a szervezet ingyenes. Temetőnként fizet elő: bankkártyával 1 hónap próbaidővel, vagy átutalással.",
     "organization": "Szervezet neve",
     "organizationHint": "Önkormányzat, egyházközség vagy üzemeltető cég",
     "colleagueHint": "Új temetőt vagy üzemeltetőt regisztrál? Akkor jó helyen jár. Ha munkatársként csatlakozna egy temetőhöz, amely már használja a TEMISZ-t, nem kell regisztrálnia: kérjen meghívót a temető adminisztrátorától. Ha már van fiókja, lépjen be: új szervezetet a fiókjából is létrehozhat.",
@@ -1077,7 +1077,7 @@
     "cancelFinal": "Lemondom",
     "resume": "Lemondás visszavonása",
     "cardChecked": "A kártya rendben van, a temető használható.",
-    "newCemeteryNeedsSub": "Minden temetőnek saját előfizetése van (havi 45 000 Ft vagy évi 450 000 Ft). Mentés után az Előfizetés oldalon indíthatja: kártyával 15 nap próbaidővel, vagy átutalással díjbekérővel. Addig a temető csak olvasható.",
+    "newCemeteryNeedsSub": "Minden temetőnek saját előfizetése van (havi 45 000 Ft vagy évi 450 000 Ft). Mentés után az Előfizetés oldalon indíthatja: kártyával 1 hónap próbaidővel, vagy átutalással díjbekérővel. Addig a temető csak olvasható.",
     "sub": {
       "none": "Nincs előfizetés: a temető csak olvasható.",
       "trialCard": "Próbaidő {{date}}-ig, utána automatikus kártyás terhelés {{per}}.",
