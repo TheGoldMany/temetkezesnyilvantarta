@@ -57,6 +57,12 @@
   footer { margin-top: auto; padding: 3mm 16mm 5mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
   .contact b { font-size: 10.5pt; white-space: nowrap; }
   .contact p { color: var(--ink2); font-size: 9.5pt; }
+  .contact .maker { display: flex; align-items: center; gap: 1.6mm; }
+  .contact .maker img { width: 5.5mm; height: 5.5mm; }
+  .contact .maker b { color: var(--ink); font-weight: 700; }
+  .contact .maker .brand { display: inline-block; white-space: nowrap; font-size: 10.5pt; }
+  .contact .maker .brand b { display: inline; margin: 0; }
+  .contact .maker b + span { color: #2b4a73; font-weight: 500; margin-left: 0.28em; }
   .contact .big { font-size: 13pt; color: var(--ink); font-weight: 600; letter-spacing: 0.01em; }
   .legal { font-size: 7.2pt; color: #7a7e87; max-width: 64mm; text-align: right; }
   .bar { height: 3mm; display: flex; }
@@ -149,7 +155,7 @@
     <div class="contact">
       <b>Kérdése van? Hívjon, szívesen bemutatjuk személyesen is.</b>
       <p class="big">+36 20 298 2210 · www.temisz.hu</p>
-      <p>Uri-Kovács Richárd (Lunda Software) · urikovacsrichard@gmail.com · <span style="white-space:nowrap">6050 Lajosmizse</span></p>
+      <p class="maker"><img src="../../website/lunda-logo.svg" alt="" /><span class="brand"><b>Lunda</b><span>Software</span></span><span>· info@lundasoftware.hu · <span style="white-space:nowrap">6050 Lajosmizse</span></span></p>
     </div>
     <p class="legal">A Szolgáltató alanyi adómentes, a díjakat ÁFA nem terheli. A számla Billingo rendszerben készül, átutalással vagy bankkártyával (Barion) fizethető. A részletes feltételek: www.temisz.hu/aszf</p>
   </footer>
