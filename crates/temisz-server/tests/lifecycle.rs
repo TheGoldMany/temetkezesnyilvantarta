@@ -1122,3 +1122,42 @@ fn invoices_go_to_billingo() {
     assert_eq!(calls.iter().filter(|(c, _, _)| c == "POST /partners").count(), 1);
     assert!(calls.iter().any(|(c, _, _)| c == "PUT /partners/77"));
 }
+
+/// Backups to Vercel Blob in the format of @vercel/blob: PUT /?pathname=…
+/// with the access level; a public store refuses private files, so the
+/// upload is repeated as public (the file is encrypted either way).
+#[test]
+fn backup_upload_falls_back_to_public_storage() {
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(String, String, String)>::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for rq in server.incoming_requests() {
+            fn header(rq: &tiny_http::Request, k: &'static str) -> String {
+                rq.headers().iter().find(|x| x.field.equiv(k)).map(|x| x.value.to_string()).unwrap_or_default()
+            }
+            let (access, auth) = (header(&rq, "x-vercel-blob-access"), header(&rq, "authorization"));
+            log.lock().unwrap().push((format!("{} {}", rq.method(), rq.url()), access.clone(), auth));
+            let r = if access == "private" {
+                tiny_http::Response::from_string(r#"{"error":{"code":"bad_request","message":"Cannot use private access on a public store."}}"#)
+                    .with_status_code(400)
+            } else {
+                tiny_http::Response::from_string(r#"{"url":"https://x.public.blob.vercel-storage.com/backups/t/16.json.enc"}"#)
+            };
+            let _ = rq.respond(r);
+        }
+    });
+    let base = format!("http://127.0.0.1:{port}");
+    let mut access: &'static str = "private";
+    temisz_server::lifecycle::upload_backup(&base, "tok", "backups/t/16.json.enc", &mut access, b"sealed").unwrap();
+    assert_eq!(access, "public");
+    let calls = seen.lock().unwrap().clone();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0, "PUT /?pathname=backups%2Ft%2F16.json.enc");
+    assert_eq!((calls[0].1.as_str(), calls[1].1.as_str()), ("private", "public"));
+    assert!(calls.iter().all(|c| c.2 == "Bearer tok"));
+    // the next file goes as public straight away
+    temisz_server::lifecycle::upload_backup(&base, "tok", "backups/u/16.json.enc", &mut access, b"sealed").unwrap();
+    assert_eq!(seen.lock().unwrap().len(), 3);
+}
