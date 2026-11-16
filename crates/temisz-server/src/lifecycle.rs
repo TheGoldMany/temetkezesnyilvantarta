@@ -127,8 +127,9 @@ pub fn daily(store: &Store) -> Result<Value> {
         &format!("DELETE FROM platform.notifications n WHERE n.key = 'deletion_warning' AND n.tenant_id NOT IN (SELECT id FROM platform.tenants WHERE {IDLE_UNPAID})"),
         params![WARN_IDLE_DAYS as i32],
     )?;
-    let exported = export_all(store)?;
-    Ok(json!({ "deletedClosed": closed.len(), "deletionWarnings": warned, "deletedUnpaid": expired.len(), "exported": exported }))
+    let backup = export_all(store)?;
+    Ok(json!({ "deletedClosed": closed.len(), "deletionWarnings": warned, "deletedUnpaid": expired.len(),
+               "exported": backup.done, "backupFailed": backup.failed, "backupError": backup.error }))
 }
 
 /// Key of the backup encryption: BACKUP_KEY, else CRON_SECRET (keep it: old
@@ -173,12 +174,58 @@ pub fn open_sealed(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>> {
     aes_gcm::Aes256Gcm::new(key.into()).decrypt(nonce.into(), ct).map_err(|_| bad())
 }
 
-fn export_all(store: &Store) -> Result<usize> {
-    let Ok(token) = std::env::var("BLOB_READ_WRITE_TOKEN") else { return Ok(0) };
+#[derive(Default)]
+pub struct Backup {
+    pub done: usize,
+    pub failed: usize,
+    /// the first failure, for the platform admins
+    pub error: Option<String>,
+}
+
+/// Uploads one file to Vercel Blob (the API of @vercel/blob: `PUT
+/// /api/blob/?pathname=…`, the access level is required). Returns the error
+/// text Vercel gave, if any.
+fn blob_put(base: &str, token: &str, pathname: &str, access: &str, data: &[u8]) -> std::result::Result<(), String> {
+    let url = format!("{base}/?pathname={}", pathname.replace('/', "%2F"));
+    let res = ureq::put(&url)
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .header("authorization", &format!("Bearer {token}"))
+        .header("x-api-version", "11")
+        .header("x-vercel-blob-access", access)
+        .header("x-add-random-suffix", "0")
+        .header("x-allow-overwrite", "1")
+        .header("x-content-type", "application/octet-stream")
+        .send(data)
+        .map_err(|e| e.to_string())?;
+    let status = res.status().as_u16();
+    if status < 300 {
+        return Ok(());
+    }
+    let body = res.into_body().read_to_string().unwrap_or_default();
+    let msg = serde_json::from_str::<Value>(&body).ok().and_then(|v| v["error"]["message"].as_str().map(str::to_string)).unwrap_or(body);
+    Err(format!("HTTP {status}: {}", msg.chars().take(300).collect::<String>()))
+}
+
+/// One backup file: private storage first, public when the store takes public
+/// files only (remembered for the rest of the run).
+pub fn upload_backup(base: &str, token: &str, path: &str, access: &mut &'static str, data: &[u8]) -> std::result::Result<(), String> {
+    let res = blob_put(base, token, path, access, data);
+    if *access == "private" && res.as_ref().is_err_and(|e| e.to_lowercase().contains("access") || e.to_lowercase().contains("private")) {
+        *access = "public";
+        return blob_put(base, token, path, access, data);
+    }
+    res
+}
+
+fn export_all(store: &Store) -> Result<Backup> {
+    let mut out = Backup::default();
+    let Ok(token) = std::env::var("BLOB_READ_WRITE_TOKEN") else { return Ok(out) };
     // personal data never leave unencrypted
     let Some(key) = backup_key() else {
         eprintln!("backup skipped: set BACKUP_KEY (or CRON_SECRET)");
-        return Ok(0);
+        return Ok(out);
     };
     let tenants: Vec<(String, String)> = store
         .conn
@@ -186,24 +233,23 @@ fn export_all(store: &Store) -> Result<usize> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<std::result::Result<_, _>>()?;
     let day = chrono::Utc::now().format("%d");
-    let mut n = 0;
+    // private storage first; a public store takes public files only (the
+    // backups are encrypted either way)
+    let mut access = "private";
+    let base = std::env::var("VERCEL_BLOB_API_URL").ok().filter(|u| !u.trim().is_empty()).unwrap_or_else(|| "https://vercel.com/api/blob".into());
     for (id, schema) in tenants {
         store.conn.use_schema(&schema)?;
         let data = seal(&key, tenant_data::export(&store.conn)?.to_string().as_bytes());
         // backups/<tenant>/<day of month>.json.enc – a rolling month of daily copies
-        let url = format!("https://blob.vercel-storage.com/backups/{id}/{day}.json.enc");
-        let res = ureq::put(&url)
-            .header("Authorization", &format!("Bearer {token}"))
-            .header("x-api-version", "7")
-            .header("x-add-random-suffix", "0")
-            .header("x-allow-overwrite", "1")
-            .header("x-content-type", "application/octet-stream")
-            .send(&data[..]);
-        if res.is_ok() {
-            n += 1;
-        } else if let Err(e) = res {
-            eprintln!("backup upload failed for {id}: {e}");
+        let path = format!("backups/{id}/{day}.json.enc");
+        match upload_backup(&base, &token, &path, &mut access, &data) {
+            Ok(()) => out.done += 1,
+            Err(e) => {
+                eprintln!("backup upload failed for {id}: {e}");
+                out.failed += 1;
+                out.error.get_or_insert(e);
+            }
         }
     }
-    Ok(n)
+    Ok(out)
 }

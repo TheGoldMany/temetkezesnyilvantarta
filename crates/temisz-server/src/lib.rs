@@ -1243,11 +1243,21 @@ pub fn run_daily(store: &Store, base_url: &str) -> Value {
     let s0 = t();
     part("billing", s0, subscriptions::daily(store, base_url));
     let s1 = t();
-    part("lifecycle", s1, lifecycle::daily(store));
+    let life = lifecycle::daily(store);
+    // a failed backup is a failure of the run, even though the rest went well
+    let backup_error = life
+        .as_ref()
+        .ok()
+        .filter(|v| v["backupFailed"].as_u64().unwrap_or(0) > 0)
+        .map(|v| format!("backup: {} failed, {}", v["backupFailed"], v["backupError"].as_str().unwrap_or("")));
+    part("lifecycle", s1, life);
     let s2 = t();
     part("reminders", s2, reminders::daily(store));
     let s3 = t();
     part("demoPurged", s3, demo_requests::purge(&store.conn).map(|n| json!(n)));
+    if let Some(e) = backup_error {
+        errors.push(e);
+    }
     out.insert("ms".into(), Value::Object(timings));
     let ok = errors.is_empty();
     let result = Value::Object(out.clone()).to_string();
