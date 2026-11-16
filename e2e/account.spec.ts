@@ -15,7 +15,7 @@ async function register(page: Page, email: string, org = "Próbafalva Önkormán
 
 async function finishOnboarding(page: Page) {
   await page.getByRole("button", { name: "Tovább" }).click();
-  await page.getByRole("button", { name: /Kezdés üres|Üres nyilvántartással/ }).click();
+  await page.getByRole("button", { name: "Kezdés" }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
   // the guided tour opens after the first-run wizard
   await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
@@ -35,7 +35,19 @@ test("regisztráció: saját, üres nyilvántartás, e-mail-megerősítés", asy
   // another customer's people are not searchable from this account
   expect((await rpc(page, "api", { method: "search.quick", args: { query: "kovacs", limit: 30 } })).ok).toEqual([]);
 
-  await finishOnboarding(page);
+  // the second step offers to send the current register for loading (no sample data)
+  await page.getByRole("button", { name: "Tovább" }).click();
+  await expect(page.getByRole("button", { name: "Mintatemető betöltése" })).toHaveCount(0);
+  await page.getByTestId("data-upload-file").setInputFiles({ name: "nyilvantartas.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("PK test") });
+  await expect(page.getByTestId("data-upload-done")).toContainText("nyilvantartas.xlsx");
+  expect((await lastMail(page, email, "demo_request_ack")).subject).toContain("nyilvántartását");
+  await page.getByRole("button", { name: "Kezdés" }).click();
+  await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
+  // nothing new can be recorded before the first cemetery
+  await expect(page.getByTestId("no-cemetery-banner")).toBeVisible();
+  const person = await rpc(page, "api", { method: "persons.save", args: { person: { familyName: "Teszt", givenName: "Elek" } } });
+  expect(person.err.code).toBe("no_cemetery");
   await expect(page.getByRole("status").filter({ hasText: /Erősítse meg az e-mail-címét/ })).toBeVisible();
   // the organisation is free: no trial until a cemetery is subscribed by card
   await expect(page.getByTestId("trial-banner")).toHaveCount(0);

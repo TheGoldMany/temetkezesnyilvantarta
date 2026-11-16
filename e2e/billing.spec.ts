@@ -11,7 +11,7 @@ async function registerAndStart(page: Page, email: string, org: string) {
   await page.locator("input[name=password2]").fill("nagyon-titkos-1");
   await page.getByRole("button", { name: "Fiók létrehozása" }).click();
   await page.getByRole("button", { name: "Tovább" }).click();
-  await page.getByRole("button", { name: /Üres nyilvántartással/ }).click();
+  await page.getByRole("button", { name: "Kezdés" }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
   await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
 }
@@ -55,7 +55,7 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   await subs.getByRole("button", { name: "Előfizetés" }).click();
   const form = page.getByTestId("subscribe-form");
   await form.getByRole("radio", { name: /Éves díj/ }).click();
-  await expect(form.getByRole("radio", { name: /Éves díj/ })).toContainText("600");
+  await expect(form.getByRole("radio", { name: /Éves díj/ })).toContainText("450");
   await expect(form.getByRole("radio", { name: /Éves díj/ })).toContainText("ÁFA nélkül");
   // the ÁSZF must be accepted first
   await expect(form.getByRole("button", { name: "Előfizetek, kérem a díjbekérőt" })).toBeDisabled();
@@ -65,7 +65,7 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   await expect(subs).toContainText("Díjbekérő kiküldve");
   await expect(page.getByTestId("locked-banner")).toHaveCount(0);
   await expect(page.getByTestId("invoices")).toContainText("Díjbekérő");
-  await expect(page.getByTestId("invoices")).toContainText("600");
+  await expect(page.getByTestId("invoices")).toContainText("450");
   const proforma = await lastMail(page, email, "proforma");
   expect(proforma.body).toContain("Fizetési határidő");
   // usable at once, but nothing can be exported before the payment arrives
@@ -79,7 +79,7 @@ test("temető előfizetése átutalással: díjbekérő, befizetés, számla", a
   // … by loading the bank statement: the reference carries the customer code
   const row = admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: org });
   const code = (await row.innerText()).match(/Közlemény: ([0-9a-f]{8})/)![1];
-  const csv = `Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.06;600 000;KISRÉT KÖZSÉG ÖNK.;TEMISZ ${code}\n`;
+  const csv = `Könyvelés dátuma;Összeg;Partner neve;Közlemény\n2026.11.06;450 000;KISRÉT KÖZSÉG ÖNK.;TEMISZ ${code}\n`;
   await admin.locator("input[name=statement]").setInputFiles({ name: "kivonat.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf-8") });
   await expect(admin.getByText(/1 díjbekérő automatikusan kiegyenlítve/)).toBeVisible();
   await expect(admin.getByTestId("open-proformas").getByRole("row").filter({ hasText: org })).toHaveCount(0);
@@ -105,8 +105,11 @@ test("mintatemető: ingyenes, de export nélkül, vízjeles nyomtatással", asyn
   await page.locator("input[name=password2]").fill("nagyon-titkos-1");
   await page.getByRole("button", { name: "Fiók létrehozása" }).click();
   await page.getByRole("button", { name: "Tovább" }).click();
-  await page.getByRole("button", { name: "Mintatemető betöltése" }).click();
   await page.getByRole("button", { name: "Kezdés" }).click();
+  await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  // the sample cemetery is no longer offered at the start; the demo stays available by API
+  expect((await rpc(page, "api", { method: "sample.load", args: {} })).err).toBeUndefined();
+  await page.reload();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
   // writable
   expect((await rpc(page, "api", { method: "settings.set", args: { values: { "operator.address": "Minta utca 1." } } })).err).toBeUndefined();

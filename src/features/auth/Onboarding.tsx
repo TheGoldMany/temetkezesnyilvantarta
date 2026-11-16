@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../app/context";
 import { api } from "../../lib/api";
-import { Alert, Button, ErrorAlert, TextField, cx } from "../../components/ui";
+import { Button, ErrorAlert, TextField, cx } from "../../components/ui";
+import { DataUpload } from "../account/DataUpload";
 
-/** First sign-in wizard (FR-BEA-04): operator details, then optional sample data. */
+/** First sign-in wizard (FR-BEA-04): operator details, then the current register to load (optional). */
 export function Onboarding() {
   const { t } = useTranslation();
   const { refresh, status } = useApp();
@@ -17,7 +18,6 @@ export function Onboarding() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [sample, setSample] = useState<{ plots: number; events: number } | null>(null);
   const steps = [t("onboarding.step1"), t("onboarding.step4")];
   const set = (k: keyof typeof values) => (v: string) => setValues((s) => ({ ...s, [k]: v }));
 
@@ -74,22 +74,7 @@ export function Onboarding() {
           {step === 1 && (
             <>
               <p className="text-granite">{t("onboarding.step4Intro")}</p>
-              {sample ? (
-                <Alert tone="ok">{t("onboarding.sampleLoaded", sample)}</Alert>
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    busy={busy}
-                    onClick={() =>
-                      run(async () => {
-                        setSample(await api<{ plots: number; events: number }>("sample.load"));
-                      })
-                    }
-                  >
-                    {t("onboarding.loadSample")}
-                  </Button>
-                </div>
-              )}
+              <DataUpload />
             </>
           )}
           <ErrorAlert error={error} />
@@ -103,7 +88,7 @@ export function Onboarding() {
               </Button>
             ) : (
               <Button variant="primary" busy={busy} onClick={finish}>
-                {sample ? t("onboarding.finish") : t("onboarding.startEmpty")}
+                {t("onboarding.finish")}
               </Button>
             )}
           </div>

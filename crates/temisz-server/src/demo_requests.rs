@@ -53,13 +53,37 @@ pub fn submit(conn: &Connection, req: &Request) -> Result<Value> {
     if v["consent"].as_bool() != Some(true) {
         return Err(CoreError::new("consent_required", "the data processing terms must be accepted"));
     }
+    store_request(conn, None, &req.ip, &settlement, &name, &role, &email, &phone, &message, &file_name, v["content"].as_str().unwrap_or(""))
+}
+
+/// A registered customer sends its current register (Excel, Word …) from
+/// the program: the TEMISZ team loads it into the customer's organisation.
+pub fn upload_for_customer(conn: &Connection, tenant_id: &str, org: &str, name: &str, email: &str, v: &Value) -> Result<Value> {
+    crate::accounts::rate_limit(conn, &format!("upload:{tenant_id}"), 10, 60)?;
+    let file_name = field(v, "fileName", 200).replace(['/', '\\'], "_");
+    let message = field(v, "message", 2000);
+    store_request(conn, Some(tenant_id), "", org, name, "", email, "", &message, &file_name, v["content"].as_str().unwrap_or(""))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn store_request(
+    conn: &Connection,
+    tenant_id: Option<&str>,
+    ip: &str,
+    settlement: &str,
+    name: &str,
+    role: &str,
+    email: &str,
+    phone: &str,
+    message: &str,
+    file_name: &str,
+    content: &str,
+) -> Result<Value> {
     let ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
     if !file_name.contains('.') || !ALLOWED.contains(&ext.as_str()) {
         return Err(CoreError::new("file_type", "Excel, Word, CSV or PDF file expected"));
     }
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(v["content"].as_str().unwrap_or("").as_bytes())
-        .map_err(|_| CoreError::new("bad_request", "invalid file"))?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(content.as_bytes()).map_err(|_| CoreError::new("bad_request", "invalid file"))?;
     if bytes.is_empty() {
         return Err(CoreError::new("file_missing", "no file"));
     }
@@ -72,33 +96,47 @@ pub fn submit(conn: &Connection, req: &Request) -> Result<Value> {
     };
     let id = new_id();
     conn.execute(
-        "INSERT INTO platform.demo_requests (id, settlement, contact_name, contact_role, email, phone, message, file_name, file_size, file_data, sealed, ip)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![id, settlement, name, role, email, phone, message, file_name, bytes.len() as i64, stored, sealed, req.ip],
+        "INSERT INTO platform.demo_requests (id, settlement, contact_name, contact_role, email, phone, message, file_name, file_size, file_data, sealed, ip, tenant_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        params![id, settlement, name, role, email, phone, message, file_name, bytes.len() as i64, stored, sealed, ip, tenant_id],
     )?;
+    let who = if tenant_id.is_some() { "Regisztrált ügyfél" } else { "Település" };
     let summary = format!(
-        "Település: {settlement}\nKapcsolattartó: {name}{}\nE-mail: {email}\nTelefon: {}\nFájl: {file_name} ({} kB)\n\n{message}",
+        "{who}: {settlement}\nKapcsolattartó: {name}{}\nE-mail: {email}\nTelefon: {}\nFájl: {file_name} ({} kB)\n\n{message}",
         if role.is_empty() { String::new() } else { format!(" ({role})") },
-        if phone.is_empty() { "–" } else { &phone },
+        if phone.is_empty() { "–" } else { phone },
         bytes.len().div_ceil(1024)
     );
+    let (subject, intro) = if tenant_id.is_some() {
+        (format!("Adatfeltöltés: {settlement}"), "Egy regisztrált ügyfél feltöltötte a meglévő nyilvántartását, töltse be a szervezetébe.")
+    } else {
+        (format!("Bemutató-kérés: {settlement}"), "Új ingyenes bemutató-kérés érkezett.")
+    };
     for to in notify_to() {
         mail::send(
             conn,
             &to,
-            &format!("Bemutató-kérés: {settlement}"),
-            &format!("Új ingyenes bemutató-kérés érkezett.\n\n{summary}\n\nA fájl a programban, az Ügyfelek oldalon tölthető le.{}", mail::FOOTER),
+            &subject,
+            &format!("{intro}\n\n{summary}\n\nA fájl a programban, az Ügyfelek oldalon tölthető le.{}", mail::FOOTER),
             "demo_request",
         )?;
     }
-    mail::send(
-        conn,
-        &email,
-        "Megkaptuk a táblázatát – TEMISZ bemutató",
-        &format!(
+    let ack = if tenant_id.is_some() {
+        format!(
+            "Jó napot kívánunk!\n\nKöszönjük, megkaptuk a nyilvántartását ({file_name}). Egy munkanapon belül betöltjük a TEMISZ-be, a(z) {settlement} szervezetébe, és e-mailben szólunk, ha elkészült. Ha kérdése van, válaszoljon erre a levélre, vagy hívjon: +36 20 298 2210.\n\nA feltöltött fájlt titkosítva tároljuk, csak a betöltéshez használjuk, és legkésőbb {KEEP_DAYS} nap múlva töröljük.{}",
+            mail::FOOTER
+        )
+    } else {
+        format!(
             "Jó napot kívánunk!\n\nKöszönjük, megkaptuk a(z) {settlement} temetőjének táblázatát ({file_name}). Egy munkanapon belül betöltjük egy próbanyilvántartásba, és e-mailben küldjük a belépést, hogy a saját adataival nézhesse meg a TEMISZ-t. Ha kérdése van, válaszoljon erre a levélre, vagy hívjon: +36 20 298 2210.\n\nA feltöltött fájlt titkosítva tároljuk, csak a bemutatóhoz használjuk, és legkésőbb {KEEP_DAYS} nap múlva töröljük.{}",
             mail::FOOTER
-        ),
+        )
+    };
+    mail::send(
+        conn,
+        email,
+        if tenant_id.is_some() { "Megkaptuk a nyilvántartását – TEMISZ" } else { "Megkaptuk a táblázatát – TEMISZ bemutató" },
+        &ack,
         "demo_request_ack",
     )?;
     Ok(json!({ "ok": true }))
@@ -108,7 +146,8 @@ pub fn submit(conn: &Connection, req: &Request) -> Result<Value> {
 pub fn list(conn: &Connection) -> Result<Value> {
     let text: String = conn.query_row(
         "SELECT coalesce(json_agg(json_build_object('id', id, 'createdAt', created_at, 'settlement', settlement, 'name', contact_name, 'role', contact_role,
-                 'email', email, 'phone', phone, 'message', message, 'fileName', file_name, 'fileSize', file_size, 'done', done_at IS NOT NULL)
+                 'email', email, 'phone', phone, 'message', message, 'fileName', file_name, 'fileSize', file_size, 'done', done_at IS NOT NULL,
+                 'customer', tenant_id IS NOT NULL)
                  ORDER BY created_at DESC), '[]')::text
          FROM platform.demo_requests",
         [],

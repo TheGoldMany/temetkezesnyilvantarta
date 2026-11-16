@@ -838,7 +838,7 @@ fn card_subscription_trial_then_automatic_charges() {
                         json!({ "PaymentId": pid, "Status": m.check_status, "Total": 100, "Currency": "HUF", "TraceId": "TRACE-1",
                                 "Transactions": [{ "TransactionId": "T1", "POSTransactionId": "check-x", "Total": 100 }], "Errors": [] })
                     } else {
-                        json!({ "PaymentId": pid, "Status": m.renew_state, "Total": 60000, "Currency": "HUF", "Errors": [] })
+                        json!({ "PaymentId": pid, "Status": m.renew_state, "Total": 45000, "Currency": "HUF", "Errors": [] })
                     }
                 };
                 let _ = rq.respond(tiny_http::Response::from_string(answer.to_string()));

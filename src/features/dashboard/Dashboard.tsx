@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { DataUpload } from "../account/DataUpload";
 import { useQuery } from "@tanstack/react-query";
 import { BookPlus, Check, HardDriveDownload, ChevronRight } from "lucide-react";
 import { useApp } from "../../app/context";
@@ -234,12 +235,12 @@ function FirstSteps({ hasCemetery, subscribed, hasPlots, hasEntries }: { hasCeme
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-sm text-granite">
-        {t("firstSteps.help")}{" "}
-        <a className="font-semibold text-moss underline underline-offset-3" href="/bemutato" target="_blank" rel="noreferrer">
-          {t("firstSteps.helpLink")}
-        </a>
-      </p>
+      {has("manage_settings") && (
+        <div className="mt-4 border-t border-seam pt-3">
+          <p className="mb-2 text-sm text-granite">{t("firstSteps.help")}</p>
+          <DataUpload compact />
+        </div>
+      )}
     </section>
   );
 }

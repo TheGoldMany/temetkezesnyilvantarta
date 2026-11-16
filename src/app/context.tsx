@@ -59,6 +59,8 @@ const AppCtx = createContext<Ctx | null>(null);
 /** What stays possible while the current cemetery is read only: reading,
  *  printing, and the organisation's own settings (to subscribe, add a cemetery). */
 const LOCKED_KEEPS: Permission[] = ["view_personal", "print", "export", "manage_settings", "manage_users", "manage_structure", "backup"];
+/** before the first cemetery: only setting up the organisation (the cemetery, settings, colleagues) */
+const NO_CEMETERY_KEEPS: Permission[] = ["view_personal", "print", "export", "manage_settings", "manage_users", "manage_structure", "backup"];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AppStatus | null>(null);
@@ -117,7 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // a cemetery without a usable subscription is read only: the write buttons
   // are not offered (the server refuses the writes anyway)
   const cemeteryLocked = !!cemeteryId && !!status?.account?.lockedCemeteries?.includes(cemeteryId);
-  const can = useCallback((p: Permission) => has(p) && (!cemeteryLocked || LOCKED_KEEPS.includes(p)), [has, cemeteryLocked]);
+  const noCemetery = status?.account?.hasCemetery === false;
+  const can = useCallback(
+    (p: Permission) => has(p) && (!cemeteryLocked || LOCKED_KEEPS.includes(p)) && (!noCemetery || NO_CEMETERY_KEEPS.includes(p)),
+    [has, cemeteryLocked, noCemetery],
+  );
 
   return (
     <AppCtx.Provider

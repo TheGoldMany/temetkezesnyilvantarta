@@ -115,6 +115,20 @@ export function SubscriptionTab() {
   };
   return (
     <div className="flex flex-col gap-6">
+      <Panel title={t("billing.detailsTitle")}>
+        {!o.details || editDetails ? (
+          <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>
+              {o.details.name}, {o.details.postcode} {o.details.city}, {o.details.address}
+              {o.details.taxNumber && `, ${t("billing.taxNumber")}: ${o.details.taxNumber}`} ({o.details.email})
+            </p>
+            <Button onClick={() => setEditDetails(true)}>{t("common.edit")}</Button>
+          </div>
+        )}
+      </Panel>
+
       <Panel title={t("billing.cemeteriesTitle")}>
         <div className="flex flex-col gap-4" data-testid="billing-status">
           <p className="text-granite">{t("billing.perCemeteryIntro", { days: o.trialDays, monthly: huf(o.prices.monthly.net), yearly: huf(o.prices.yearly.net) })}</p>
@@ -147,20 +161,6 @@ export function SubscriptionTab() {
             </ul>
           )}
         </div>
-      </Panel>
-
-      <Panel title={t("billing.detailsTitle")}>
-        {!o.details || editDetails ? (
-          <DetailsForm details={o.details} onSaved={async () => (setEditDetails(false), await reload())} />
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p>
-              {o.details.name}, {o.details.postcode} {o.details.city}, {o.details.address}
-              {o.details.taxNumber && `, ${t("billing.taxNumber")}: ${o.details.taxNumber}`} ({o.details.email})
-            </p>
-            <Button onClick={() => setEditDetails(true)}>{t("common.edit")}</Button>
-          </div>
-        )}
       </Panel>
 
       <Panel title={t("billing.invoicesTitle")}>
@@ -435,7 +435,6 @@ function DetailsForm({ details, onSaved }: { details: Overview["details"]; onSav
         }
       }}
     >
-      <p className="font-semibold md:col-span-6">{t("billing.detailsTitle")}</p>
       <TextField className="md:col-span-4" label={t("billing.name")} value={v.name} onChange={set("name")} required inputProps={{ name: "billingName" }} />
       <TextField className="md:col-span-2" label={t("billing.taxNumber")} value={v.taxNumber} onChange={set("taxNumber")} hint={t("billing.taxHint")} inputProps={{ name: "taxNumber" }} />
       <TextField className="md:col-span-2" label={t("billing.postcode")} value={v.postcode} onChange={set("postcode")} required inputProps={{ name: "postcode" }} />

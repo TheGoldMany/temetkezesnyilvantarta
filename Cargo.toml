@@ -21,6 +21,8 @@ path = "api/rpc.rs"
 [workspace]
 resolver = "2"
 members = ["crates/lunda-core", "crates/temisz-server", "crates/temisz-desktop-import"]
+# vendored crates (patched, see [patch.crates-io]) are not members
+exclude = ["vendor"]
 
 [workspace.package]
 version = "0.1.2"
@@ -33,3 +35,8 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# tiny_http 0.12 with a fix of its connection thread pool (see the comment in
+# vendor/tiny_http/src/util/task_pool.rs); no newer release has it
+[patch.crates-io]
+tiny_http = { path = "vendor/tiny_http" }
