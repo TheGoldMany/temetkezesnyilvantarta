@@ -2,7 +2,7 @@
 
 **Döntések (2026. november 5.):**
 
-- **Ár:** létrehozott temetőnként havi 60 000 Ft, vagy éves 600 000 Ft temetőnként.
+- **Ár:** létrehozott temetőnként havi 45 000 Ft, vagy éves 450 000 Ft temetőnként.
 - **Fizetés:** átutalással, díjbekérő alapján; a befizetéseket a bankszámlakivonatból párosítja a program. (A bankkártyás fizetés kimaradt; ha kell, Barionnal.)
 - **Számlázás:** Számlázz.hu.
 - **Domain:** temisz.hu.
@@ -52,7 +52,7 @@ Költség induláskor: Vercel Pro (20 USD/hó), Neon (0–19 USD/hó), Resend (0
 1. **Regisztráció** a weboldalon: szervezet neve, adószám (nem kötelező), e-mail, jelszó. E-mail-megerősítés után a fiók azonnal használható. Bankkártya nem kell.
 2. **30 nap teljes hozzáférés.** A mintatemető egy kattintással betölthető. A 23. és a 28. napon e-mail-emlékeztető megy.
 3. **Lejárat után, ha nincs előfizetés:** a fiók csak olvasható lesz, az adatok letölthetők. 60 nap után előzetes értesítés, majd törlés.
-4. **Előfizetés:** temetőnként havi 60 000 Ft, vagy éves 600 000 Ft. A díj a fiókban létrehozott, aktív temetők számától függ, a felhasználók száma nem számít. Új temető felvételekor a díj időarányosan nő. A program a temető létrehozása előtt megmutatja, mennyivel. Két fizetési mód:
+4. **Előfizetés:** temetőnként havi 45 000 Ft, vagy éves 450 000 Ft. A díj a fiókban létrehozott, aktív temetők számától függ, a felhasználók száma nem számít. Új temető felvételekor a díj időarányosan nő. A program a temető létrehozása előtt megmutatja, mennyivel. Két fizetési mód:
    - átutalás díjbekérő alapján, havi vagy éves díjjal. Önkormányzatoknál és plébániáknál ez a szokásos.
 5. **Számla:** a TEMISZ saját Számlázz.hu-fiókjából, a Számla Agent API-n át, automatikusan. Kártyás fizetésnél a sikeres terhelés után, átutalásnál a díjbekérő kifizetésekor.
 

@@ -13,8 +13,8 @@ use serde_json::{json, Value};
 use crate::mail;
 use lunda_core::szamlazz::{self, Document, Line, Party};
 
-pub const MONTHLY_NET: i64 = 60_000;
-pub const YEARLY_NET: i64 = 600_000;
+pub const MONTHLY_NET: i64 = 45_000;
+pub const YEARLY_NET: i64 = 450_000;
 /// The seller is alanyi adómentes (AAM): the invoices carry no VAT.
 pub const VAT_CODE: &str = "AAM";
 pub const VAT_PERCENT: i64 = 0;
@@ -530,12 +530,12 @@ mod tests {
 
     #[test]
     fn prices_and_periods() {
-        assert_eq!(gross(MONTHLY_NET), 60_000);
-        assert_eq!(gross(YEARLY_NET * 2), 1_200_000);
+        assert_eq!(gross(MONTHLY_NET), 45_000);
+        assert_eq!(gross(YEARLY_NET * 2), 900_000);
         let d = NaiveDate::from_ymd_opt(2026, 1, 31).unwrap();
         assert_eq!(period_end(d, "monthly"), NaiveDate::from_ymd_opt(2026, 2, 28).unwrap());
         assert_eq!(period_end(d, "yearly"), NaiveDate::from_ymd_opt(2027, 1, 31).unwrap());
-        assert_eq!(fmt_huf(600_000), "600\u{a0}000");
+        assert_eq!(fmt_huf(450_000), "450\u{a0}000");
     }
 
     #[test]

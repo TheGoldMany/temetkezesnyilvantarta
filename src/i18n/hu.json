@@ -1077,7 +1077,7 @@
     "cancelFinal": "Lemondom",
     "resume": "Lemondás visszavonása",
     "cardChecked": "A kártya rendben van, a temető használható.",
-    "newCemeteryNeedsSub": "Minden temetőnek saját előfizetése van (havi 60 000 Ft vagy évi 600 000 Ft). Mentés után az Előfizetés oldalon indíthatja: kártyával 15 nap próbaidővel, vagy átutalással díjbekérővel. Addig a temető csak olvasható.",
+    "newCemeteryNeedsSub": "Minden temetőnek saját előfizetése van (havi 45 000 Ft vagy évi 450 000 Ft). Mentés után az Előfizetés oldalon indíthatja: kártyával 15 nap próbaidővel, vagy átutalással díjbekérővel. Addig a temető csak olvasható.",
     "sub": {
       "none": "Nincs előfizetés: a temető csak olvasható.",
       "trialCard": "Próbaidő {{date}}-ig, utána automatikus kártyás terhelés {{per}}.",
