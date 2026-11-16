@@ -1773,6 +1773,11 @@
       "adjust": "Leltári eltérés"
     }
   },
+  "update": {
+    "title": "Új verzió érhető el",
+    "body": "Frissítettük a TEMISZ-t. Mentse a félbehagyott munkát, majd töltse újra az oldalt.",
+    "reload": "Oldal frissítése"
+  },
   "dataUpload": {
     "choose": "Nyilvántartás feltöltése",
     "message": "Megjegyzés (nem kötelező)",

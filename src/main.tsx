@@ -6,6 +6,7 @@ import "./i18n";
 import { App } from "./App";
 import { AppProvider } from "./app/context";
 import { ToastProvider } from "./app/toast";
+import { UpdateNotice } from "./app/UpdateNotice";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 10_000 } },
@@ -17,6 +18,7 @@ createRoot(document.getElementById("root")!).render(
       <AppProvider>
         <ToastProvider>
           <App />
+          <UpdateNotice />
         </ToastProvider>
       </AppProvider>
     </QueryClientProvider>
