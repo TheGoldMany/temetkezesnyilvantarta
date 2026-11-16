@@ -50,6 +50,7 @@ const PLATFORM_MIGRATIONS: &[(i64, &str)] = &[
     (14, include_str!("../migrations/0014_subscription_payments.sql")),
     (15, include_str!("../migrations/0015_job_runs.sql")),
     (16, include_str!("../migrations/0016_billingo.sql")),
+    (17, include_str!("../migrations/0017_customer_uploads.sql")),
 ];
 
 // ---------------------------------------------------------------- HTTP types
@@ -532,6 +533,17 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                     return Err(CoreError::new("read_only", "the account is read-only until a subscription is paid"));
                 }
                 let session = if read_only { billing::read_only_session(&c.session) } else { c.session.clone() };
+                // nothing new can be recorded before the organisation has a cemetery
+                if !billing::is_read_method(&method)
+                    && !matches!(method.as_str(), "cemeteries.save" | "sample.load")
+                    && !method.starts_with("settings.")
+                    && !method.starts_with("users.")
+                {
+                    let n: i64 = store.conn.query_row("SELECT count(*) FROM cemeteries WHERE voided_at IS NULL", [], |r| r.get(0))?;
+                    if n == 0 {
+                        return Err(CoreError::new("no_cemetery", "create a cemetery first"));
+                    }
+                }
                 // a cemetery without a usable subscription can only be read
                 let reached = lunda_core::access::cemeteries_of(store, &method, a)?;
                 let limits = subscriptions::limits(store, &c.tenant_id)?;
@@ -687,6 +699,13 @@ fn rpc(cfg: &Config, store: &Store, req: &Request) -> Response {
                 let c = require(store, req)?;
                 c.session.require(lunda_core::auth::Permission::ManageSettings)?;
                 billing::overview(store, &c.tenant_id)
+            }
+            // Első lépések: the customer sends its current register for loading
+            "data_upload" => {
+                let c = require(store, req)?;
+                c.session.require(lunda_core::auth::Permission::ManageSettings)?;
+                let acc = accounts::account_by_id(&store.conn, &c.account_id)?;
+                demo_requests::upload_for_customer(&store.conn, &c.tenant_id, &acc.organization, &c.session.display_name, &acc.email, args)
             }
             "billing_save_details" => {
                 let c = require(store, req)?;

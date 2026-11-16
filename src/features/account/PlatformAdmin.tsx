@@ -269,6 +269,7 @@ interface DemoRequest {
   fileName: string;
   fileSize: number;
   done: boolean;
+  customer?: boolean;
 }
 
 /** temisz.hu/bemutato: uploaded tables for the free migration demo (deleted after 30 days). */
@@ -298,7 +299,7 @@ function DemoRequests() {
             <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
               <div className="min-w-0">
                 <p className="font-semibold">
-                  {r.settlement} {r.done && <span className="ml-2 text-sm font-normal text-moss">{t("platform.demoDone")}</span>}
+                  {r.settlement} {r.customer && <span className="ml-2 bg-lichen px-2 py-0.5 text-sm font-semibold text-accent-ink">{t("platform.demoCustomer")}</span>} {r.done && <span className="ml-2 text-sm font-normal text-moss">{t("platform.demoDone")}</span>}
                 </p>
                 <p className="text-sm">
                   {r.name}

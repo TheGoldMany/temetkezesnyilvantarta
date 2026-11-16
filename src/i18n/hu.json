@@ -64,6 +64,7 @@
     "delete": "Törlés"
   },
   "errors": {
+    "no_cemetery": "Előbb hozza létre a temetőt (Beállítások › Temetők és parcellák), utána vehet fel adatokat.",
     "generic": "A művelet nem sikerült: {{message}}",
     "cemetery_locked": "Ennek a temetőnek nincs érvényes előfizetése, ezért csak olvasható. Az Előfizetés oldalon indíthatja.",
     "trial_no_export": "Az első díj befizetéséig (próbaidő, mintatemető, kifizetetlen díjbekérő) adatot exportálni és hiteles könyvet nyomtatni nem lehet.",
@@ -347,7 +348,7 @@
     "noAccount": "Még nincs fiókja?",
     "toRegister": "Ingyenes regisztráció",
     "registerTitle": "Próbaidő indítása",
-    "registerIntro": "A regisztráció és a szervezet ingyenes. Temetőnként fizet elő: bankkártyával 15 nap próbaidővel, vagy átutalással. A mintatemetővel előfizetés nélkül is körülnézhet.",
+    "registerIntro": "A regisztráció és a szervezet ingyenes. Temetőnként fizet elő: bankkártyával 15 nap próbaidővel, vagy átutalással.",
     "organization": "Szervezet neve",
     "organizationHint": "Önkormányzat, egyházközség vagy üzemeltető cég",
     "colleagueHint": "Új temetőt vagy üzemeltetőt regisztrál? Akkor jó helyen jár. Ha munkatársként csatlakozna egy temetőhöz, amely már használja a TEMISZ-t, nem kell regisztrálnia: kérjen meghívót a temető adminisztrátorától. Ha már van fiókja, lépjen be: új szervezetet a fiókjából is létrehozhat.",
@@ -385,11 +386,8 @@
     "title": "Első lépések",
     "step1": "Üzemeltető adatai",
     "step1Intro": "Ezek kerülnek a nyomtatványok fejlécébe.",
-    "step4": "Adatok",
-    "step4Intro": "Kezdhet üres nyilvántartással, vagy betölthet egy kitalált mintatemetőt a kipróbáláshoz.",
-    "loadSample": "Mintatemető betöltése",
-    "startEmpty": "Üres nyilvántartással kezdek",
-    "sampleLoaded": "A mintatemető betöltve: {{plots}} hely, {{events}} bejegyzés.",
+    "step4": "Temető adatainak feltöltése",
+    "step4Intro": "Ha már van nyilvántartása (Excel, Word, CSV vagy PDF), töltse fel: munkatársunk díjmentesen betölti a TEMISZ-be, és e-mailben szól, ha elkészült. Ezt kihagyhatja, és később is megteheti a Kezdőlapon.",
     "finish": "Kezdés"
   },
   "dashboard": {
@@ -994,7 +992,9 @@
     "readOnly": "A fiók csak olvasható: a próbaidő lejárt, vagy nem érkezett meg a díj. Az adatok megvannak, nézhetők és letölthetők.",
     "verifyShort": "Erősítse meg az e-mail-címét.",
     "trialUntil": "Próbaidő {{date}}-ig: addig az adatok nem exportálhatók, a nyomtatványokon „PRÓBAIDŐ” jelzés van.",
-    "cemeteryLocked": "{{name}}: nincs érvényes előfizetés, a temető csak olvasható."
+    "cemeteryLocked": "{{name}}: nincs érvényes előfizetés, a temető csak olvasható.",
+    "noCemetery": "Még nincs temető. Amíg nem hozza létre, semmit nem lehet felvenni a programba.",
+    "createCemetery": "Temető létrehozása"
   },
   "billing": {
     "chooseTitle": "Díjcsomag",
@@ -1168,7 +1168,8 @@
     "noSuggestion": "Nincs hozzá illő díjbekérő.",
     "confirmMatch": "Párosítás",
     "ignore": "Nem díjbefizetés",
-    "demoTitle": "Bemutató-kérések (temisz.hu/bemutato)",
+    "demoTitle": "Bemutató-kérések és adatfeltöltések",
+    "demoCustomer": "Regisztrált ügyfél: töltse be a szervezetébe",
     "demoHint": "A feltöltött táblázatot töltse be egy próbanyilvántartásba (Fiókom › Szervezeteim › új szervezet, pl. „Bemutató – Kisfalu”, majd Import és export), és hívja meg a kérőt olvasó szerepkörrel. A fájl 30 nap után magától törlődik; a próbaszervezetet is szüntesse meg, ha nem lesz belőle előfizetés.",
     "demoNone": "Még nem érkezett kérés.",
     "demoDone": "kész",
@@ -1772,6 +1773,14 @@
       "adjust": "Leltári eltérés"
     }
   },
+  "dataUpload": {
+    "choose": "Nyilvántartás feltöltése",
+    "message": "Megjegyzés (nem kötelező)",
+    "messageHint": "Például: melyik munkalap a temetési könyv, vagy mit hagyjunk ki.",
+    "privacy": "Excel, Word, CSV vagy PDF, legfeljebb 3 MB. A fájlt titkosítva tároljuk, csak a betöltéshez használjuk, és 30 nap múlva töröljük.",
+    "sent": "Megkaptuk ({{file}}). Egy munkanapon belül betöltjük, és e-mailben szólunk, ha elkészült.",
+    "tooLarge": "A fájl nagyobb 3 MB-nál. Küldje el e-mailben, vagy töltse fel részletekben."
+  },
   "firstSteps": {
     "title": "Első lépések",
     "intro": "Négy lépés, és a nyilvántartás használatra kész.",
@@ -1785,7 +1794,6 @@
     "plotsAction": "Parcellák felvétele",
     "entries": "Töltse be a meglévő nyilvántartást Excelből, vagy rögzítse az első temetést.",
     "entriesAction": "Adatok betöltése",
-    "help": "Nincs ideje az átállásra? Küldje el a mostani táblázatát, és díjmentesen megmutatjuk a saját adataival.",
-    "helpLink": "Táblázat feltöltése"
+    "help": "Nincs ideje az átállásra? Töltse fel a mostani nyilvántartását (Excel, Word, CSV, PDF), és díjmentesen betöltjük."
   }
 }

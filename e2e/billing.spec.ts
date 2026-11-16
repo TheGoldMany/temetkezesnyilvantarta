@@ -11,7 +11,7 @@ async function registerAndStart(page: Page, email: string, org: string) {
   await page.locator("input[name=password2]").fill("nagyon-titkos-1");
   await page.getByRole("button", { name: "Fiók létrehozása" }).click();
   await page.getByRole("button", { name: "Tovább" }).click();
-  await page.getByRole("button", { name: /Üres nyilvántartással/ }).click();
+  await page.getByRole("button", { name: "Kezdés" }).click();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
   await page.getByTestId("tour").getByRole("button", { name: "Kihagyom" }).click();
 }
@@ -105,8 +105,11 @@ test("mintatemető: ingyenes, de export nélkül, vízjeles nyomtatással", asyn
   await page.locator("input[name=password2]").fill("nagyon-titkos-1");
   await page.getByRole("button", { name: "Fiók létrehozása" }).click();
   await page.getByRole("button", { name: "Tovább" }).click();
-  await page.getByRole("button", { name: "Mintatemető betöltése" }).click();
   await page.getByRole("button", { name: "Kezdés" }).click();
+  await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
+  // the sample cemetery is no longer offered at the start; the demo stays available by API
+  expect((await rpc(page, "api", { method: "sample.load", args: {} })).err).toBeUndefined();
+  await page.reload();
   await expect(page.getByRole("navigation", { name: "Fő menü" })).toBeVisible();
   // writable
   expect((await rpc(page, "api", { method: "settings.set", args: { values: { "operator.address": "Minta utca 1." } } })).err).toBeUndefined();

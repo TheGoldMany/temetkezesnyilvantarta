@@ -33,7 +33,7 @@ const GUIDES: { group: string; items: Guide[] }[] = [
         id: "testdata",
         title: "Kipróbálás tesztadatokkal",
         text: [
-          "Az első belépéskor betölthet egy kis mintatemetőt. Nagyobb próbához a TEMISZ-csapattól kérhet egy kitalált, „Nagyvölgyi köztemető” nevű adatsort (több mint 4000 temetés, 2200 sírhely), kilenc CSV-fájlban.",
+          "Kipróbáláshoz a TEMISZ-csapattól kérhet egy kitalált, „Nagyvölgyi köztemető” nevű adatsort (több mint 4000 temetés, 2200 sírhely), kilenc CSV-fájlban.",
         ],
         steps: [
           "Hozzon létre egy temetőt, például „Nagyvölgyi köztemető” néven.",

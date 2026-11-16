@@ -99,6 +99,8 @@ export interface AccountInfo {
   superadmin?: boolean;
   /** cemeteries without a usable subscription (read only) */
   lockedCemeteries?: string[];
+  /** the organisation has a cemetery (nothing new can be recorded before) */
+  hasCemetery?: boolean;
   /** the nearest trial end of a cemetery (YYYY-MM-DD) */
   nextTrialEnd?: string | null;
   /** the sample cemetery's demonstration ends (YYYY-MM-DD) */

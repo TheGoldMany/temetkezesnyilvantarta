@@ -159,7 +159,7 @@ export function SecurityPanel() {
 /** Notices under the top bar: unconfirmed e-mail address, trial days left. */
 export function AccountBanners() {
   const { t } = useTranslation();
-  const { status, can, nav } = useApp();
+  const { status, can, has, nav } = useApp();
   const [sent, setSent] = useState(false);
   const { current } = useCurrentCemetery();
   const acc = status?.account;
@@ -182,6 +182,16 @@ export function AccountBanners() {
               }}
             >
               {t("account.resend")}
+            </button>
+          )}
+        </div>
+      )}
+      {acc.hasCemetery === false && (
+        <div className="no-print border-b border-accent/40 bg-lichen px-4 py-1.5 text-sm font-semibold sm:px-6 sm:py-2" role="alert" data-testid="no-cemetery-banner">
+          <span>{t("account.noCemetery")} </span>
+          {has("manage_structure") && (
+            <button type="button" className="text-moss underline underline-offset-3" onClick={() => nav.go({ view: "settings", tab: "cemeteries" })}>
+              {t("account.createCemetery")}
             </button>
           )}
         </div>

@@ -221,7 +221,11 @@ pub fn account_status(store: &Store, acc: &AccountRow, mfa_setup: bool) -> Resul
     let live = |x: &&crate::subscriptions::CemSub| crate::subscriptions::usable(x);
     let trial_end = subs.iter().filter(live).filter(|x| x.status == "trial").filter_map(|x| x.trial_ends.clone()).min();
     let demo_end = subs.iter().filter(live).filter(|x| x.status == "demo").filter_map(|x| x.trial_ends.clone()).min();
+    let schema: String = store.conn.query_row("SELECT schema_name FROM platform.tenants WHERE id = ?1", params![acc.tenant_id], |r| r.get(0))?;
+    let has_cemetery: bool =
+        store.conn.query_row(&format!("SELECT EXISTS (SELECT 1 FROM \"{schema}\".cemeteries WHERE voided_at IS NULL)"), [], |r| r.get(0)).unwrap_or(true);
     Ok(json!({
+        "hasCemetery": has_cemetery,
         "lockedCemeteries": locked,
         "nextTrialEnd": trial_end,
         "demoEndsAt": demo_end,
