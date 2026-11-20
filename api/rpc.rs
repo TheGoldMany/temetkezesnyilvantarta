@@ -4,6 +4,7 @@
 //! and handles requests on a blocking thread; vercel.json routes the paths here.
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use http_body_util::BodyExt;
 use lunda_core::sql::Connection;
@@ -11,7 +12,10 @@ use lunda_core::{db, Store};
 use temisz_server::{handle, migrate_platform, Config, Request};
 use vercel_runtime::{run, service_fn, Error, Response, ResponseBody};
 
-type Shared = Arc<Mutex<Option<Store>>>;
+/// The connection and when it last answered: a connection used in the last
+/// few seconds is not pinged again before the next request.
+type Shared = Arc<Mutex<Option<(Store, Instant)>>>;
+const TRUST_FOR: Duration = Duration::from_secs(20);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -40,14 +44,27 @@ async fn handler(req: vercel_runtime::Request, shared: Shared) -> Result<Respons
     let resp = tokio::task::spawn_blocking(move || {
         let cfg = Config { secure_cookies: true, static_dir: None, dev_mode: false };
         let mut guard = shared.lock().unwrap_or_else(|p| p.into_inner());
-        let alive = guard.as_ref().map(|s| s.conn.query_row("SELECT 1", [], |r| r.get::<_, i64>(0)).is_ok()).unwrap_or(false);
+        // pinged at most once per TRUST_FOR: a connection that broke since is
+        // found by the next ping (the time is set only by a ping or a connect,
+        // never by a request, so steady traffic cannot hide a dead connection)
+        let alive = match guard.as_mut() {
+            Some((_, at)) if at.elapsed() < TRUST_FOR => true,
+            Some((s, at)) => {
+                let ok = s.conn.query_row("SELECT 1", [], |r| r.get::<_, i64>(0)).is_ok();
+                if ok {
+                    *at = Instant::now();
+                }
+                ok
+            }
+            None => false,
+        };
         if !alive {
             *guard = match connect() {
-                Ok(s) => Some(s),
+                Ok(s) => Some((s, Instant::now())),
                 Err(e) => return temisz_server::Response::text(503, &format!("database unavailable: {}", e.code)),
             };
         }
-        handle(&cfg, guard.as_ref().unwrap(), &request)
+        handle(&cfg, &guard.as_ref().unwrap().0, &request)
     })
     .await?;
     let mut builder = Response::builder().status(resp.status);
