@@ -136,7 +136,18 @@ pub fn migrate_platform(conn: &Connection) -> Result<()> {
 pub fn handle(cfg: &Config, store: &Store, req: &Request) -> Response {
     let path = req.path.split('?').next().unwrap_or("/");
     match (req.method.as_str(), path) {
-        ("POST", "/rpc") | ("POST", "/api/rpc") => rpc(cfg, store, req),
+        ("POST", "/rpc") | ("POST", "/api/rpc") => {
+            let started = std::time::Instant::now();
+            let resp = rpc(cfg, store, req);
+            let ms = started.elapsed().as_millis();
+            if ms >= 1000 {
+                // which call was slow (the server log; no arguments, no personal data)
+                let v: Value = serde_json::from_slice(&req.body).unwrap_or(Value::Null);
+                let method = v["args"]["method"].as_str().unwrap_or("");
+                eprintln!("[slow rpc] {} {method} {ms} ms", v["cmd"].as_str().unwrap_or("?"));
+            }
+            resp
+        }
         ("GET", "/healthz") | ("GET", "/api/healthz") => match store.conn.query_row("SELECT 1", [], |r| r.get::<_, i64>(0)) {
             Ok(_) => Response::text(200, "ok"),
             Err(_) => Response::text(503, "database unavailable"),

@@ -195,23 +195,32 @@ pub fn check(store: &Store, s: &Session, method: &str, args: &Value) -> Result<(
     Ok(())
 }
 
-fn keep(store: &Store, s: &Session, row: &Value) -> Result<bool> {
+/// Plot → may the user see it; one query per plot within a list (a list
+/// often names the same plot many times).
+type PlotCache = std::collections::HashMap<String, bool>;
+
+fn keep(store: &Store, s: &Session, row: &Value, plots: &mut PlotCache) -> Result<bool> {
     let Some(obj) = row.as_object() else { return Ok(true) };
     if let Some(c) = obj.get("cemeteryId").and_then(Value::as_str) {
         return Ok(s.sees_cemetery(c));
     }
     if let Some(p) = obj.get("plotId").and_then(Value::as_str) {
-        return Ok(record_cemeteries(store, "plots", p)?.iter().all(|c| s.sees_cemetery(c)));
+        if let Some(&seen) = plots.get(p) {
+            return Ok(seen);
+        }
+        let seen = record_cemeteries(store, "plots", p)?.iter().all(|c| s.sees_cemetery(c));
+        plots.insert(p.to_string(), seen);
+        return Ok(seen);
     }
     Ok(true)
 }
 
-fn filter_rows(store: &Store, s: &Session, v: &mut Value) -> Result<()> {
+fn filter_rows(store: &Store, s: &Session, v: &mut Value, plots: &mut PlotCache) -> Result<()> {
     match v {
         Value::Array(items) => {
             let mut out = Vec::with_capacity(items.len());
             for x in items.drain(..) {
-                if keep(store, s, &x)? {
+                if keep(store, s, &x, plots)? {
                     out.push(x);
                 }
             }
@@ -220,7 +229,7 @@ fn filter_rows(store: &Store, s: &Session, v: &mut Value) -> Result<()> {
         Value::Object(map) => {
             for key in ["items", "rows", "results", "hits"] {
                 if let Some(x @ Value::Array(_)) = map.get_mut(key) {
-                    filter_rows(store, s, x)?;
+                    filter_rows(store, s, x, plots)?;
                 }
             }
         }
@@ -240,7 +249,7 @@ pub fn filter(store: &Store, s: &Session, method: &str, mut v: Value) -> Result<
         }
         return Ok(v);
     }
-    filter_rows(store, s, &mut v)?;
+    filter_rows(store, s, &mut v, &mut PlotCache::new())?;
     Ok(v)
 }
 
